@@ -1,0 +1,88 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Insert at Position
+FUNCTION: InsertAtPosition
+GROUP: Doubly linked list
+DIFFICULTY: Hard
+TOPIC: dll
+MINUTES: 25
+PROTOTYPE: class DoublyLinkedList: void InsertAtPosition(int value, int position);
+TEXT: Part 2 of the lab: a DoublyLinkedList whose DoublyLinkedNodes have both a prevPointer and a nextPointer.
+TEXT: Write InsertAtPosition: add a node so it ends up at position (0 is the front). Inserting at the list's length adds to the end. A position below 0 or past the end does nothing.
+HINT: Position 0 is the same as inserting at the beginning.
+HINT: Otherwise walk to the node just before the position. If you run out of nodes, the position is too big.
+HINT: Four pointers change: the new node's two, the node before's nextPointer, and the node after's prevPointer (if there is one).
+
+EXAMPLE:
+list: 1 <-> 3
+list.InsertAtPosition(2, 1);
+list: 1 <-> 2 <-> 3
+END
+
+STARTER:
+#include <iostream>
+using namespace std;
+
+class DoublyLinkedNode
+{
+public:
+    int data;
+    DoublyLinkedNode* prevPointer;
+    DoublyLinkedNode* nextPointer;
+
+    DoublyLinkedNode(int value)
+    {
+        data = value;
+        prevPointer = nullptr;
+        nextPointer = nullptr;
+    }
+};
+
+class DoublyLinkedList
+{
+public:
+    DoublyLinkedNode* head;
+
+    DoublyLinkedList()
+    {
+        head = nullptr;
+    }
+
+    void InsertAtPosition(int value, int position)
+    {
+        // your code here
+    }
+};
+END
+
+TESTS:
+    auto forwards = [](DoublyLinkedList &list) {
+        std::string s; int steps = 0;
+        for (DoublyLinkedNode *n = list.head; n != nullptr && steps < 100; n = n->nextPointer, steps++)
+            s += (s.empty() ? "" : " <-> ") + std::to_string(n->data);
+        return s.empty() ? std::string("(empty)") : s;
+    };
+    auto backwards = [](DoublyLinkedList &list) {
+        DoublyLinkedNode *last = list.head; int steps = 0;
+        while (last != nullptr && last->nextPointer != nullptr && steps++ < 100) last = last->nextPointer;
+        std::string s; steps = 0;
+        for (DoublyLinkedNode *n = last; n != nullptr && steps < 100; n = n->prevPointer, steps++)
+            s += (s.empty() ? "" : " <-> ") + std::to_string(n->data);
+        return s.empty() ? std::string("(empty)") : s;
+    };
+    auto headPrevIsNull = [](DoublyLinkedList &list) { return list.head == nullptr || list.head->prevPointer == nullptr; };
+    DoublyLinkedList list;
+    list.InsertAtPosition(1, 0);
+    checkText(forwards(list), "1", "position 0 in an empty list");
+    list.InsertAtPosition(3, 1);
+    checkText(forwards(list), "1 <-> 3", "position 1 = the end of a 1-node list");
+    list.InsertAtPosition(2, 1);
+    checkText(forwards(list), "1 <-> 2 <-> 3", "position 1 = in the middle: following nextPointer");
+    checkText(backwards(list), "3 <-> 2 <-> 1", "the middle insert, following prevPointer");
+    list.InsertAtPosition(0, 0);
+    checkText(forwards(list), "0 <-> 1 <-> 2 <-> 3", "position 0 = the front");
+    checkBool(headPrevIsNull(list), true, "the new head's prevPointer is nullptr");
+    list.InsertAtPosition(9, 10);
+    list.InsertAtPosition(9, -1);
+    checkText(forwards(list), "0 <-> 1 <-> 2 <-> 3", "positions 10 and -1 change nothing");
+END

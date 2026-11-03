@@ -1,0 +1,38 @@
+# Lab 1, Q07. Tests from the Lab 1 files.
+
+TITLE: Isosceles Triangle
+FUNCTION: drawIsocelesTriangle
+GROUP: Patterns
+DIFFICULTY: Medium
+TOPIC: control
+MINUTES: 15
+PROTOTYPE: void drawIsocelesTriangle();
+TEXT: Print this pattern of As using 2 for loops and at most 1 if/else.
+RULE: 2 for loops
+RULE: At most 1 if/else
+HINT: There are 7 rows. Work out how many As each row needs.
+HINT: Rows 1 to 4 have i As; rows 5 to 7 have 8 - i.
+
+EXAMPLE:
+A
+AA
+AAA
+AAAA
+AAA
+AA
+A
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void drawIsocelesTriangle()
+{
+    // your code here
+}
+END
+
+TESTS:
+    checkOutput([] { drawIsocelesTriangle(); }, "A\nAA\nAAA\nAAAA\nAAA\nAA\nA\n", "prints the 7-row pattern, line for line");
+END

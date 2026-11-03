@@ -1,0 +1,53 @@
+# Lab 1, Q18. Tests from the Lab 1 files.
+
+TITLE: Word Counter
+FUNCTION: wordCounter
+GROUP: Applied
+DIFFICULTY: Medium
+TOPIC: strings
+MINUTES: 15
+PROTOTYPE: int wordCounter(int size, char characters[]);
+TEXT: Count the words in an array of characters. A word is one or more letters (A to Z or a to z), separated by spaces.
+TEXT: size is the number of characters, not counting the \0 at the end.
+HINT: Keep a flag for "inside a word".
+HINT: Count a word when you hit a letter and you weren't inside a word.
+
+EXAMPLE:
+char a[] = "  Hello   world  ";
+wordCounter(17, a)   // 2
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int wordCounter(int size, char characters[])
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    #define LEN(s) ((int)sizeof(s) - 1)
+    char a[] = "Hello world";
+    checkInt(wordCounter(LEN(a), a), 2, "\"Hello world\" -> 2");
+
+    char b[] = "one";
+    checkInt(wordCounter(LEN(b), b), 1, "\"one\" -> 1");
+
+    char c[] = "a b c";
+    checkInt(wordCounter(LEN(c), c), 3, "\"a b c\" -> 3 (single-letter words)");
+
+    char d[] = "The quick brown fox";
+    checkInt(wordCounter(LEN(d), d), 4, "\"The quick brown fox\" -> 4");
+
+    char e[] = "  Hello   world  ";
+    checkInt(wordCounter(LEN(e), e), 2, "\"  Hello   world  \" -> 2 (extra spaces everywhere)");
+
+    char f[] = "     ";
+    checkInt(wordCounter(LEN(f), f), 0, "\"     \" -> 0 (only spaces)");
+
+    char g[] = "";
+    checkInt(wordCounter(LEN(g), g), 0, "\"\" -> 0 (empty)");
+END

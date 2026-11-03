@@ -1,0 +1,41 @@
+# Lab 1, Q07b. Tests from the Lab 1 files.
+
+TITLE: Isosceles Triangle, No Conditionals
+FUNCTION: drawIsocelesTriangle2
+GROUP: Patterns
+DIFFICULTY: Hard
+TOPIC: control
+MINUTES: 25
+PROTOTYPE: void drawIsocelesTriangle2();
+TEXT: Print the same pattern as the Isosceles Triangle, using only 2 for loops and no conditional statements at all.
+RULE: 2 for loops
+RULE: No if, else, switch or ?:
+FORBID: if | No conditionals: if is not allowed here.
+FORBID: switch | No conditionals: switch is not allowed here.
+FORBID: ? | No conditionals: the ?: operator is not allowed here.
+HINT: Find a formula for the number of As on row i that goes up to 4 and back down.
+HINT: The distance from the middle row is abs(i - 4).
+
+EXAMPLE:
+A
+AA
+AAA
+AAAA
+AAA
+AA
+A
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdlib.h>
+
+void drawIsocelesTriangle2()
+{
+    // your code here
+}
+END
+
+TESTS:
+    checkOutput([] { drawIsocelesTriangle2(); }, "A\nAA\nAAA\nAAAA\nAAA\nAA\nA\n", "prints the 7-row pattern, line for line");
+END

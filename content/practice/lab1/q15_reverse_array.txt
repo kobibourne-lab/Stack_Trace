@@ -1,0 +1,51 @@
+# Lab 1, Q15. Tests from the Lab 1 files.
+
+TITLE: Reverse Array
+FUNCTION: reverse
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: void reverse(int size, int arr[]);
+TEXT: Reverse the array in place, using only that one array (no second array).
+RULE: No second array
+HINT: Swap the first and last, then the second and second last.
+HINT: Only go halfway (size / 2), or you swap everything back.
+
+EXAMPLE:
+int a[] = {1, 2, 3, 4, 5};
+reverse(5, a);   // a is {5, 4, 3, 2, 1}
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void reverse(int size, int arr[])
+{
+    // your code here
+}
+END
+
+TESTS:
+    int a[] = {1, 2, 3, 4, 5};   int ea[] = {5, 4, 3, 2, 1};
+    reverse(5, a);
+    checkArray(5, a, ea, "{1,2,3,4,5} -> {5,4,3,2,1} (odd length)");
+
+    int b[] = {1, 2, 3, 4};      int eb[] = {4, 3, 2, 1};
+    reverse(4, b);
+    checkArray(4, b, eb, "{1,2,3,4} -> {4,3,2,1} (even length)");
+
+    int c[] = {1, 2};            int ec[] = {2, 1};
+    reverse(2, c);
+    checkArray(2, c, ec, "{1,2} -> {2,1}");
+
+    int d[] = {7};               int ed[] = {7};
+    reverse(1, d);
+    checkArray(1, d, ed, "{7} -> {7} (single element)");
+
+    int e[] = {3, 1, 4, 1, 5, 9};  int ee[] = {3, 1, 4, 1, 5, 9};
+    reverse(6, e);
+    reverse(6, e);
+    checkArray(6, e, ee, "reversing twice gives back the original");
+END

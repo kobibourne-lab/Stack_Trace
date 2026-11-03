@@ -3,7 +3,9 @@
 // The file looks like this (same "KEY: value" style as the content files):
 //   POINTS: pointers | 60
 //   ANSWER: 2026-11-03 | pointers | 1
-// For ANSWER, 1 means right and 0 means wrong.
+//   SOLVED: lab1/q01_leap_year | 2026-11-03 | 154
+// For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
+// the fastest time in seconds.
 
 #include "progress.h"
 #include "content.h"   // trim, split_fields
@@ -39,6 +41,11 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             a.topic = fields[1];
             a.correct = (fields[2] == "1");
             p.answers.push_back(a);
+        } else if (key == "SOLVED" && fields.size() >= 2 && !fields[0].empty()) {
+            SolvedRecord s;
+            s.date = fields[1];
+            s.seconds = fields.size() >= 3 ? std::atoi(fields[2].c_str()) : 0;
+            p.solved[fields[0]] = s;
         }
     }
     return true;
@@ -56,6 +63,8 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         f << "POINTS: " << entry.first << " | " << entry.second << "\n";
     for (const AnswerRecord &a : p.answers)
         f << "ANSWER: " << a.date << " | " << a.topic << " | " << (a.correct ? 1 : 0) << "\n";
+    for (const auto &entry : p.solved)
+        f << "SOLVED: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << "\n";
     if (!f) {
         error = "error while writing " + path;
         return false;
@@ -75,6 +84,25 @@ void progress_record(Progress &p, const std::string &topic, bool correct, const 
     if (n < 0) n = 0;
     if (n > POINTS_MAX) n = POINTS_MAX;
     p.points[topic] = n;
+}
+
+bool progress_mark_solved(Progress &p, const std::string &problemId, const std::string &date, int seconds)
+{
+    auto it = p.solved.find(problemId);
+    if (it == p.solved.end()) {
+        SolvedRecord s;
+        s.date = date;
+        s.seconds = seconds;
+        p.solved[problemId] = s;
+        return true;
+    }
+    if (seconds > 0 && (it->second.seconds <= 0 || seconds < it->second.seconds)) it->second.seconds = seconds;
+    return false;
+}
+
+bool progress_is_solved(const Progress &p, const std::string &problemId)
+{
+    return p.solved.find(problemId) != p.solved.end();
 }
 
 int topic_points(const Progress &p, const std::string &topic)

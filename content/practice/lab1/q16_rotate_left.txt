@@ -1,0 +1,54 @@
+# Lab 1, Q16. Tests from the Lab 1 files.
+
+TITLE: Rotate Left
+FUNCTION: rotateLeft
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: int rotateLeft(int size, int arr[]);
+TEXT: Rotate the array left by one place: every element moves one to the left and the first goes to the end.
+TEXT: The function returns an int, but the lab doesn't say what it should be, so only the array is tested.
+HINT: Save the first element before you overwrite it.
+HINT: Shift everything left, then put the saved element at the end.
+
+EXAMPLE:
+int a[] = {1, 2, 3, 4, 5};
+rotateLeft(5, a);   // a is {2, 3, 4, 5, 1}
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int rotateLeft(int size, int arr[])
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    int a[] = {1, 2, 3, 4, 5};   int ea[] = {2, 3, 4, 5, 1};
+    rotateLeft(5, a);
+    checkArray(5, a, ea, "{1,2,3,4,5} -> {2,3,4,5,1}");
+
+    int b[] = {1, 2};            int eb[] = {2, 1};
+    rotateLeft(2, b);
+    checkArray(2, b, eb, "{1,2} -> {2,1}");
+
+    int c[] = {9};               int ec[] = {9};
+    rotateLeft(1, c);
+    checkArray(1, c, ec, "{9} -> {9} (single element)");
+
+    int d[] = {1, 2, 3};         int ed[] = {3, 1, 2};
+    rotateLeft(3, d);
+    rotateLeft(3, d);
+    checkArray(3, d, ed, "{1,2,3} rotated twice -> {3,1,2}");
+
+    int e[] = {1, 2, 3};         int ee[] = {1, 2, 3};
+    rotateLeft(3, e);
+    rotateLeft(3, e);
+    rotateLeft(3, e);
+    checkArray(3, e, ee, "{1,2,3} rotated 3 times -> back to {1,2,3}");
+END

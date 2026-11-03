@@ -1,0 +1,41 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Copy String
+FUNCTION: copy_string
+GROUP: Strings
+DIFFICULTY: Medium
+TOPIC: arith
+MINUTES: 15
+PROTOTYPE: void copy_string(char *dest, char *src);
+TEXT: Copy the contents of one string to another using pointers. You can assume the destination has enough space.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: Copy *src into *dest, then move both pointers on.
+HINT: Copy the '\0' too, or dest isn't a proper string.
+
+EXAMPLE:
+char src[] = "Hello";
+char dest[10];
+copy_string(dest, src);   // dest = "Hello"
+END
+
+STARTER:
+#include <stdio.h>
+
+void copy_string(char *dest, char *src)
+{
+    // your code here
+}
+END
+
+TESTS:
+    char src[] = "Hello";  char dest[10];
+    copy_string(dest, src);
+    checkString(dest, "Hello", "\"Hello\" copied");
+    char longer[20] = "xxxxxxxxxx";  char shorter[] = "Hi";
+    copy_string(longer, shorter);
+    checkString(longer, "Hi", "copying \"Hi\" over a longer string ends it with \\0");
+    char empty[] = "";  char d2[5] = "abc";
+    copy_string(d2, empty);
+    checkString(d2, "", "copying an empty string");
+END

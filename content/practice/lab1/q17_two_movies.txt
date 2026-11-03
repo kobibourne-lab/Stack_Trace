@@ -1,0 +1,55 @@
+# Lab 1, Q17. Tests from the Lab 1 files.
+
+TITLE: Two Movies
+FUNCTION: twoMovies
+GROUP: Applied
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: bool twoMovies(int flightLength, int movieLengths[], int size);
+TEXT: On a flight, a passenger watches exactly two different movies. Return true if any two movies add up exactly to the flight length.
+TEXT: The same movie can't be watched twice, but two different movies can have the same length.
+HINT: Try every pair: a loop over i, and an inner loop over j starting at i + 1.
+HINT: Starting j at i + 1 stops a movie being paired with itself.
+
+EXAMPLE:
+int m[] = {90, 85, 95, 120};
+twoMovies(180, m, 4)   // true (85 + 95)
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+bool twoMovies(int flightLength, int movieLengths[], int size)
+{
+    // your code here
+    return false;
+}
+END
+
+TESTS:
+    int a[] = {90, 85, 95, 120};
+    checkBool(twoMovies(180, a, 4), true, "180 with {90,85,95,120} -> true (85 + 95)");
+
+    int b[] = {60, 30, 140, 10};
+    checkBool(twoMovies(200, b, 4), true, "200 with {60,30,140,10} -> true (60 + 140)");
+
+    int c[] = {100, 120, 130, 20};
+    checkBool(twoMovies(250, c, 4), true, "250 with {100,120,130,20} -> true (120 + 130, pair at the end)");
+
+    int d[] = {90, 100, 70};
+    checkBool(twoMovies(180, d, 3), false, "180 with {90,100,70} -> false (no pair adds up)");
+
+    int e[] = {90, 50, 60};
+    checkBool(twoMovies(180, e, 3), false, "180 with {90,50,60} -> false (can't watch the 90 twice)");
+
+    int f[] = {90, 90};
+    checkBool(twoMovies(180, f, 2), true, "180 with {90,90} -> true (two DIFFERENT movies that are both 90)");
+
+    int g[] = {180};
+    checkBool(twoMovies(180, g, 1), false, "180 with {180} -> false (only one movie)");
+
+    int empty[1] = {0};
+    checkBool(twoMovies(100, empty, 0), false, "no movies -> false");
+END

@@ -1,0 +1,87 @@
+# Lab 1, Q22. Tests from the Lab 1 files.
+
+TITLE: Find All Variables in Scope
+FUNCTION: FindAllVariablesInScope
+GROUP: Scanning code
+DIFFICULTY: Hard
+TOPIC: strings
+MINUTES: 25
+PROTOTYPE: void FindAllVariablesInScope(char variables[], char code[], int lineNumber);
+TEXT: Fill variables with a comma-separated list of the int and char variables that are in scope after line lineNumber (lines start at 1), in the order they were declared.
+TEXT: Track scope with a brace depth counter. A variable stays in scope until the block it was declared in closes. A new block at the same depth does not bring old variables back.
+HINT: Keep a list of (name, depth) for the variables currently in scope.
+HINT: On each }, remove every variable declared deeper than the new depth.
+
+EXAMPLE:
+line 3:     int a = 1;
+line 7:         int c = 2;   // inside an if block
+after line 9 (block closed): "a,b"
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void FindAllVariablesInScope(char variables[], char code[], int lineNumber)
+{
+    // your code here
+}
+END
+
+TESTS:
+    char code1[1000] =
+        "int main()\n"             // line 1   depth 0
+        "{\n"                      // line 2   depth 1
+        "    int a = 1;\n"         // line 3
+        "    char b;\n"            // line 4
+        "    if (a > 0)\n"         // line 5
+        "    {\n"                  // line 6   depth 2
+        "        int c = 2;\n"     // line 7
+        "        char d;\n"        // line 8
+        "    }\n"                  // line 9   back to depth 1
+        "    int e = 3;\n"         // line 10
+        "    return 0;\n"          // line 11
+        "}\n";                     // line 12  back to depth 0
+
+    struct { int line; const char* expected; const char* description; } tests1[] = {
+        { 2,  "",        "after line 2  -> nothing declared yet" },
+        { 3,  "a",       "after line 3  -> a" },
+        { 4,  "a,b",     "after line 4  -> a,b" },
+        { 7,  "a,b,c",   "after line 7  -> a,b,c (inside the if block)" },
+        { 8,  "a,b,c,d", "after line 8  -> a,b,c,d" },
+        { 9,  "a,b",     "after line 9  -> a,b (if block closed, c and d gone)" },
+        { 10, "a,b,e",   "after line 10 -> a,b,e" },
+        { 11, "a,b,e",   "after line 11 -> a,b,e (return adds nothing)" },
+        { 12, "",        "after line 12 -> nothing (main has closed)" },
+    };
+    for (int i = 0; i < 9; i++) {
+        char variables[1000] = "";
+        FindAllVariablesInScope(variables, code1, tests1[i].line);
+        checkString(variables, tests1[i].expected, tests1[i].description);
+    }
+
+    char code2[1000] =
+        "int main()\n"             // line 1   depth 0
+        "{\n"                      // line 2   depth 1
+        "    int x;\n"             // line 3
+        "    {\n"                  // line 4   depth 2
+        "        int y;\n"         // line 5
+        "    }\n"                  // line 6   depth 1
+        "    {\n"                  // line 7   depth 2 again (a NEW block)
+        "        int z;\n"         // line 8
+        "    }\n"                  // line 9   depth 1
+        "}\n";                     // line 10  depth 0
+
+    struct { int line; const char* expected; const char* description; } tests2[] = {
+        { 3, "x",   "after line 3 -> x" },
+        { 5, "x,y", "after line 5 -> x,y" },
+        { 6, "x",   "after line 6 -> x (first block closed)" },
+        { 8, "x,z", "after line 8 -> x,z (y is NOT back, even though depth is 2 again)" },
+        { 9, "x",   "after line 9 -> x" },
+    };
+    for (int i = 0; i < 5; i++) {
+        char variables[1000] = "";
+        FindAllVariablesInScope(variables, code2, tests2[i].line);
+        checkString(variables, tests2[i].expected, tests2[i].description);
+    }
+END

@@ -1,0 +1,46 @@
+# Exam prep problems, LeetCode style. One SET line per tab on the Exam prep
+# screen, then its problem files in order.
+#
+#   SET: id | title | exam (or -)
+#
+# The problem format is in README.md under "Writing problems".
+
+SET: exam2 | Coding Exam 2 lab | Exam 2
+exam2/01_swap_ints.txt
+exam2/02_swap_chars.txt
+exam2/03_find_max.txt
+exam2/04_reverse_array.txt
+exam2/09_sum_array.txt
+exam2/05_strlen_ptr.txt
+exam2/06_count_vowels.txt
+exam2/07_copy_string.txt
+exam2/08_concat_strings.txt
+exam2/10_compare_strings.txt
+exam2/11_insert_at_beginning.txt
+exam2/12_insert_at_end.txt
+exam2/13_insert_at_position.txt
+
+SET: lab1 | Lab 1 | -
+lab1/q01_leap_year.txt
+lab1/q02_palindrome.txt
+lab1/q03_prime.txt
+lab1/q04_binary_to_decimal.txt
+lab1/q06_right_angled_triangle.txt
+lab1/q07_isosceles_triangle.txt
+lab1/q07b_isosceles_no_conditionals.txt
+lab1/q08_find.txt
+lab1/q09_second_largest.txt
+lab1/q10_copy_array.txt
+lab1/q11_insert_element.txt
+lab1/q12_delete_element.txt
+lab1/q13_frequency_count.txt
+lab1/q14_count_duplicates.txt
+lab1/q15_reverse_array.txt
+lab1/q16_rotate_left.txt
+lab1/q17_two_movies.txt
+lab1/q18_word_counter.txt
+lab1/q19_print_array.txt
+lab1/q20_replace_with_minus_one.txt
+lab1/q21_fall_down_and_replace.txt
+lab1/q21b_find_all_variables.txt
+lab1/q22_find_all_variables_in_scope.txt

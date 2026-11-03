@@ -124,11 +124,18 @@ static void draw_sidebar(const App &app, float x, float y)
     y += 30;
 
     bool leakHunter = topic_mastery(p, "membugs") == Mastery::Mastered;
+
+    // Every "no []" problem in Exam prep solved
+    int noBrackets = 0, noBracketsSolved = 0;
+    for (const ProblemSet &set : app.practice)
+        for (const Problem &prob : set.problems)
+            if (forbids_token(prob, "[")) { noBrackets++; if (progress_is_solved(p, prob.id)) noBracketsSolved++; }
+    bool noBracketsBadge = noBrackets > 0 && noBracketsSolved == noBrackets;
     std::vector<Badge> badges = {
         { "1st", "First answer", answered > 0 },
         { "5d", "5-day streak", streak >= 5 },
         { "A+", "10 right", correct >= 10 },
-        { "[]", "No [] allowed", false },          // all exam prep solved
+        { "[]", "No [] allowed", noBracketsBadge }, // every "no []" Exam prep problem solved
         { "!!", "Leak hunter", leakHunter },       // Memory bugs mastered
         { "SF", "Segfault survivor", false },      // still to decide
     };

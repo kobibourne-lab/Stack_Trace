@@ -1,0 +1,55 @@
+# Lab 1, Q14. Tests from the Lab 1 files.
+
+TITLE: Count Duplicates
+FUNCTION: countDuplicates
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: int countDuplicates(int size, int arr[]);
+TEXT: Count the duplicates in an array: every extra copy of a value counts once.
+TEXT: {5, 1, 1} has 1 duplicate (one extra 1), and {1, 1, 1} has 2.
+HINT: For each element, look at the elements after it.
+HINT: Count it once if any later element matches, then stop looking (break).
+
+EXAMPLE:
+int d[] = {1, 2, 1, 2, 3};
+countDuplicates(5, d)   // 2
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int countDuplicates(int size, int arr[])
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    int a[] = {5, 1, 1};
+    checkInt(countDuplicates(3, a), 1, "{5,1,1} -> 1");
+
+    int b[] = {1, 2, 3, 4};
+    checkInt(countDuplicates(4, b), 0, "{1,2,3,4} -> 0 (no duplicates)");
+
+    int c[] = {1, 1, 1};
+    checkInt(countDuplicates(3, c), 2, "{1,1,1} -> 2");
+
+    int d[] = {1, 2, 1, 2, 3};
+    checkInt(countDuplicates(5, d), 2, "{1,2,1,2,3} -> 2 (one extra 1, one extra 2)");
+
+    int e[] = {7, 7, 7, 7};
+    checkInt(countDuplicates(4, e), 3, "{7,7,7,7} -> 3");
+
+    int f[] = {3, 1, 3, 1, 3};
+    checkInt(countDuplicates(5, f), 3, "{3,1,3,1,3} -> 3 (two extra 3's, one extra 1)");
+
+    int g[] = {9};
+    checkInt(countDuplicates(1, g), 0, "{9} -> 0");
+
+    int empty[1] = {0};
+    checkInt(countDuplicates(0, empty), 0, "empty array -> 0");
+END

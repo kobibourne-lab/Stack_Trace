@@ -1,94 +1,18 @@
-// screen_exam.cpp - Exam prep, NeetCode style: the problems from the
-// "Coding Exam 2 Preparation" lab in groups, each with a difficulty and a
-// solved tick, and a card for the selected problem.
+// screen_exam.cpp - Exam prep, NeetCode style: one tab per problem set (from
+// content/practice/problems.txt), the problems in groups with a difficulty,
+// a solved tick and the best time, and a card for the selected problem.
+// Solve and Exam mode open it on the problem screen (screen_problem.cpp).
 //
-// Visuals only for now. Still to build:
-//   - solving a problem (an editor, or a "fill the gap" version of one)
-//   - the "no []" check: look for '[' in the student's answer
-//   - exam mode: a timer, no hints
-//   - remembering which problems are solved (in progress.txt)
-//   - moving the problem list into a content file, like the lessons
-//
-// The prototypes below are our best reading of the lab sheet: check them
-// against it before writing the real problems.
+// Kobi's layout and styling; the problems now come from content files.
 
 #include "app.h"
 #include "theme.h"
 #include "ui.h"
 
-enum class Difficulty { Easy, Medium, Hard };
-
-struct Problem {
-    const char *name;
-    const char *group;
-    Difficulty difficulty;
-    bool noBrackets;          // the lab's rule: pointer arithmetic only, no arr[i]
-    const char *prototype;
-    const char *task;
-    std::vector<std::string> example;
-};
-
-static const std::vector<Problem> PROBLEMS = {
-    { "swap_ints", "Swapping", Difficulty::Easy, true,
-      "void swap_ints(int *a, int *b);",
-      "Swap the two ints that a and b point to. The caller's variables must change.",
-      { "int x = 3, y = 7;", "swap_ints(&x, &y);", "// x == 7, y == 3" } },
-    { "swap_chars", "Swapping", Difficulty::Easy, true,
-      "void swap_chars(char *a, char *b);",
-      "Swap two chars through pointers, the same idea as swap_ints.",
-      { "char a = 'A', b = 'Z';", "swap_chars(&a, &b);", "// a == 'Z', b == 'A'" } },
-
-    { "sum_array", "Arrays", Difficulty::Easy, true,
-      "int sum_array(int *arr, int size);",
-      "Add up every element by moving a pointer along the array.",
-      { "int a[] = {1, 2, 3, 4};", "sum_array(a, 4);   // 10" } },
-    { "find_max", "Arrays", Difficulty::Easy, true,
-      "int find_max(int *arr, int size);",
-      "Return the largest element. Walk the array with a pointer, not an index.",
-      { "int a[] = {4, 9, 2};", "find_max(a, 3);   // 9" } },
-    { "reverse_array", "Arrays", Difficulty::Medium, true,
-      "void reverse_array(int *arr, int size);",
-      "Reverse the array in place, using one pointer at each end that move towards each other.",
-      { "int a[] = {1, 2, 3, 4};", "reverse_array(a, 4);", "// a is now {4, 3, 2, 1}" } },
-
-    { "strlen_ptr", "Strings", Difficulty::Easy, true,
-      "int strlen_ptr(const char *str);",
-      "Count the characters before the '\\0', without calling strlen.",
-      { "strlen_ptr(\"hello\");   // 5" } },
-    { "count_vowels", "Strings", Difficulty::Medium, true,
-      "int count_vowels(const char *str);",
-      "Count a, e, i, o and u (either case) by stepping through the string with a pointer.",
-      { "count_vowels(\"Pointer\");   // 3" } },
-    { "copy_string", "Strings", Difficulty::Medium, true,
-      "void copy_string(char *dest, const char *src);",
-      "Copy src into dest, including the '\\0' at the end.",
-      { "char buf[16];", "copy_string(buf, \"exam\");", "// buf holds \"exam\"" } },
-    { "concat_strings", "Strings", Difficulty::Medium, true,
-      "void concat_strings(char *dest, const char *src);",
-      "Find the end of dest, then copy src on after it.",
-      { "char buf[16] = \"Stack\";", "concat_strings(buf, \"Trace\");", "// buf holds \"StackTrace\"" } },
-    { "compare_strings", "Strings", Difficulty::Hard, true,
-      "int compare_strings(const char *s1, const char *s2);",
-      "Return 0 if the strings match, less than 0 if s1 comes first, more than 0 if s2 does (like strcmp).",
-      { "compare_strings(\"abc\", \"abd\");   // < 0", "compare_strings(\"hi\", \"hi\");     // 0" } },
-
-    { "insert_at_beginning", "Doubly linked list", Difficulty::Medium, false,
-      "void insert_at_beginning(int value);",
-      "Add a node at the head. Fix head, and the old first node's prev.",
-      { "list: 2 <-> 3", "insert_at_beginning(1);", "list: 1 <-> 2 <-> 3" } },
-    { "insert_at_end", "Doubly linked list", Difficulty::Medium, false,
-      "void insert_at_end(int value);",
-      "Add a node after the last one. Remember the empty list.",
-      { "list: 1 <-> 2", "insert_at_end(3);", "list: 1 <-> 2 <-> 3" } },
-    { "insert_at_position", "Doubly linked list", Difficulty::Hard, false,
-      "void insert_at_position(int value, int pos);",
-      "Insert so the new node ends up at pos (0 = head). Four pointers change.",
-      { "list: 1 <-> 3", "insert_at_position(2, 1);", "list: 1 <-> 2 <-> 3" } },
-};
-
 const float LIST_W = 760;
 const float ROW_H = 29;
 const float GROUP_H = 32;
+const float TABS_H = 40;
 
 // A solid colour part way from the background to c. (A see-through fill would
 // show ui_panel's border box underneath it.)
@@ -98,23 +22,14 @@ static Color tint(Color c, float amount)
              (unsigned char)(COL_BG.b + (c.b - COL_BG.b) * amount), 255 };
 }
 
-static const char *difficulty_name(Difficulty d)
+static Color difficulty_color(const std::string &d)
 {
-    switch (d) {
-        case Difficulty::Easy:   return "Easy";
-        case Difficulty::Medium: return "Medium";
-        default:                 return "Hard";
-    }
+    if (d == "Easy") return COL_GREEN;
+    if (d == "Hard") return COL_CORAL;
+    return COL_AMBER;
 }
 
-static Color difficulty_color(Difficulty d)
-{
-    switch (d) {
-        case Difficulty::Easy:   return COL_GREEN;
-        case Difficulty::Medium: return COL_AMBER;
-        default:                 return COL_CORAL;
-    }
-}
+static Color set_color(const ProblemSet &s) { return s.exam == "Exam 2" ? COL_PURPLE : COL_BLUE; }
 
 // A small rounded tag: filled, or just an outline.
 static float draw_tag(const std::string &text, float x, float y, Color color, bool filled)
@@ -135,68 +50,126 @@ static std::string two_digits(int n)
     return (n < 10 ? "0" : "") + std::to_string(n);
 }
 
-// Problems are never solved yet: this is where progress.txt will plug in.
-static bool is_solved(const App &, const Problem &) { return false; }
-
-static void draw_summary(const App &app, float x, float y)
+static std::string best_time(const App &app, const Problem &p)
 {
-    int solved = 0;
-    for (const Problem &p : PROBLEMS) if (is_solved(app, p)) solved++;
-
-    ui_text("Coding Exam 2 Preparation", x, y, 15, COL_TEXT, FontKind::UiBold);
-    float tx = x + ui_text_width("Coding Exam 2 Preparation", 15, FontKind::UiBold) + 14;
-    draw_tag("Exam 2", tx, y - 1, COL_PURPLE, true);
-
-    std::string count = std::to_string(solved) + " / " + std::to_string(PROBLEMS.size()) + " solved";
-    ui_text(count, x + LIST_W - ui_text_width(count, 13, FontKind::Mono), y + 2, 13, COL_TEXT_SOFT, FontKind::Mono);
-
-    Rectangle bar = { x, y + 26, LIST_W, 8 };
-    DrawRectangleRounded(bar, 1, 6, COL_LINE_SOFT);
-    if (solved > 0) DrawRectangleRounded({ bar.x, bar.y, bar.width * solved / PROBLEMS.size(), bar.height }, 1, 6, COL_PURPLE);
+    auto it = app.progress.solved.find(p.id);
+    if (it == app.progress.solved.end() || it->second.seconds <= 0) return "--:--";
+    int s = it->second.seconds;
+    if (s >= 100 * 60) return "99:59";
+    return two_digits(s / 60) + ":" + two_digits(s % 60);
 }
 
-static void draw_list(App &app, float x, float y)
+// The set tabs, with each one's solved count
+static void draw_tabs(App &app, float x, float y)
 {
+    for (int i = 0; i < (int)app.practice.size(); i++) {
+        const ProblemSet &s = app.practice[i];
+        int solved = 0;
+        for (const Problem &p : s.problems) if (progress_is_solved(app.progress, p.id)) solved++;
+        std::string label = s.title + "  " + std::to_string(solved) + "/" + std::to_string(s.problems.size());
+        float w = ui_text_width(label, 14, FontKind::UiBold) + 32;
+        bool on = (i == app.examSet);
+        Rectangle r = { x, y, w, 32 };
+        bool hover = CheckCollisionPointRec(GetMousePosition(), r);
+        if (hover && !on) {
+            ui_want_hand();
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { app.examSet = i; app.examSelected = 0; app.examScroll = 0; app.examMessage.clear(); }
+        }
+        ui_panel(r, on ? tint(set_color(s), 0.18f) : (hover ? COL_SURFACE : COL_BG), on ? set_color(s) : COL_LINE, 1);
+        ui_text(label, x + 16, y + 7, 14, on ? set_color(s) : COL_TEXT_SOFT, FontKind::UiBold);
+        x += w + 10;
+    }
+}
+
+static void draw_summary(const App &app, const ProblemSet &set, float x, float y)
+{
+    int solved = 0;
+    for (const Problem &p : set.problems) if (progress_is_solved(app.progress, p.id)) solved++;
+
+    std::string count = std::to_string(solved) + " / " + std::to_string(set.problems.size()) + " solved";
+    ui_text(count, x + LIST_W - ui_text_width(count, 13, FontKind::Mono), y - 22, 13, COL_TEXT_SOFT, FontKind::Mono);
+
+    Rectangle bar = { x, y, LIST_W, 6 };
+    DrawRectangleRounded(bar, 1, 6, COL_LINE_SOFT);
+    if (solved > 0) DrawRectangleRounded({ bar.x, bar.y, bar.width * solved / set.problems.size(), bar.height }, 1, 6, set_color(set));
+}
+
+// The height of the whole list, so it can scroll
+static float list_height(const ProblemSet &set)
+{
+    float h = 0;
     std::string group;
-    for (int i = 0; i < (int)PROBLEMS.size(); i++) {
-        const Problem &p = PROBLEMS[i];
+    for (const Problem &p : set.problems) {
+        if (group != p.group) { group = p.group; h += GROUP_H; }
+        h += ROW_H;
+    }
+    return h;
+}
+
+// Where row i sits in the list (for keeping the selection on screen)
+static float row_top(const ProblemSet &set, int index)
+{
+    float h = 0;
+    std::string group;
+    for (int i = 0; i <= index && i < (int)set.problems.size(); i++) {
+        if (group != set.problems[i].group) { group = set.problems[i].group; h += GROUP_H; }
+        if (i < index) h += ROW_H;
+    }
+    return h;
+}
+
+static void draw_list(App &app, const ProblemSet &set, Rectangle area)
+{
+    // Scroll with the wheel
+    float maxScroll = list_height(set) - area.height;
+    if (maxScroll < 0) maxScroll = 0;
+    if (CheckCollisionPointRec(GetMousePosition(), area)) app.examScroll -= GetMouseWheelMove() * ROW_H * 2;
+    if (app.examScroll > maxScroll) app.examScroll = maxScroll;
+    if (app.examScroll < 0) app.examScroll = 0;
+
+    BeginScissorMode((int)area.x, (int)area.y, (int)area.width + 4, (int)area.height);
+    float x = area.x, y = area.y - app.examScroll;
+    std::string group;
+    for (int i = 0; i < (int)set.problems.size(); i++) {
+        const Problem &p = set.problems[i];
 
         // A heading whenever the group changes, with its solved count
         if (group != p.group) {
             group = p.group;
             int total = 0, solved = 0;
-            for (const Problem &q : PROBLEMS)
-                if (group == q.group) { total++; if (is_solved(app, q)) solved++; }
+            for (const Problem &q : set.problems)
+                if (group == q.group) { total++; if (progress_is_solved(app.progress, q.id)) solved++; }
             std::string upper = group;
             for (char &c : upper) c = (char)toupper((unsigned char)c);
             ui_text(upper, x, y + 10, 13, COL_TEXT, FontKind::MonoBold);
-            if (!p.noBrackets) {
-                float gx = x + ui_text_width(upper, 13, FontKind::MonoBold) + 12;
-                ui_text("lab part 2", gx, y + 11, 12, COL_MUTED, FontKind::Mono);
-            }
             std::string count = std::to_string(solved) + " / " + std::to_string(total);
             ui_text(count, x + LIST_W - ui_text_width(count, 12, FontKind::Mono), y + 11, 12, COL_MUTED, FontKind::Mono);
             y += GROUP_H;
         }
 
         Rectangle row = { x, y, LIST_W, ROW_H - 3 };
+        bool visible = row.y + row.height > area.y && row.y < area.y + area.height;
         bool selected = (i == app.examSelected);
-        bool hover = CheckCollisionPointRec(GetMousePosition(), row);
+        bool hover = visible && CheckCollisionPointRec(GetMousePosition(), row) && CheckCollisionPointRec(GetMousePosition(), area);
         if (hover) {
             ui_want_hand();
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { app.examSelected = i; app.examMessage.clear(); }
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                // Clicking the selected row again opens it
+                if (selected) open_problem(app, app.examSet, i, false);
+                app.examSelected = i;
+                app.examMessage.clear();
+            }
         }
         if (selected) {
             ui_panel(row, COL_SURFACE_2, COL_LINE, 1);
-            DrawRectangle((int)row.x, (int)row.y + 4, 3, (int)row.height - 8, COL_PURPLE);
+            DrawRectangle((int)row.x, (int)row.y + 4, 3, (int)row.height - 8, set_color(set));
         } else if (hover) {
             ui_panel(row, COL_SURFACE, COL_SURFACE, 0);
         }
 
         float cy = row.y + row.height / 2;
-
-        // Solved tick, or an empty circle
-        if (is_solved(app, p)) {
+        bool solved = progress_is_solved(app.progress, p.id);
+        if (solved) {
             DrawCircleV({ x + 20, cy }, 8, COL_GREEN);
             DrawLineEx({ x + 16, cy }, { x + 19, cy + 3 }, 2, COL_BG);
             DrawLineEx({ x + 19, cy + 3 }, { x + 24, cy - 3 }, 2, COL_BG);
@@ -205,49 +178,64 @@ static void draw_list(App &app, float x, float y)
         }
 
         ui_text(two_digits(i + 1), x + 40, cy - 8, 13, COL_MUTED, FontKind::Mono);
-        ui_text(p.name, x + 72, cy - 9, 15, selected ? COL_TEXT : COL_TEXT_SOFT, FontKind::Mono);
+        ui_text(p.function, x + 72, cy - 9, 15, selected ? COL_TEXT : COL_TEXT_SOFT, FontKind::Mono);
 
-        if (p.noBrackets) draw_tag("no []", x + 520, cy - 9.5f, COL_MUTED, false);
-        ui_text(difficulty_name(p.difficulty), x + 610, cy - 8, 14, difficulty_color(p.difficulty), FontKind::UiBold);
-        ui_text("--:--", x + LIST_W - 16 - ui_text_width("--:--", 13, FontKind::Mono), cy - 7, 13, COL_MUTED, FontKind::Mono);
+        if (forbids_token(p, "[")) draw_tag("no []", x + 520, cy - 9.5f, COL_MUTED, false);
+        else if (!p.forbids.empty()) draw_tag("rules", x + 520, cy - 9.5f, COL_MUTED, false);
+        ui_text(p.difficulty, x + 610, cy - 8, 14, difficulty_color(p.difficulty), FontKind::UiBold);
+        std::string t = best_time(app, p);
+        ui_text(t, x + LIST_W - 16 - ui_text_width(t, 13, FontKind::Mono), cy - 7, 13, solved ? COL_GREEN : COL_MUTED, FontKind::Mono);
 
         y += ROW_H;
     }
+    EndScissorMode();
+
+    // A fade at the bottom when there's more below
+    if (app.examScroll < maxScroll - 1) {
+        for (int i = 0; i < 24; i++)
+            DrawRectangle((int)area.x, (int)(area.y + area.height - 24 + i), (int)LIST_W, 1, Fade(COL_BG, i / 24.0f));
+    }
 }
 
-static void draw_problem_card(App &app, Rectangle r)
+static void draw_problem_card(App &app, const ProblemSet &set, Rectangle r)
 {
-    const Problem &p = PROBLEMS[app.examSelected];
+    const Problem &p = set.problems[app.examSelected];
     ui_panel(r, COL_SURFACE, COL_LINE, 1);
     float x = r.x + 24, y = r.y + 24, w = r.width - 48;
 
     ui_text("PROBLEM " + two_digits(app.examSelected + 1) + "  |  " + p.group, x, y, 12, COL_MUTED, FontKind::Mono);
     y += 26;
-    ui_text(p.name, x, y, 22, COL_TEXT, FontKind::MonoBold);
-    y += 36;
+    y += ui_text_wrapped(p.title, x, y, w, 22, COL_TEXT, FontKind::UiBold) + 2;
+    ui_text(p.function, x, y, 13, COL_MUTED, FontKind::Mono);
+    y += 28;
 
     float tx = x;
-    tx += draw_tag(difficulty_name(p.difficulty), tx, y, difficulty_color(p.difficulty), true) + 8;
-    tx += draw_tag("Exam 2", tx, y, COL_PURPLE, false) + 8;
-    if (p.noBrackets) draw_tag("pointers only", tx, y, COL_AMBER, false);
-    y += 36;
+    tx += draw_tag(p.difficulty, tx, y, difficulty_color(p.difficulty), true) + 8;
+    tx += draw_tag(set.exam.empty() ? set.title : set.exam, tx, y, set_color(set), false) + 8;
+    if (forbids_token(p, "[")) tx += draw_tag("pointers only", tx, y, COL_AMBER, false) + 8;
+    if (progress_is_solved(app.progress, p.id)) draw_tag("Solved", tx, y, COL_GREEN, false);
+    y += 34;
 
     ui_text("Prototype", x, y, 13, COL_MUTED, FontKind::UiBold);
     y += 22;
-    ui_code({ p.prototype }, { x, y, w, 44 }, 0, COL_PURPLE, false, 13);
-    y += 58;
+    float protoH = ui_text_wrapped_height(p.prototype, w - 24, 13, FontKind::Mono) + 18;
+    ui_panel({ x, y, w, protoH }, COL_BG, COL_LINE, 1);
+    ui_text_wrapped(p.prototype, x + 12, y + 9, w - 24, 13, COL_TEXT_SOFT, FontKind::Mono);
+    y += protoH + 14;
 
     ui_text("Task", x, y, 13, COL_MUTED, FontKind::UiBold);
     y += 22;
-    y += ui_text_wrapped(p.task, x, y, w, 15, COL_TEXT_SOFT) + 14;
+    if (!p.text.empty()) y += ui_text_wrapped(p.text[0], x, y, w, 15, COL_TEXT_SOFT) + 14;
 
-    ui_text("Example", x, y, 13, COL_MUTED, FontKind::UiBold);
-    y += 22;
-    float exH = 20 + p.example.size() * 13 * 1.55f;
-    ui_code(p.example, { x, y, w, exH }, 0, COL_PURPLE, false, 13);
-    y += exH + 16;
+    if (!p.example.empty() && y < r.y + r.height - 220) {
+        ui_text("Example", x, y, 13, COL_MUTED, FontKind::UiBold);
+        y += 22;
+        float exH = 20 + p.example.size() * 13 * 1.55f;
+        ui_code(p.example, { x, y, w, exH }, 0, set_color(set), false, 13);
+        y += exH + 16;
+    }
 
-    if (p.noBrackets) {
+    if (forbids_token(p, "[") && y < r.y + r.height - 130) {
         ui_panel({ x, y, w, 34 }, tint(COL_AMBER, 0.1f), tint(COL_AMBER, 0.5f), 1);
         ui_text("Rule: no arr[i]. Pointer arithmetic only.", x + 12, y + 9, 13, COL_AMBER, FontKind::Mono);
     }
@@ -255,37 +243,72 @@ static void draw_problem_card(App &app, Rectangle r)
     // Buttons along the bottom of the card
     float by = r.y + r.height - 24 - 46;
     float bw = (w - 12) / 2;
-    if (ui_button("Solve", { x, by, bw, 46 }, ButtonStyle::Primary, COL_PURPLE))
-        app.examMessage = "Solving isn't built yet. Next: an editor with the prototype filled in.";
-    if (ui_button("Exam mode 15:00", { x + bw + 12, by, bw, 46 }, ButtonStyle::Outline, COL_TEXT))
-        app.examMessage = "Exam mode isn't built yet: a 15 minute timer, no hints.";
+    if (ui_button("Solve", { x, by, bw, 46 }, ButtonStyle::Primary, set_color(set)))
+        open_problem(app, app.examSet, app.examSelected, false);
+    std::string examLabel = "Exam mode " + two_digits(p.examMinutes) + ":00";
+    if (ui_button(examLabel, { x + bw + 12, by, bw, 46 }, ButtonStyle::Outline, COL_TEXT))
+        open_problem(app, app.examSet, app.examSelected, true);
     if (!app.examMessage.empty())
         ui_text_wrapped(app.examMessage, x, by - 46, w, 13, COL_AMBER, FontKind::Mono);
 }
 
 void screen_exam(App &app)
 {
-    int count = (int)PROBLEMS.size();
-    if (app.examSelected < 0 || app.examSelected >= count) app.examSelected = 0;
-
     if (IsKeyPressed(KEY_ESCAPE)) { app.examMessage.clear(); open_map(app); return; }
-    if (IsKeyPressed(KEY_DOWN)) { app.examSelected = (app.examSelected + 1) % count; app.examMessage.clear(); }
-    if (IsKeyPressed(KEY_UP)) { app.examSelected = (app.examSelected + count - 1) % count; app.examMessage.clear(); }
     if (IsKeyPressed(KEY_P)) { app.examMessage.clear(); app.screen = Screen::Profile; return; }
 
-    ui_header("Exam prep - practise the Coding Exam 2 lab, pointers only");
+    ui_header("Exam prep - practise the labs, LeetCode style");
     if (ui_button("Back to the map", { SCREEN_W - MARGIN - 170, 12, 170, 40 }, ButtonStyle::Outline, COL_TEXT)) {
         app.examMessage.clear();
         open_map(app);
         return;
     }
 
-    float x = MARGIN, y = HEADER_H + 22;
-    draw_summary(app, x, y);
-    draw_list(app, x, y + 44);
+    if (app.practice.empty()) {
+        ui_text("No problems loaded", MARGIN, HEADER_H + 40, 24, COL_CORAL, FontKind::UiBold);
+        ui_text_wrapped(app.practiceError, MARGIN, HEADER_H + 80, 900, 15, COL_TEXT_SOFT, FontKind::Mono);
+        ui_footer_hints({ "ESC topic map" });
+        return;
+    }
+    if (app.examSet >= (int)app.practice.size()) app.examSet = 0;
+    const ProblemSet &set = app.practice[app.examSet];
+    int count = (int)set.problems.size();
+    if (app.examSelected < 0 || app.examSelected >= count) app.examSelected = 0;
 
-    draw_problem_card(app, { MARGIN + LIST_W + 24, HEADER_H + 22, SCREEN_W - 2 * MARGIN - LIST_W - 24,
-                             SCREEN_H - HEADER_H - FOOTER_H - 44 });
+    // Keys: up/down choose, left/right change tab, Enter solves, X exam mode
+    bool moved = false;
+    if (IsKeyPressed(KEY_DOWN)) { app.examSelected = (app.examSelected + 1) % count; moved = true; }
+    if (IsKeyPressed(KEY_UP)) { app.examSelected = (app.examSelected + count - 1) % count; moved = true; }
+    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_LEFT)) {
+        int n = (int)app.practice.size();
+        app.examSet = (app.examSet + (IsKeyPressed(KEY_RIGHT) ? 1 : n - 1)) % n;
+        app.examSelected = 0;
+        app.examScroll = 0;
+        return;
+    }
+    if (IsKeyPressed(KEY_ENTER)) { open_problem(app, app.examSet, app.examSelected, false); return; }
+    if (IsKeyPressed(KEY_X)) { open_problem(app, app.examSet, app.examSelected, true); return; }
 
-    ui_footer_hints({ "UP DOWN choose problem", "P profile", "ESC topic map" });
+    float x = MARGIN, y = HEADER_H + 18;
+    draw_tabs(app, x, y);
+    y += TABS_H + 18;
+    draw_summary(app, set, x, y);
+    y += 12;
+
+    Rectangle listArea = { x, y, LIST_W, SCREEN_H - FOOTER_H - 12 - y };
+    if (moved) {
+        // Keep the selected row on screen
+        float top = row_top(set, app.examSelected);
+        if (top < app.examScroll) app.examScroll = top - GROUP_H;
+        if (top + ROW_H > app.examScroll + listArea.height) app.examScroll = top + ROW_H - listArea.height;
+    }
+    draw_list(app, set, listArea);
+
+    if (app.screen != Screen::ExamPrep) return;   // a click opened a problem
+    draw_problem_card(app, set, { MARGIN + LIST_W + 24, HEADER_H + 18, SCREEN_W - 2 * MARGIN - LIST_W - 24,
+                                  SCREEN_H - HEADER_H - FOOTER_H - 30 });
+
+    if (!app.practiceError.empty())
+        ui_text("Some problems didn't load: " + app.practiceError, MARGIN, SCREEN_H - FOOTER_H - 4, 11, COL_CORAL, FontKind::Mono);
+    ui_footer_hints({ "UP DOWN choose", "LEFT RIGHT change set", "ENTER solve", "X exam mode", "P profile", "ESC topic map" });
 }

@@ -1,0 +1,80 @@
+# Lab 1, Q11. Tests from the Lab 1 files.
+
+TITLE: Insert Element
+FUNCTION: insertElement
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: bool insertElement(int& size, int& count, int arr[], int elementToInsert, int insertIndex);
+TEXT: Insert an element at insertIndex, shifting later elements one place to the right.
+TEXT: size is the array's capacity and count is how many elements are in use. Return true if the element was inserted, false if not.
+TEXT: A valid index is 0 to count (inserting at count adds to the end). The array must not be full.
+HINT: Check for a full array and a bad index first.
+HINT: Shift from the end backwards, so nothing is overwritten before it moves.
+HINT: Remember to add 1 to count.
+
+EXAMPLE:
+int arr[6] = {1, 2, 3, 4};  int size = 6, count = 4;
+insertElement(size, count, arr, 9, 1);
+// arr is {1, 9, 2, 3, 4}, count is 5
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+bool insertElement(int& size, int& count, int arr[], int elementToInsert, int insertIndex)
+{
+    // your code here
+    return false;
+}
+END
+
+TESTS:
+    {
+        int arr[6] = {1, 2, 3, 4};  int size = 6, count = 4;
+        int expected[] = {1, 9, 2, 3, 4};
+        checkBool(insertElement(size, count, arr, 9, 1), true, "insert 9 at index 1 returns true");
+        checkInt(count, 5, "count goes from 4 to 5");
+        checkInt(size, 6, "size (capacity) stays 6");
+        checkArray(5, arr, expected, "{1,2,3,4} -> {1,9,2,3,4}");
+    }
+    {
+        int arr[6] = {1, 2, 3, 4};  int size = 6, count = 4;
+        int expected[] = {0, 1, 2, 3, 4};
+        checkBool(insertElement(size, count, arr, 0, 0), true, "insert 0 at index 0 (front) returns true");
+        checkArray(5, arr, expected, "{1,2,3,4} -> {0,1,2,3,4}");
+    }
+    {
+        int arr[6] = {1, 2, 3, 4};  int size = 6, count = 4;
+        int expected[] = {1, 2, 3, 4, 7};
+        checkBool(insertElement(size, count, arr, 7, 4), true, "insert 7 at index 4 (== count, the end) returns true");
+        checkArray(5, arr, expected, "{1,2,3,4} -> {1,2,3,4,7}");
+    }
+    {
+        int arr[6] = {0};  int size = 6, count = 0;
+        checkBool(insertElement(size, count, arr, 5, 0), true, "insert into an empty array returns true");
+        checkInt(count, 1, "count goes from 0 to 1");
+        checkInt(arr[0], 5, "arr[0] is now 5");
+    }
+    {
+        int arr[4] = {1, 2, 3, 4};  int size = 4, count = 4;
+        int expected[] = {1, 2, 3, 4};
+        checkBool(insertElement(size, count, arr, 9, 1), false, "array full (count == size) returns false");
+        checkInt(count, 4, "count unchanged when full");
+        checkArray(4, arr, expected, "array unchanged when full");
+    }
+    {
+        int arr[6] = {1, 2, 3, 4};  int size = 6, count = 4;
+        int expected[] = {1, 2, 3, 4};
+        checkBool(insertElement(size, count, arr, 9, -1), false, "index -1 returns false");
+        checkInt(count, 4, "count unchanged for index -1");
+        checkArray(4, arr, expected, "array unchanged for index -1");
+    }
+    {
+        int arr[6] = {1, 2, 3, 4};  int size = 6, count = 4;
+        checkBool(insertElement(size, count, arr, 9, 5), false, "index 5 (past the end of the elements) returns false");
+        checkInt(count, 4, "count unchanged for index 5");
+    }
+END

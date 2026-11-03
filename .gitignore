@@ -6,6 +6,10 @@ run_tests.exe
 
 # Each person's own progress (made when you answer quiz questions)
 progress.txt
+
+# Exam prep: your saved code, and the test programs it builds
+saves/
+practice_build/
 test_progress.txt
 
 # Screenshots raylib takes with F12

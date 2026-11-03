@@ -1,0 +1,44 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Reverse Array
+FUNCTION: reverse_array
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arith
+MINUTES: 15
+PROTOTYPE: void reverse_array(int *arr, int size);
+TEXT: Reverse the contents of an integer array in place, using pointers.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: Two pointers: one at the start (arr), one at the end (arr + size - 1).
+HINT: Swap what they point at and move them towards each other until they meet.
+
+EXAMPLE:
+int arr[5] = {1, 2, 3, 4, 5};
+reverse_array(arr, 5);   // arr = {5, 4, 3, 2, 1}
+END
+
+STARTER:
+#include <stdio.h>
+
+void reverse_array(int *arr, int size)
+{
+    // your code here
+}
+END
+
+TESTS:
+    int a[] = {1, 2, 3, 4, 5};  int ea[] = {5, 4, 3, 2, 1};
+    reverse_array(a, 5);
+    checkArray(5, a, ea, "{1,2,3,4,5} -> {5,4,3,2,1} (odd length)");
+    int b[] = {1, 2, 3, 4};  int eb[] = {4, 3, 2, 1};
+    reverse_array(b, 4);
+    checkArray(4, b, eb, "{1,2,3,4} -> {4,3,2,1} (even length)");
+    int c[] = {7};  int ec[] = {7};
+    reverse_array(c, 1);
+    checkArray(1, c, ec, "{7} -> {7}");
+    int d[] = {3, 1, 4, 1, 5};  int ed[] = {3, 1, 4, 1, 5};
+    reverse_array(d, 5);
+    reverse_array(d, 5);
+    checkArray(5, d, ed, "reversing twice gives back the original");
+END

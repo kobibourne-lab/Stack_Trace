@@ -1,0 +1,46 @@
+# Lab 1, Q03. Tests from the Lab 1 files.
+
+TITLE: Prime Number
+FUNCTION: isAPrimeNumber
+GROUP: Numbers
+DIFFICULTY: Medium
+TOPIC: control
+MINUTES: 15
+PROTOTYPE: bool isAPrimeNumber(int numbertoTest);
+TEXT: Return true if the number is prime: only divisible by itself and 1.
+TEXT: The last test uses the largest int, 2147483647, so the loop has to be fast. Checking every number up to it runs past the time limit.
+HINT: Numbers below 2 are never prime.
+HINT: You only need to try divisors up to the square root: loop while i <= n / i.
+
+EXAMPLE:
+isAPrimeNumber(17)   // true
+isAPrimeNumber(9)    // false (3 x 3)
+isAPrimeNumber(1)    // false
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+bool isAPrimeNumber(int numbertoTest)
+{
+    // your code here
+    return false;
+}
+END
+
+TESTS:
+    checkBool(isAPrimeNumber(2),   true,  "2   is prime (smallest prime)");
+    checkBool(isAPrimeNumber(3),   true,  "3   is prime");
+    checkBool(isAPrimeNumber(17),  true,  "17  is prime");
+    checkBool(isAPrimeNumber(97),  true,  "97  is prime");
+    checkBool(isAPrimeNumber(7919),true,  "7919 is prime");
+    checkBool(isAPrimeNumber(4),   false, "4   is NOT prime");
+    checkBool(isAPrimeNumber(9),   false, "9   is NOT prime (odd, but 3x3)");
+    checkBool(isAPrimeNumber(25),  false, "25  is NOT prime (5x5)");
+    checkBool(isAPrimeNumber(1),   false, "1   is NOT prime");
+    checkBool(isAPrimeNumber(0),   false, "0   is NOT prime");
+    checkBool(isAPrimeNumber(-7),  false, "-7  is NOT prime (negatives aren't prime)");
+
+    checkBool(isAPrimeNumber(2147483647), true, "2147483647 is prime (largest int)");
+END

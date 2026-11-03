@@ -1,0 +1,82 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Insert at Beginning
+FUNCTION: InsertAtBeginning
+GROUP: Doubly linked list
+DIFFICULTY: Medium
+TOPIC: dll
+MINUTES: 15
+PROTOTYPE: class DoublyLinkedList: void InsertAtBeginning(int value);
+TEXT: Part 2 of the lab: a DoublyLinkedList whose DoublyLinkedNodes have both a prevPointer and a nextPointer.
+TEXT: Write InsertAtBeginning: add a new node with value at the front of the list.
+HINT: Make the node with new, and point its nextPointer at the old head.
+HINT: If there was an old head, its prevPointer must now point back at the new node.
+HINT: Finally, head = the new node.
+
+EXAMPLE:
+list: 2 <-> 3
+list.InsertAtBeginning(1);
+list: 1 <-> 2 <-> 3
+END
+
+STARTER:
+#include <iostream>
+using namespace std;
+
+class DoublyLinkedNode
+{
+public:
+    int data;
+    DoublyLinkedNode* prevPointer;
+    DoublyLinkedNode* nextPointer;
+
+    DoublyLinkedNode(int value)
+    {
+        data = value;
+        prevPointer = nullptr;
+        nextPointer = nullptr;
+    }
+};
+
+class DoublyLinkedList
+{
+public:
+    DoublyLinkedNode* head;
+
+    DoublyLinkedList()
+    {
+        head = nullptr;
+    }
+
+    void InsertAtBeginning(int value)
+    {
+        // your code here
+    }
+};
+END
+
+TESTS:
+    auto forwards = [](DoublyLinkedList &list) {
+        std::string s; int steps = 0;
+        for (DoublyLinkedNode *n = list.head; n != nullptr && steps < 100; n = n->nextPointer, steps++)
+            s += (s.empty() ? "" : " <-> ") + std::to_string(n->data);
+        return s.empty() ? std::string("(empty)") : s;
+    };
+    auto backwards = [](DoublyLinkedList &list) {
+        DoublyLinkedNode *last = list.head; int steps = 0;
+        while (last != nullptr && last->nextPointer != nullptr && steps++ < 100) last = last->nextPointer;
+        std::string s; steps = 0;
+        for (DoublyLinkedNode *n = last; n != nullptr && steps < 100; n = n->prevPointer, steps++)
+            s += (s.empty() ? "" : " <-> ") + std::to_string(n->data);
+        return s.empty() ? std::string("(empty)") : s;
+    };
+    auto headPrevIsNull = [](DoublyLinkedList &list) { return list.head == nullptr || list.head->prevPointer == nullptr; };
+    DoublyLinkedList list;
+    list.InsertAtBeginning(3);
+    checkText(forwards(list), "3", "into an empty list: 3");
+    list.InsertAtBeginning(2);
+    list.InsertAtBeginning(1);
+    checkText(forwards(list), "1 <-> 2 <-> 3", "then 2 and 1 at the front: following nextPointer");
+    checkText(backwards(list), "3 <-> 2 <-> 1", "the same list following prevPointer from the end");
+    checkBool(headPrevIsNull(list), true, "the head's prevPointer is nullptr");
+END

@@ -1,0 +1,47 @@
+# Lab 1, Q10. Tests from the Lab 1 files.
+
+TITLE: Copy Array
+FUNCTION: copyArraytoArray
+GROUP: Arrays
+DIFFICULTY: Easy
+TOPIC: arrays
+MINUTES: 10
+PROTOTYPE: void copyArraytoArray(int size, int arr1[], int arr2[]);
+TEXT: Copy every element of arr1 into arr2. Both arrays are the same size.
+HINT: One loop, copying arr1[i] into arr2[i].
+
+EXAMPLE:
+int a[] = {1, 2, 3}, b[3];
+copyArraytoArray(3, a, b);   // b is {1, 2, 3}
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void copyArraytoArray(int size, int arr1[], int arr2[])
+{
+    // your code here
+}
+END
+
+TESTS:
+    int src1[]  = {1, 2, 3, 4, 5};
+    int dest1[] = {0, 0, 0, 0, 0};
+    int orig1[] = {1, 2, 3, 4, 5};
+    copyArraytoArray(5, src1, dest1);
+    checkArray(5, dest1, orig1, "{1,2,3,4,5} copied into arr2");
+    checkArray(5, src1,  orig1, "arr1 is left unchanged");
+
+    int src2[]  = {-1, 0, 42};
+    int dest2[] = {9, 9, 9};
+    int exp2[]  = {-1, 0, 42};
+    copyArraytoArray(3, src2, dest2);
+    checkArray(3, dest2, exp2, "{-1,0,42} overwrites {9,9,9}");
+
+    int src3[]  = {7};
+    int dest3[] = {0};
+    int exp3[]  = {7};
+    copyArraytoArray(1, src3, dest3);
+    checkArray(1, dest3, exp3, "single element {7}");
+END

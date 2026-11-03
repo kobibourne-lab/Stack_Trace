@@ -1,0 +1,58 @@
+# Lab 1, Q09. Tests from the Lab 1 files.
+
+TITLE: Second Largest
+FUNCTION: find2ndLargest
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: int find2ndLargest(int size, int arr[]);
+TEXT: Return the second largest value in an array of positive integers, or -1 if there isn't one.
+TEXT: Second largest means the second largest different value: {10, 10, 5} gives 5, and {4, 4, 4} gives -1.
+HINT: Keep two variables, largest and second, both starting at -1.
+HINT: When you find a new largest, the old largest becomes second.
+
+EXAMPLE:
+int a[] = {5, 3, 8, 1, 9};
+find2ndLargest(5, a)   // 8
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int find2ndLargest(int size, int arr[])
+{
+    // your code here
+    return -1;
+}
+END
+
+TESTS:
+    int a[] = {5, 3, 8, 1, 9};
+    checkInt(find2ndLargest(5, a), 8, "{5,3,8,1,9} -> 8");
+
+    int b[] = {1, 2};
+    checkInt(find2ndLargest(2, b), 1, "{1,2} -> 1");
+
+    int c[] = {2, 1};
+    checkInt(find2ndLargest(2, c), 1, "{2,1} -> 1 (largest comes first)");
+
+    int d[] = {9, 1, 2};
+    checkInt(find2ndLargest(3, d), 2, "{9,1,2} -> 2");
+
+    int e[] = {3, 9, 9, 7};
+    checkInt(find2ndLargest(4, e), 7, "{3,9,9,7} -> 7 (largest appears twice)");
+
+    int f[] = {10, 10, 5};
+    checkInt(find2ndLargest(3, f), 5, "{10,10,5} -> 5");
+
+    int g[] = {4, 4, 4};
+    checkInt(find2ndLargest(3, g), -1, "{4,4,4} -> -1 (all the same)");
+
+    int h[] = {7};
+    checkInt(find2ndLargest(1, h), -1, "{7} -> -1 (only one element)");
+
+    int empty[1] = {0};
+    checkInt(find2ndLargest(0, empty), -1, "empty array -> -1");
+END

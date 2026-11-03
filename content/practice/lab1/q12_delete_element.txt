@@ -1,0 +1,79 @@
+# Lab 1, Q12. Tests from the Lab 1 files.
+
+TITLE: Delete Element
+FUNCTION: deleteElement
+GROUP: Arrays
+DIFFICULTY: Medium
+TOPIC: arrays
+MINUTES: 15
+PROTOTYPE: bool deleteElement(int& size, int& count, int arr[], int deleteIndex);
+TEXT: Delete the element at deleteIndex, shifting later elements one place to the left.
+TEXT: size is the array's capacity and count is how many elements are in use. Return true if an element was deleted, false if not.
+HINT: A valid index is 0 to count - 1.
+HINT: Shift from the deleted index forwards, then take 1 off count.
+
+EXAMPLE:
+int arr[5] = {1, 2, 3, 4, 5};  int size = 5, count = 5;
+deleteElement(size, count, arr, 1);
+// arr starts {1, 3, 4, 5}, count is 4
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+bool deleteElement(int& size, int& count, int arr[], int deleteIndex)
+{
+    // your code here
+    return false;
+}
+END
+
+TESTS:
+    {
+        int arr[5] = {1, 2, 3, 4, 5};  int size = 5, count = 5;
+        int expected[] = {1, 3, 4, 5};
+        checkBool(deleteElement(size, count, arr, 1), true, "delete index 1 returns true");
+        checkInt(count, 4, "count goes from 5 to 4");
+        checkInt(size, 5, "size (capacity) stays 5");
+        checkArray(4, arr, expected, "{1,2,3,4,5} -> {1,3,4,5}");
+    }
+    {
+        int arr[5] = {1, 2, 3, 4, 5};  int size = 5, count = 5;
+        int expected[] = {2, 3, 4, 5};
+        checkBool(deleteElement(size, count, arr, 0), true, "delete index 0 (front) returns true");
+        checkArray(4, arr, expected, "{1,2,3,4,5} -> {2,3,4,5}");
+    }
+    {
+        int arr[5] = {1, 2, 3, 4, 5};  int size = 5, count = 5;
+        int expected[] = {1, 2, 3, 4};
+        checkBool(deleteElement(size, count, arr, 4), true, "delete index 4 (last) returns true");
+        checkInt(count, 4, "count goes from 5 to 4");
+        checkArray(4, arr, expected, "{1,2,3,4,5} -> {1,2,3,4}");
+    }
+    {
+        int arr[6] = {7, 8, 9};  int size = 6, count = 3;
+        int expected[] = {7, 8};
+        checkBool(deleteElement(size, count, arr, 2), true, "partly-filled array: delete index 2 returns true");
+        checkInt(count, 2, "count goes from 3 to 2");
+        checkArray(2, arr, expected, "{7,8,9} -> {7,8}");
+    }
+    {
+        int arr[6] = {7, 8, 9};  int size = 6, count = 3;
+        checkBool(deleteElement(size, count, arr, 3), false, "index 3 with count 3 returns false (no element there, even though size is 6)");
+        checkInt(count, 3, "count unchanged");
+    }
+    {
+        int arr[5] = {1, 2, 3, 4, 5};  int size = 5, count = 5;
+        int expected[] = {1, 2, 3, 4, 5};
+        checkBool(deleteElement(size, count, arr, 5), false, "index 5 (== count) returns false");
+        checkBool(deleteElement(size, count, arr, -1), false, "index -1 returns false");
+        checkInt(count, 5, "count unchanged after bad indexes");
+        checkArray(5, arr, expected, "array unchanged after bad indexes");
+    }
+    {
+        int arr[5] = {0};  int size = 5, count = 0;
+        checkBool(deleteElement(size, count, arr, 0), false, "empty array (count 0) returns false");
+        checkInt(count, 0, "count stays 0");
+    }
+END

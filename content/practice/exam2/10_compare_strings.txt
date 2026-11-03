@@ -1,0 +1,44 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Compare Strings
+FUNCTION: compare_strings
+GROUP: Strings
+DIFFICULTY: Hard
+TOPIC: arith
+MINUTES: 25
+PROTOTYPE: int compare_strings(char *str1, char *str2);
+TEXT: Compare two strings alphabetically using pointers. Return 0 if they are equal, a negative value if the first string comes first, and a positive value if it comes second.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: Move both pointers while the characters match and you haven't reached '\0'.
+HINT: Then return the difference of the two characters you stopped on.
+
+EXAMPLE:
+char str1[] = "apple";
+char str2[] = "banana";
+int cmp = compare_strings(str1, str2);   // cmp < 0
+END
+
+STARTER:
+#include <stdio.h>
+
+int compare_strings(char *str1, char *str2)
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    char a[] = "apple", b[] = "banana";
+    checkBool(compare_strings(a, b) < 0, true, "\"apple\" vs \"banana\" -> negative");
+    char c[] = "hello", d[] = "hello";
+    checkInt(compare_strings(c, d), 0, "\"hello\" vs \"hello\" -> 0");
+    char e[] = "b", f[] = "a";
+    checkBool(compare_strings(e, f) > 0, true, "\"b\" vs \"a\" -> positive");
+    char g[] = "app", h[] = "apple";
+    checkBool(compare_strings(g, h) < 0, true, "\"app\" vs \"apple\" -> negative (shorter comes first)");
+    checkBool(compare_strings(h, g) > 0, true, "\"apple\" vs \"app\" -> positive");
+    char i[] = "", j[] = "";
+    checkInt(compare_strings(i, j), 0, "two empty strings -> 0");
+END

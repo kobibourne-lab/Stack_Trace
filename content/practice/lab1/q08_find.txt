@@ -1,0 +1,46 @@
+# Lab 1, Q08. Tests from the Lab 1 files.
+
+TITLE: Find an Element
+FUNCTION: find
+GROUP: Arrays
+DIFFICULTY: Easy
+TOPIC: arrays
+MINUTES: 10
+PROTOTYPE: int find(int size, int arr[], int toFind);
+TEXT: Return the index where toFind is in the array, or -1 if it isn't there. If it appears more than once, return the first.
+HINT: Return from inside the loop as soon as you find it.
+HINT: Only return -1 after the loop has checked everything.
+
+EXAMPLE:
+int arr[] = {5, 3, 8, 1, 9};
+find(5, arr, 8)   // 2
+find(5, arr, 7)   // -1
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int find(int size, int arr[], int toFind)
+{
+    // your code here
+    return -1;
+}
+END
+
+TESTS:
+    int arr[] = {5, 3, 8, 1, 9};
+    checkInt(find(5, arr, 8),  2, "find 8 in {5,3,8,1,9} -> index 2");
+    checkInt(find(5, arr, 5),  0, "find 5 in {5,3,8,1,9} -> index 0 (first element)");
+    checkInt(find(5, arr, 9),  4, "find 9 in {5,3,8,1,9} -> index 4 (last element)");
+    checkInt(find(5, arr, 7), -1, "find 7 in {5,3,8,1,9} -> -1 (not there)");
+
+    int dupes[] = {4, 2, 4};
+    checkInt(find(3, dupes, 4), 0, "find 4 in {4,2,4} -> index 0 (first occurrence)");
+
+    int negatives[] = {-3, -1, 0};
+    checkInt(find(3, negatives, -1), 1, "find -1 in {-3,-1,0} -> index 1");
+
+    int empty[1] = {0};
+    checkInt(find(0, empty, 0), -1, "find anything in an empty array (size 0) -> -1");
+END

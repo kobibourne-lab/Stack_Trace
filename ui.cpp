@@ -10,6 +10,7 @@
 static Font fonts[4];
 static bool loaded[4] = { false, false, false, false };
 static bool wantHand = false;   // something clickable is under the mouse this frame
+static bool wantIbeam = false;  // editable text is under the mouse this frame
 
 static const char *fontFiles[4] = {
     "fonts/IBMPlexSans-Regular.ttf",
@@ -50,13 +51,15 @@ static float spacing_for(FontKind kind, float size)
     return loaded[(int)kind] ? 0.0f : size / 10.0f;
 }
 
-void ui_begin_frame() { wantHand = false; }
+void ui_begin_frame() { wantHand = false; wantIbeam = false; }
 
 void ui_want_hand() { wantHand = true; }
 
+void ui_want_ibeam() { wantIbeam = true; }
+
 void ui_end_frame()
 {
-    SetMouseCursor(wantHand ? MOUSE_CURSOR_POINTING_HAND : MOUSE_CURSOR_DEFAULT);
+    SetMouseCursor(wantHand ? MOUSE_CURSOR_POINTING_HAND : (wantIbeam ? MOUSE_CURSOR_IBEAM : MOUSE_CURSOR_DEFAULT));
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,57 @@
+# Lab 1, Q02. Tests from the Lab 1 files.
+
+TITLE: Palindrome
+FUNCTION: isAPalindrome
+GROUP: Numbers
+DIFFICULTY: Medium
+TOPIC: control
+MINUTES: 15
+PROTOTYPE: int Reversed(int testNumber);
+TEXT: Write the helper Reversed, which reverses the digits of a number (123 gives 321).
+TEXT: Then use it in isAPalindrome: a palindrome reads the same forwards and backwards, like 121.
+HINT: n % 10 is the last digit and n / 10 drops it.
+HINT: Build the reversed number with reversed = reversed * 10 + digit.
+
+EXAMPLE:
+Reversed(1200)      // 21
+isAPalindrome(121)  // true
+isAPalindrome(10)   // false
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int Reversed(int testNumber)
+{
+    // your code here
+    return 0;
+}
+
+bool isAPalindrome(int testNumber)
+{
+    // your code here
+    return false;
+}
+END
+
+TESTS:
+    checkInt(Reversed(123),  321,  "123  -> 321");
+    checkInt(Reversed(1),    1,    "1    -> 1 (single digit)");
+    checkInt(Reversed(1234), 4321, "1234 -> 4321");
+    checkInt(Reversed(0),    0,    "0    -> 0");
+    checkInt(Reversed(100),  1,    "100  -> 1 (leading zeros disappear)");
+    checkInt(Reversed(1200), 21,   "1200 -> 21");
+    checkInt(Reversed(5005), 5005, "5005 -> 5005");
+
+
+    checkBool(isAPalindrome(1),     true,  "1     is a palindrome");
+    checkBool(isAPalindrome(0),     true,  "0     is a palindrome");
+    checkBool(isAPalindrome(11),    true,  "11    is a palindrome");
+    checkBool(isAPalindrome(121),   true,  "121   is a palindrome");
+    checkBool(isAPalindrome(1221),  true,  "1221  is a palindrome (even length)");
+    checkBool(isAPalindrome(12321), true,  "12321 is a palindrome");
+    checkBool(isAPalindrome(1213),  false, "1213  is NOT a palindrome");
+    checkBool(isAPalindrome(10),    false, "10    is NOT a palindrome");
+    checkBool(isAPalindrome(100),   false, "100   is NOT a palindrome");
+END

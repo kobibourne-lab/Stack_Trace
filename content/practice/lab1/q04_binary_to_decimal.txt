@@ -1,0 +1,45 @@
+# Lab 1, Q04. Tests from the Lab 1 files.
+
+TITLE: Binary to Decimal
+FUNCTION: convertBinarytoDecimal
+GROUP: Numbers
+DIFFICULTY: Medium
+TOPIC: control
+MINUTES: 15
+PROTOTYPE: int convertBinarytoDecimal(int binaryNumber);
+TEXT: Convert a binary number to decimal. The binary number is given as an int made of 1s and 0s, so 110 means binary 110.
+TEXT: Do it without the shift operators.
+RULE: No shift operators (<< or >>)
+FORBID: << | No shift operators: << is not allowed here.
+FORBID: >> | No shift operators: >> is not allowed here.
+HINT: Take digits off the right with % 10 and / 10.
+HINT: Each digit is worth twice the one to its right: keep a place value that doubles.
+
+EXAMPLE:
+convertBinarytoDecimal(110)    // 6
+convertBinarytoDecimal(1010)   // 10
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int convertBinarytoDecimal(int binaryNumber)
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    checkInt(convertBinarytoDecimal(110),        6,   "110        -> 6");
+    checkInt(convertBinarytoDecimal(111),        7,   "111        -> 7");
+    checkInt(convertBinarytoDecimal(0),          0,   "0          -> 0");
+    checkInt(convertBinarytoDecimal(1),          1,   "1          -> 1");
+    checkInt(convertBinarytoDecimal(10),         2,   "10         -> 2");
+    checkInt(convertBinarytoDecimal(1010),       10,  "1010       -> 10");
+    checkInt(convertBinarytoDecimal(1111),       15,  "1111       -> 15");
+    checkInt(convertBinarytoDecimal(10000),      16,  "10000      -> 16");
+    checkInt(convertBinarytoDecimal(11111111),   255, "11111111   -> 255");
+    checkInt(convertBinarytoDecimal(1000000000), 512, "1000000000 -> 512");
+END

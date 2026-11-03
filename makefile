@@ -27,7 +27,7 @@ else
 endif
 
 # The tests only use the files that don't draw, so they need no raylib and no window
-TEST_SRC = tests/test_core.cpp content.cpp quiz.cpp progress.cpp
+TEST_SRC = tests/test_core.cpp content.cpp quiz.cpp progress.cpp practice.cpp editbuf.cpp
 
 $(TARGET): $(SRC) $(wildcard *.h)
 	$(CXX) $(CXXFLAGS) $(SRC) $(LDFLAGS) -o $(TARGET)
@@ -39,10 +39,11 @@ run: $(TARGET)
 test: $(TESTS)
 	./$(TESTS)
 
-$(TESTS): $(TEST_SRC) content.h quiz.h progress.h
+$(TESTS): $(TEST_SRC) content.h quiz.h progress.h practice.h editbuf.h
 	$(CXX) $(CXXFLAGS) $(TEST_SRC) -o $(TESTS)
 
 clean:
 	rm -f $(TARGET) $(TESTS) test_progress.txt
+	rm -rf practice_build
 
 .PHONY: run test clean

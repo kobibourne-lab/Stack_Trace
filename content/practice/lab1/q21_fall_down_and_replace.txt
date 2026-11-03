@@ -1,0 +1,100 @@
+# Lab 1, Q21. Tests from the Lab 1 files.
+
+TITLE: Fall Down and Replace
+FUNCTION: FallDownAndReplace
+GROUP: Grid game
+DIFFICULTY: Hard
+TOPIC: arrays
+MINUTES: 25
+PROTOTYPE: void FallDownAndReplace(int array[4][6]);
+TEXT: Remove the -1s by letting everything above them fall down into the gap, column by column.
+TEXT: The new spaces at the top of a column are filled with -2 (these are never part of the next cluster).
+HINT: Work one column at a time, from the bottom row up.
+HINT: Keep a "write" row: copy each value that isn't -1 down to it, then fill the rest of the column with -2.
+
+EXAMPLE:
+before: {0,0,1,3,3,2}, {0,0,-1,-1,-1,-1}
+after:  {0,0,-2,-2,-2,-2} ... {0,0,1,3,3,2}
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void FallDownAndReplace(int array[4][6])
+{
+    // your code here
+}
+END
+
+TESTS:
+    // Test 1: the lecturer's grid after Q20 has replaced the bottom row
+    {
+        int grid[4][6]     = { {0,0, 3, 1, 3, 4},
+                               {0,0, 2, 3, 4, 3},
+                               {0,0, 1, 3, 3, 2},
+                               {0,0,-1,-1,-1,-1} };
+        int expected[4][6] = { {0,0,-2,-2,-2,-2},
+                               {0,0, 3, 1, 3, 4},
+                               {0,0, 2, 3, 4, 3},
+                               {0,0, 1, 3, 3, 2} };
+        FallDownAndReplace(grid);
+        checkGrid(grid, expected, "lecturer's grid: everything above the bottom row drops by one");
+    }
+
+    // Test 2: vertical -1's at the top of a column - nothing above to fall
+    {
+        int grid[4][6]     = { {-1,2,3,4,1,2},
+                               {-1,3,4,1,2,3},
+                               {-1,4,1,2,3,4},
+                               { 2,1,2,3,4,1} };
+        int expected[4][6] = { {-2,2,3,4,1,2},
+                               {-2,3,4,1,2,3},
+                               {-2,4,1,2,3,4},
+                               { 2,1,2,3,4,1} };
+        FallDownAndReplace(grid);
+        checkGrid(grid, expected, "-1's at the top of column 0 just become -2's");
+    }
+
+    // Test 3: a gap of two -1's in the middle of a column
+    {
+        int grid[4][6]     = { {1, 2,3,4,1,2},
+                               {3,-1,4,1,2,3},
+                               {2,-1,1,2,3,4},
+                               {4, 1,2,3,4,1} };
+        int expected[4][6] = { {1,-2,3,4,1,2},
+                               {3,-2,4,1,2,3},
+                               {2, 2,1,2,3,4},
+                               {4, 1,2,3,4,1} };
+        FallDownAndReplace(grid);
+        checkGrid(grid, expected, "the 2 above the gap falls two places, bottom 1 stays put");
+    }
+
+    // Test 4: horizontal -1's in the middle row
+    {
+        int grid[4][6]     = { { 1, 2, 3,4,1,2},
+                               {-1,-1,-1,1,2,3},
+                               { 2, 3, 1,2,3,4},
+                               { 4, 1, 2,3,4,1} };
+        int expected[4][6] = { {-2,-2,-2,4,1,2},
+                               { 1, 2, 3,1,2,3},
+                               { 2, 3, 1,2,3,4},
+                               { 4, 1, 2,3,4,1} };
+        FallDownAndReplace(grid);
+        checkGrid(grid, expected, "top row drops into the gap in row 1, rows below untouched");
+    }
+
+    // Test 5: no -1's at all - nothing should change (existing -2's stay)
+    {
+        int grid[4][6]     = { {0,0,-2,-2,-2,-2},
+                               {0,0, 3, 1, 3, 4},
+                               {0,0, 2, 3, 4, 3},
+                               {0,0, 1, 3, 3, 2} };
+        int expected[4][6] = { {0,0,-2,-2,-2,-2},
+                               {0,0, 3, 1, 3, 4},
+                               {0,0, 2, 3, 4, 3},
+                               {0,0, 1, 3, 3, 2} };
+        FallDownAndReplace(grid);
+        checkGrid(grid, expected, "no -1's: grid unchanged");
+    }
+END

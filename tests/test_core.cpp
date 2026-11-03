@@ -10,6 +10,10 @@
 //   5. progress: points, mastery levels, and saving then loading it back
 //   6. the real content files in content/ all load
 //   7. activity for the profile: date maths, answers per day and the streak
+//   8. the code editor's text: typing, auto-indent, backspace, paste, undo
+//   9. Exam prep problems: loading, the rule checker, reading test results,
+//      solved problems in progress.txt, every real problem file loading,
+//      and one real answer compiled and run (skipped if there's no compiler)
 //
 // Same style as the Hospital project's tests: nothing printed when a check
 // passes, a FAIL line when one doesn't, and exit code 1 if anything failed.
@@ -19,6 +23,8 @@
 #include "../content.h"
 #include "../quiz.h"
 #include "../progress.h"
+#include "../practice.h"
+#include "../editbuf.h"
 
 static int checksFailed = 0;
 static int testsRun = 0, testsFailed = 0;
@@ -302,6 +308,203 @@ static void test_activity()
     CHECK(progress_streak(p, "2026-11-05") == 0);
 }
 
+static void test_editor()
+{
+    EditBuffer b;
+    eb_set_text(b, "int f()\n{\n}\n");
+    CHECK(b.lines.size() == 3);
+    CHECK(eb_text(b) == "int f()\n{\n}\n");
+
+    // Enter after { indents, and with the } right after it, the } goes below
+    eb_set_text(b, "{}");
+    eb_move_to(b, 0, 1);
+    eb_newline(b);
+    CHECK(b.lines.size() == 3);
+    CHECK(b.lines[1] == "    ");
+    CHECK(b.lines[2] == "}");
+    CHECK(b.row == 1 && b.col == 4);
+
+    // Typing, then a new line keeps the indent
+    for (char c : std::string("x = 1;")) eb_type(b, c);
+    CHECK(b.lines[1] == "    x = 1;");
+    eb_newline(b);
+    CHECK(b.lines[2] == "    ");
+
+    // Backspace in the indent removes a whole level
+    eb_backspace(b);
+    CHECK(b.lines[2] == "");
+    // ...and at the start of a line joins it to the one above
+    eb_backspace(b);
+    CHECK(b.lines[1] == "    x = 1;");
+    CHECK(b.row == 1 && b.col == 10);
+
+    // '}' on a blank indented line moves back one level
+    eb_set_text(b, "    ");
+    eb_end(b);
+    eb_type(b, '}');
+    CHECK(b.lines[0] == "}");
+
+    // Tab goes to the next multiple of 4
+    eb_set_text(b, "ab");
+    eb_end(b);
+    eb_tab(b);
+    CHECK(b.lines[0] == "ab  ");
+
+    // Paste: several lines, tabs become spaces, Windows line endings dropped
+    eb_set_text(b, "<>");
+    eb_move_to(b, 0, 1);
+    eb_paste(b, "one\r\n\ttwo");
+    CHECK(b.lines.size() == 2);
+    CHECK(b.lines[0] == "<one");
+    CHECK(b.lines[1] == "    two>");
+    CHECK(b.row == 1 && b.col == 7);
+
+    // Undo: a word typed in one go is one step; the paste is another
+    eb_undo(b);
+    CHECK(b.lines.size() == 1 && b.lines[0] == "<>");
+    eb_set_text(b, "");
+    for (char c : std::string("abc")) eb_type(b, c);
+    eb_type(b, ' ');
+    eb_undo(b);
+    CHECK(b.lines[0] == "abc");
+    eb_undo(b);
+    CHECK(b.lines[0] == "");
+
+    // Reset code can be undone
+    eb_set_text(b, "mine");
+    eb_replace_all(b, "starter");
+    CHECK(b.lines[0] == "starter");
+    eb_undo(b);
+    CHECK(b.lines[0] == "mine");
+
+    // Moving: up/down remember the column, clicks are clamped
+    eb_set_text(b, "long line\nab\nlong line");
+    eb_move_to(b, 0, 7);
+    eb_down(b);
+    CHECK(b.col == 2);
+    eb_down(b);
+    CHECK(b.col == 7);
+    eb_move_to(b, 99, 99);
+    CHECK(b.row == 2 && b.col == 9);
+    eb_home(b);
+    CHECK(b.col == 0);
+}
+
+static void test_practice()
+{
+    Problem p;
+    std::string error;
+    std::string text =
+        "TITLE: Sum Array\n"
+        "FUNCTION: sum_array\n"
+        "DIFFICULTY: Easy\n"
+        "TEXT: Add them up.\n"
+        "FORBID: [ | no brackets\n"
+        "FORBID: if | no if\n"
+        "HINT: one\n"
+        "STARTER:\n"
+        "int sum_array(int *a, int n)\n"
+        "{\n"
+        "\treturn 0;\n"
+        "}\n"
+        "END\n"
+        "TESTS:\n"
+        "    int a[] = {1, 2};\n"
+        "    checkInt(sum_array(a, 2), 3, \"{1,2} -> 3\");\n"
+        "END\n";
+    CHECK(parse_problem(text, p, error));
+    CHECK(p.title == "Sum Array");
+    CHECK(p.starter.size() == 4);
+    CHECK(p.starter[2] == "    return 0;");     // tabs become spaces
+    CHECK(p.tests.size() == 2);
+    CHECK(p.forbids.size() == 2);
+    CHECK(forbids_token(p, "["));
+    Problem empty;
+    CHECK(!parse_problem("TITLE: no code\n", empty, error));
+
+    // Rules: comments and strings don't count, words must stand alone
+    CHECK(check_rules(p, "int f(int *a) { return *(a + 1); }").empty());
+    CHECK(check_rules(p, "// a[i] in a comment\nint x = 1; /* [ */ const char *s = \"[\";").empty());
+    CHECK(check_rules(p, "int f(int *a) { return a[1]; }").size() == 1);
+    CHECK(check_rules(p, "int gift = 1;").empty());            // "if" inside a word
+    CHECK(check_rules(p, "if (x) y = 1;").size() == 1);
+    CHECK(check_rules(p, "if (a[0]) {}").size() == 2);
+
+    // The generated program puts the student's code at line 1 of solution.cpp
+    std::string program = build_test_program(p, "int sum_array(int *a, int n) { return 0; }", 5);
+    CHECK(program.find("#line 1 \"solution.cpp\"\nint sum_array") != std::string::npos);
+    CHECK(program.find("checkInt(sum_array(a, 2), 3") != std::string::npos);
+
+    // Reading results back
+    RunResult r;
+    parse_test_output("\n@@PASS\tfirst\nhello from printf\n@@FAIL\tsecond\tA\x1f" "AA\tA\n@@SUMMARY\t1\t1\n", r);
+    CHECK(r.status == RunStatus::Failed);
+    CHECK(r.passed == 1 && r.failed == 1);
+    CHECK(r.tests.size() == 2);
+    CHECK(r.tests[1].expected == "A\nAA");             // multi-line values come back
+    CHECK(r.programOutput == "hello from printf\n");
+    parse_test_output("@@PASS\tone\n", r);
+    CHECK(r.status == RunStatus::Crashed);             // no summary: it stopped part way
+    parse_test_output("@@PASS\tone\n@@TIMEOUT\n", r);
+    CHECK(r.status == RunStatus::TimedOut);
+    parse_test_output("@@PASS\tone\n@@SUMMARY\t1\t0\n", r);
+    CHECK(r.status == RunStatus::Passed);
+    CHECK(run_accepted(r));
+    r.ruleProblems.push_back("no brackets");
+    CHECK(!run_accepted(r));                           // passing isn't enough if a rule is broken
+
+    // Solved problems: the first time counts, then only a faster time is kept
+    Progress prog;
+    CHECK(progress_mark_solved(prog, "exam2/09_sum_array", "2026-11-03", 300));
+    CHECK(!progress_mark_solved(prog, "exam2/09_sum_array", "2026-11-04", 500));
+    CHECK(prog.solved["exam2/09_sum_array"].seconds == 300);
+    progress_mark_solved(prog, "exam2/09_sum_array", "2026-11-04", 120);
+    CHECK(prog.solved["exam2/09_sum_array"].seconds == 120);
+    CHECK(prog.solved["exam2/09_sum_array"].date == "2026-11-03");
+    const char *path = "test_progress.txt";
+    CHECK(progress_save(path, prog, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    CHECK(progress_is_solved(back, "exam2/09_sum_array"));
+    CHECK(back.solved["exam2/09_sum_array"].seconds == 120);
+    std::remove(path);
+}
+
+// Every problem in content/practice loads, and one real answer compiles and passes.
+static void test_real_problems()
+{
+    std::vector<ProblemSet> sets;
+    std::string error;
+    bool ok = load_problem_sets("content/practice", sets, error);
+    if (!error.empty()) std::printf("  %s\n", error.c_str());
+    CHECK(ok);
+    CHECK(error.empty());
+    int count = 0;
+    const Problem *leap = nullptr;
+    for (const ProblemSet &s : sets)
+        for (const Problem &p : s.problems) {
+            count++;
+            CHECK(!p.prototype.empty());
+            if (p.id == "lab1/q01_leap_year") leap = &p;
+        }
+    CHECK(count == 36);
+    if (leap == nullptr) return;
+
+    if (find_compiler().empty()) {
+        std::printf("  (no C++ compiler found, so the compile-and-run check was skipped)\n");
+        return;
+    }
+    RunResult right = run_answer(*leap, "bool isLeapYear(int y) { return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0; }\n", "practice_build");
+    CHECK(run_accepted(right));
+    CHECK(right.passed == 10);
+    RunResult wrong = run_answer(*leap, "bool isLeapYear(int y) { return y % 4 == 0; }\n", "practice_build");
+    CHECK(wrong.status == RunStatus::Failed);
+    CHECK(wrong.failed == 3);                           // 1700, 1900 and 2100
+    RunResult broken = run_answer(*leap, "bool isLeapYear(int y) { return y % 4 == 0 }\n", "practice_build");
+    CHECK(broken.status == RunStatus::CompileError);
+    CHECK(broken.compilerOutput.find("solution.cpp:1") != std::string::npos);   // the student's own line number
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -311,6 +514,9 @@ int main()
     run("progress: points, levels, save and load", test_progress);
     run("the real content files load", test_real_content);
     run("activity: dates, answers per day and streaks", test_activity);
+    run("code editor: typing, indent, paste, undo", test_editor);
+    run("exam prep: loading, rules, results, solved", test_practice);
+    run("exam prep: real problems, and one compiled and run", test_real_problems);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

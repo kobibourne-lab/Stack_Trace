@@ -1,0 +1,84 @@
+# Lab 1, Q21b. Tests from the Lab 1 files.
+
+TITLE: Find All Variables
+FUNCTION: FindAllVariables
+GROUP: Scanning code
+DIFFICULTY: Hard
+TOPIC: strings
+MINUTES: 25
+PROTOTYPE: void FindAllVariables(char variables[], char code[]);
+TEXT: Scan the C code in code and fill variables with a comma-separated list of every variable declared as int or char, with no spaces ("a,b,c").
+TEXT: There is one declaration per line, and int main() is a function, not a variable. "int" inside a longer word (like printf) doesn't count.
+HINT: Go line by line: skip leading spaces, then check the line starts with "int " or "char ".
+HINT: The name runs until a space, =, ; or ( . A ( means it was a function.
+
+EXAMPLE:
+code: "int var1=10;\nchar c='x';\nint total;\n"
+variables becomes "var1,c,total"
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void FindAllVariables(char variables[], char code[])
+{
+    // your code here
+}
+END
+
+TESTS:
+    {
+        char code[1000] = "int var1=10;";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "var1", "one int declaration");
+    }
+    {
+        char code[1000] = "int var1=10;\n"
+                          "char c='x';\n"
+                          "int total;\n";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "var1,c,total", "int, char, and int with no initial value");
+    }
+    {
+        char code[1000] = "int main()\n"
+                          "{\n"
+                          "    int a = 1;\n"
+                          "    char name;\n"
+                          "    a = a + 1;\n"
+                          "    return 0;\n"
+                          "}\n";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "a,name", "inside main, indented, with spaces around '=' (main not included)");
+    }
+    {
+        char code[1000] = "int count = 0;\n"
+                          "int counter = count + 1;\n";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "count,counter", "similar names: count and counter");
+    }
+    {
+        char code[1000] = "printf(\"hi\");\n"
+                          "int x;\n";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "x", "\"int\" hidden inside \"printf\" is not a declaration");
+    }
+    {
+        char code[1000] = "x = 5;\n"
+                          "y = 6;\n";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "", "no declarations -> empty string");
+    }
+    {
+        char code[1000] = "";
+        char variables[1000] = "";
+        FindAllVariables(variables, code);
+        checkString(variables, "", "empty code -> empty string");
+    }
+END

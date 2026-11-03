@@ -1,0 +1,42 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Find Max
+FUNCTION: find_max
+GROUP: Arrays
+DIFFICULTY: Easy
+TOPIC: arith
+MINUTES: 10
+PROTOTYPE: int find_max(int *arr, int size);
+TEXT: Find the maximum value in an integer array using pointers.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: Start with max = *arr, then look at *(arr + i) for the rest.
+HINT: Or move a pointer: for (int *p = arr; p < arr + size; p++).
+
+EXAMPLE:
+int arr[5] = {3, 9, 2, 8, 5};
+int max = find_max(arr, 5);   // max = 9
+END
+
+STARTER:
+#include <stdio.h>
+
+int find_max(int *arr, int size)
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    int a[] = {3, 9, 2, 8, 5};
+    checkInt(find_max(a, 5), 9, "{3,9,2,8,5} -> 9");
+    int b[] = {1, 2, 3};
+    checkInt(find_max(b, 3), 3, "{1,2,3} -> 3 (the last one)");
+    int c[] = {7, 1, 2};
+    checkInt(find_max(c, 3), 7, "{7,1,2} -> 7 (the first one)");
+    int d[] = {-5, -2, -9};
+    checkInt(find_max(d, 3), -2, "{-5,-2,-9} -> -2 (all negative, so don't start at 0)");
+    int e[] = {42};
+    checkInt(find_max(e, 1), 42, "{42} -> 42");
+END

@@ -12,7 +12,11 @@
 //   screen_map.cpp      the topic map
 //   screen_lesson.cpp   a lesson: tutorial text, code, and the memory view step by step
 //   screen_quiz.cpp     a quiz, then its results
-//   screen_exam.cpp     Exam prep: the Coding Exam 2 lab problems, NeetCode style
+//   practice.cpp/.h     Exam prep problems: loading, rule checks, compiling and testing answers (no drawing)
+//   editbuf.cpp/.h      the code editor's text and edits                   (no drawing)
+//   editor.cpp/.h       the code editor: drawing, colours, keys
+//   screen_exam.cpp     Exam prep: the problem list, NeetCode style
+//   screen_problem.cpp  one problem, LeetCode style: description, editor, test results
 //   screen_profile.cpp  the profile: stats, badges, pinned topics, activity heatmap
 //
 // The files marked "no drawing" never call raylib, so tests/test_core.cpp can
@@ -22,6 +26,8 @@
 #include "theme.h"
 #include "ui.h"
 #include "app.h"
+#include <fstream>
+#include <sstream>
 
 // ---------------------------------------------------------------------------
 // Moving between screens
@@ -67,6 +73,51 @@ void open_quiz(App &app)
     app.screen = Screen::Quiz;
 }
 
+void open_exam_prep(App &app)
+{
+    app.screen = Screen::ExamPrep;
+}
+
+void open_problem(App &app, int set, int problem, bool examMode)
+{
+    if (set < 0 || set >= (int)app.practice.size()) return;
+    if (problem < 0 || problem >= (int)app.practice[set].problems.size()) return;
+    const Problem &p = app.practice[set].problems[problem];
+
+    Workspace &w = app.work;
+    w = Workspace();
+    w.set = set;
+    w.problem = problem;
+    w.examMode = examMode;
+
+    // Start from the saved draft if there is one (exam mode always starts fresh)
+    std::string text;
+    for (const std::string &line : p.starter) text += line + "\n";
+    if (!examMode) {
+        w.draftPath = draft_path("saves", p);
+        std::ifstream f(w.draftPath);
+        if (f) {
+            std::stringstream ss;
+            ss << f.rdbuf();
+            if (!ss.str().empty()) text = ss.str();
+        }
+    }
+    eb_set_text(w.code, text);
+
+    // Put the cursor at the end of the "// your code here" line, ready to type
+    for (int i = 0; i < (int)w.code.lines.size(); i++) {
+        if (w.code.lines[i].find("// your code here") != std::string::npos) {
+            eb_move_to(w.code, i, (int)w.code.lines[i].size());
+            break;
+        }
+    }
+
+    w.started = GetTime();
+    w.endsAt = w.started + p.examMinutes * 60.0;
+    app.examMessage.clear();
+    app.screen = Screen::Problem;
+}
+
 void record_answer(App &app, const std::string &topic, bool correct)
 {
     progress_record(app.progress, topic, correct, today_string());
@@ -101,6 +152,8 @@ int main()
         CloseWindow();
         return 1;
     }
+    if (!load_problem_sets("content/practice", app.practice, app.practiceError))
+        TraceLog(LOG_WARNING, "PRACTICE: %s", app.practiceError.c_str());
     if (!progress_load(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
 
@@ -114,6 +167,7 @@ int main()
             case Screen::Lesson:   screen_lesson(app); break;
             case Screen::Quiz:     screen_quiz(app); break;
             case Screen::ExamPrep: screen_exam(app); break;
+            case Screen::Problem:  screen_problem(app); break;
             case Screen::Profile:  screen_profile(app); break;
         }
 
@@ -121,6 +175,7 @@ int main()
         EndDrawing();
     }
 
+    if (app.screen == Screen::Problem) save_draft(app);
     ui_unload_fonts();
     CloseWindow();
     return 0;

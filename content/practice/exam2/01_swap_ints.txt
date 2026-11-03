@@ -1,0 +1,45 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Swap Ints
+FUNCTION: swap_ints
+GROUP: Swapping
+DIFFICULTY: Easy
+TOPIC: passbyptr
+MINUTES: 10
+PROTOTYPE: void swap_ints(int *a, int *b);
+TEXT: Swap the values of two integers using pointers.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: *a is the caller's first int. Save it in a temp before overwriting it.
+
+EXAMPLE:
+int x = 5, y = 10;
+swap_ints(&x, &y);   // Now x = 10, y = 5
+END
+
+STARTER:
+#include <stdio.h>
+
+void swap_ints(int *a, int *b)
+{
+    // your code here
+}
+END
+
+TESTS:
+    int x = 5, y = 10;
+    swap_ints(&x, &y);
+    checkInt(x, 10, "x = 5, y = 10: x becomes 10");
+    checkInt(y, 5, "x = 5, y = 10: y becomes 5");
+    int a = -3, b = 7;
+    swap_ints(&a, &b);
+    checkInt(a, 7, "negative values: a becomes 7");
+    checkInt(b, -3, "negative values: b becomes -3");
+    int s = 4, t = 4;
+    swap_ints(&s, &t);
+    checkInt(s + t, 8, "two equal values stay the same");
+    int p = 1, q = 2;
+    swap_ints(&p, &q);
+    swap_ints(&p, &q);
+    checkInt(p * 10 + q, 12, "swapping twice puts them back");
+END

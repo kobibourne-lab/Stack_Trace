@@ -1,0 +1,35 @@
+# Lab 1, Q06. Tests from the Lab 1 files.
+
+TITLE: Right-Angled Triangle
+FUNCTION: drawRightAngledTriangle
+GROUP: Patterns
+DIFFICULTY: Easy
+TOPIC: control
+MINUTES: 10
+PROTOTYPE: void drawRightAngledTriangle();
+TEXT: Print a right-angled triangle of As, four rows tall, using two nested for loops.
+TEXT: No extra spaces or blank lines.
+RULE: Exactly 2 nested for loops
+HINT: The outer loop picks the row; the inner loop prints that many As.
+HINT: Print a newline after the inner loop, not inside it. Start the rows at 1, not 0, or the first line comes out empty.
+
+EXAMPLE:
+A
+AA
+AAA
+AAAA
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+void drawRightAngledTriangle()
+{
+    // your code here
+}
+END
+
+TESTS:
+    checkOutput([] { drawRightAngledTriangle(); }, "A\nAA\nAAA\nAAAA\n", "prints the 4-row triangle, line for line");
+END

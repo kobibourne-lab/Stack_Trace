@@ -1,0 +1,41 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Count Vowels
+FUNCTION: count_vowels
+GROUP: Strings
+DIFFICULTY: Medium
+TOPIC: arith
+MINUTES: 15
+PROTOTYPE: int count_vowels(char *str);
+TEXT: Count the vowels (a, e, i, o, u, in upper or lower case) in a string using pointers.
+TEXT: Careful: the lab sheet says "OpenAI" has 3 vowels, but I is a vowel too, so the answer is 4.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: Walk the string with a pointer until '\0'.
+HINT: tolower(*p) lets you check each vowel once.
+
+EXAMPLE:
+char str[] = "OpenAI";
+int vowels = count_vowels(str);   // vowels = 4 ('O', 'e', 'A', 'I')
+END
+
+STARTER:
+#include <stdio.h>
+
+int count_vowels(char *str)
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    char a[] = "OpenAI";
+    checkInt(count_vowels(a), 4, "\"OpenAI\" -> 4 (O, e, A and I)");
+    char b[] = "rhythm";
+    checkInt(count_vowels(b), 0, "\"rhythm\" -> 0");
+    char c[] = "AEIOUaeiou";
+    checkInt(count_vowels(c), 10, "\"AEIOUaeiou\" -> 10 (both cases)");
+    char d[] = "";
+    checkInt(count_vowels(d), 0, "\"\" -> 0");
+END

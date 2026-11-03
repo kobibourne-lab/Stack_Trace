@@ -1,0 +1,40 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: String Length
+FUNCTION: strlen_ptr
+GROUP: Strings
+DIFFICULTY: Easy
+TOPIC: arith
+MINUTES: 10
+PROTOTYPE: int strlen_ptr(char *str);
+TEXT: Calculate the length of a string (a null-terminated character array) using pointers. Don't call strlen.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: Move a pointer along until *p == '\0'.
+HINT: The length is how far it moved: p - str.
+
+EXAMPLE:
+char str[] = "Hello";
+int length = strlen_ptr(str);   // length = 5
+END
+
+STARTER:
+#include <stdio.h>
+
+int strlen_ptr(char *str)
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    char a[] = "Hello";
+    checkInt(strlen_ptr(a), 5, "\"Hello\" -> 5");
+    char b[] = "Hello, world!";
+    checkInt(strlen_ptr(b), 13, "\"Hello, world!\" -> 13");
+    char c[] = "";
+    checkInt(strlen_ptr(c), 0, "\"\" -> 0 (empty)");
+    char d[] = "a";
+    checkInt(strlen_ptr(d), 1, "\"a\" -> 1");
+END

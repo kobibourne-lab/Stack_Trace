@@ -20,9 +20,16 @@ struct AnswerRecord {
     bool correct = false;
 };
 
+// An Exam prep problem that has been solved.
+struct SolvedRecord {
+    std::string date;    // when it was first solved
+    int seconds = 0;     // the fastest time it was solved in
+};
+
 struct Progress {
     std::map<std::string, int> points;  // topic id -> 0..100
     std::vector<AnswerRecord> answers;
+    std::map<std::string, SolvedRecord> solved;   // problem id ("lab1/q01_leap_year") -> record
 };
 
 // A missing file just means a new student: returns true with empty progress.
@@ -32,6 +39,11 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
 
 // Record one answer: adds it to the log and changes the topic's points.
 void progress_record(Progress &p, const std::string &topic, bool correct, const std::string &date);
+
+// Marks an Exam prep problem solved, keeping the fastest time.
+// Returns true if it's the first time it has been solved.
+bool progress_mark_solved(Progress &p, const std::string &problemId, const std::string &date, int seconds);
+bool progress_is_solved(const Progress &p, const std::string &problemId);
 
 int topic_points(const Progress &p, const std::string &topic);
 Mastery topic_mastery(const Progress &p, const std::string &topic);

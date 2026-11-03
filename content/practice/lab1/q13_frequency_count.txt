@@ -1,0 +1,41 @@
+# Lab 1, Q13. Tests from the Lab 1 files.
+
+TITLE: Frequency Count
+FUNCTION: frequencyCount
+GROUP: Arrays
+DIFFICULTY: Easy
+TOPIC: arrays
+MINUTES: 10
+PROTOTYPE: int frequencyCount(int size, int arr[], int value);
+TEXT: Return how many times value appears in the array.
+HINT: A counter that goes up each time arr[i] == value.
+
+EXAMPLE:
+int arr[] = {1, 2, 2, 3, 2, 4};
+frequencyCount(6, arr, 2)   // 3
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+int frequencyCount(int size, int arr[], int value)
+{
+    // your code here
+    return 0;
+}
+END
+
+TESTS:
+    int arr[] = {1, 2, 2, 3, 2, 4};
+    checkInt(frequencyCount(6, arr, 2), 3, "2 appears 3 times in {1,2,2,3,2,4}");
+    checkInt(frequencyCount(6, arr, 1), 1, "1 appears once (first element)");
+    checkInt(frequencyCount(6, arr, 4), 1, "4 appears once (last element)");
+    checkInt(frequencyCount(6, arr, 5), 0, "5 appears 0 times");
+
+    int same[] = {7, 7, 7, 7};
+    checkInt(frequencyCount(4, same, 7), 4, "7 appears 4 times in {7,7,7,7}");
+
+    int empty[1] = {0};
+    checkInt(frequencyCount(0, empty, 0), 0, "empty array -> 0");
+END

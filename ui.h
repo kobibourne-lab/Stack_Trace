@@ -22,6 +22,8 @@ void ui_end_frame();
 
 // For clickable things that aren't ui_buttons (e.g. topic circles): show the hand cursor.
 void ui_want_hand();
+// Over editable text: show the text cursor (I-beam).
+void ui_want_ibeam();
 
 // Text centred on cx, wrapped to width, at most maxLines lines.
 void ui_text_centered_wrapped(const std::string &text, float cx, float y, float width, float size,

@@ -1,0 +1,37 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Swap Chars
+FUNCTION: swap_chars
+GROUP: Swapping
+DIFFICULTY: Easy
+TOPIC: passbyptr
+MINUTES: 10
+PROTOTYPE: void swap_chars(char *a, char *b);
+TEXT: Swap the values of two characters using pointers.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: The same idea as swap_ints, with a char temp.
+
+EXAMPLE:
+char a = 'A', b = 'B';
+swap_chars(&a, &b);   // Now a = 'B', b = 'A'
+END
+
+STARTER:
+#include <stdio.h>
+
+void swap_chars(char *a, char *b)
+{
+    // your code here
+}
+END
+
+TESTS:
+    char a = 'A', b = 'B';
+    swap_chars(&a, &b);
+    checkInt(a, 'B', "a becomes 'B' (66)");
+    checkInt(b, 'A', "b becomes 'A' (65)");
+    char c = 'x', d = 'x';
+    swap_chars(&c, &d);
+    checkInt(c, 'x', "two equal chars stay the same");
+END

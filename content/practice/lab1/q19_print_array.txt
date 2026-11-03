@@ -1,0 +1,36 @@
+# Lab 1, Q19. Tests from the Lab 1 files.
+
+TITLE: Print Array
+FUNCTION: PrintArray
+GROUP: Grid game
+DIFFICULTY: Easy
+TOPIC: arrays
+MINUTES: 10
+PROTOTYPE: void PrintArray(int array[4][6]);
+TEXT: Print the 4 x 6 grid in rows and columns.
+TEXT: The spacing is up to you, but the columns must line up, including when -1 and -2 appear. This is the start of the grid game in the next two questions.
+HINT: Two nested loops: rows, then columns.
+HINT: A field width keeps columns lined up: printf("%3d", value).
+
+EXAMPLE:
+  0  0  3  1  3  4
+  0  0  2  3  4  3
+  0  0  1  3  3  2
+  0  0  1  1  1  1
+END
+
+STARTER:
+#include <stdio.h>
+
+void PrintArray(int array[4][6])
+{
+    // your code here
+}
+END
+
+TESTS:
+    int grid1[4][6] = { {0,0,3,1,3,4}, {0,0,2,3,4,3}, {0,0,1,3,3,2}, {0,0,1,1,1,1} };
+    checkOutputColumns([&] { PrintArray(grid1); }, "0 0 3 1 3 4\n0 0 2 3 4 3\n0 0 1 3 3 2\n0 0 1 1 1 1", "the lecturer's grid, 4 rows of 6, columns lined up");
+    int grid2[4][6] = { {0,0,-2,-2,-2,-2}, {0,0,3,1,3,4}, {0,0,2,3,4,3}, {0,0,-1,-1,-1,-1} };
+    checkOutputColumns([&] { PrintArray(grid2); }, "0 0 -2 -2 -2 -2\n0 0 3 1 3 4\n0 0 2 3 4 3\n0 0 -1 -1 -1 -1", "a grid with -1 and -2, columns still lined up");
+END

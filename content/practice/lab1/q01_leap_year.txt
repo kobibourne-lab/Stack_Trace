@@ -1,0 +1,43 @@
+# Lab 1, Q01. Tests from the Lab 1 files.
+
+TITLE: Leap Year
+FUNCTION: isLeapYear
+GROUP: Numbers
+DIFFICULTY: Easy
+TOPIC: control
+MINUTES: 10
+PROTOTYPE: bool isLeapYear(int year);
+TEXT: Return true if year is a leap year.
+TEXT: A leap year is divisible by 4, but not by 100, unless it is also divisible by 400.
+HINT: % gives the remainder: year % 4 == 0 means divisible by 4.
+HINT: Check the most specific rule (400) first.
+
+EXAMPLE:
+isLeapYear(2024)   // true
+isLeapYear(1900)   // false: divisible by 100
+isLeapYear(2000)   // true: divisible by 400
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdbool.h>
+
+bool isLeapYear(int year)
+{
+    // your code here
+    return false;
+}
+END
+
+TESTS:
+    checkBool(isLeapYear(2016), true,  "2016 -> divisible by 4");
+    checkBool(isLeapYear(2024), true,  "2024 -> divisible by 4");
+    checkBool(isLeapYear(2023), false, "2023 -> not divisible by 4");
+    checkBool(isLeapYear(1),    false, "1    -> not divisible by 4");
+    checkBool(isLeapYear(4),    true,  "4    -> divisible by 4");
+    checkBool(isLeapYear(1700), false, "1700 -> divisible by 100 but not 400");
+    checkBool(isLeapYear(1900), false, "1900 -> divisible by 100 but not 400");
+    checkBool(isLeapYear(2100), false, "2100 -> divisible by 100 but not 400");
+    checkBool(isLeapYear(1600), true,  "1600 -> divisible by 400");
+    checkBool(isLeapYear(2000), true,  "2000 -> divisible by 400");
+END

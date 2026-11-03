@@ -1,0 +1,41 @@
+# Coding Exam 2 Preparation lab. Prototypes and examples from the lab sheet.
+
+TITLE: Concatenate Strings
+FUNCTION: concat_strings
+GROUP: Strings
+DIFFICULTY: Medium
+TOPIC: arith
+MINUTES: 15
+PROTOTYPE: void concat_strings(char *dest, char *src);
+TEXT: Concatenate two strings using pointers: add src onto the end of dest. You can assume the destination has enough space.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i] or [ ] at all: this lab is pointer arithmetic only (use *(p + i) or move the pointer).
+HINT: First move a pointer to the '\0' at the end of dest.
+HINT: Then copy src from there, including its '\0'.
+
+EXAMPLE:
+char dest[20] = "Hello, ";
+char src[] = "World!";
+concat_strings(dest, src);   // dest = "Hello, World!"
+END
+
+STARTER:
+#include <stdio.h>
+
+void concat_strings(char *dest, char *src)
+{
+    // your code here
+}
+END
+
+TESTS:
+    char dest[20] = "Hello, ";  char src[] = "World!";
+    concat_strings(dest, src);
+    checkString(dest, "Hello, World!", "\"Hello, \" + \"World!\"");
+    char d2[10] = "";  char s2[] = "abc";
+    concat_strings(d2, s2);
+    checkString(d2, "abc", "onto an empty string");
+    char d3[10] = "abc";  char s3[] = "";
+    concat_strings(d3, s3);
+    checkString(d3, "abc", "adding an empty string changes nothing");
+END

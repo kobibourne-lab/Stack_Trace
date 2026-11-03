@@ -50,8 +50,11 @@ tasks (build, run the tests, clean) are under Terminal > Run Task.
 | Lesson | RIGHT or SPACE next line, LEFT back a line, Q quiz, ESC topic map |
 | Quiz | 1 to 4 pick an option (or click; click a line for "spot the bug"), ENTER next, ESC topic map |
 | Results | R try again, ENTER topic map |
+| Exam prep | UP / DOWN choose a problem, LEFT / RIGHT change set, ENTER solve, X exam mode, ESC topic map |
+| A problem | type in the editor, Ctrl+Enter (Cmd+Enter on Mac) or F5 run, Ctrl/Cmd+Shift+Enter or F6 submit, Ctrl/Cmd+V paste, Ctrl/Cmd+Z undo, ESC back to the list |
 
 Your progress is saved in `progress.txt` after every answer. Delete it to start again.
+Your Exam prep code is saved as you type, in `saves/`.
 
 ## How it works
 
@@ -62,8 +65,20 @@ Your progress is saved in `progress.txt` after every answer. Delete it to start 
   block that nothing points at is marked as leaked automatically.
 - **Mastery** works like Khan Academy: a right answer is +10 points on that
   topic, a wrong one -5, up to 100. 50 is Familiar, 80 Proficient, 100 Mastered.
-- **The code that doesn't draw** (`content.cpp`, `quiz.cpp`, `progress.cpp`)
-  never calls raylib. That keeps it testable without a window, the same split
+- **Exam prep works like LeetCode.** Each problem has a description, a code
+  editor with starter code, and tests. **Run** builds one test program from
+  some helpers, your code and the problem's tests, compiles it with the
+  computer's own C++ compiler (the same one that builds the app), runs it and
+  shows each test: passed, or expected vs what your code gave. **Submit** does
+  the same and, if every test passes and no rule is broken, marks the problem
+  solved with your time. Compile errors show your own line numbers, an endless
+  loop stops after 5 seconds ("Time limit exceeded"), and a crash shows as a
+  runtime error. Rules like "no `[]`" are checked by reading your code (comments
+  and strings don't count). **Exam mode** adds a countdown, hides the hints and
+  submits by itself when time runs out. Solving a problem for the first time
+  also counts towards its topic's mastery on the map.
+- **The code that doesn't draw** (`content.cpp`, `quiz.cpp`, `progress.cpp`,
+  `practice.cpp`, `editbuf.cpp`) never calls raylib. That keeps it testable without a window, the same split
   as `sim.c` in the Hospital project.
 
 ## Writing content
@@ -139,6 +154,57 @@ ANSWER: 7
   Otherwise `ANSWER` is the option number. Both count from 1.
 - A question with a missing or out-of-range answer is skipped, and `make test` says so.
 
+### An Exam prep problem: `content/practice/`
+
+`content/practice/problems.txt` lists the sets (the tabs on the Exam prep
+screen) and their problem files, in order:
+
+```
+SET: exam2 | Coding Exam 2 lab | Exam 2
+exam2/01_swap_ints.txt
+```
+
+A problem file:
+
+```
+TITLE: Sum Array
+FUNCTION: sum_array
+GROUP: Arrays
+DIFFICULTY: Easy
+TOPIC: arith
+MINUTES: 10
+PROTOTYPE: int sum_array(int *arr, int size);
+TEXT: Compute the sum of all elements in an integer array using pointers.
+RULE: No array indexing (arr[i]): pointer arithmetic only
+FORBID: [ | No arr[i]: this lab is pointer arithmetic only.
+HINT: Add *(arr + i), or move a pointer from arr to arr + size.
+EXAMPLE:
+int arr[4] = {1, 2, 3, 4};
+END
+STARTER:
+int sum_array(int *arr, int size)
+{
+    // your code here
+    return 0;
+}
+END
+TESTS:
+    int a[] = {1, 2, 3, 4};
+    checkInt(sum_array(a, 4), 10, "{1,2,3,4} -> 10");
+END
+```
+
+- `GROUP` is the heading the problem sits under; `TOPIC` is the topic id on the
+  map that solving it counts towards; `MINUTES` is exam mode's time limit.
+- `RULE` lines are shown to the student. `FORBID: token | message` is checked:
+  a word (`if`) must stand alone, a symbol (`[`, `?`, `<<`) can be anywhere.
+- `TESTS` is the body of a function that calls the check helpers:
+  `checkInt`, `checkBool`, `checkString`, `checkText`, `checkArray(n, got, expected, ...)`,
+  `checkGrid` (4 x 6 grids), and for code that prints, `checkOutput(lambda, expected, ...)`
+  (exact) and `checkOutputColumns(lambda, expected, ...)` (same numbers, columns lined up).
+- The Lab 1 problems' tests come from the Lab 1 question files. The Exam 2
+  problems use the lab sheet's prototypes and examples, with new tests.
+
 ## Tests
 
 `make test` runs `tests/test_core.cpp`, with no window:
@@ -150,6 +216,10 @@ ANSWER: 7
 5. progress: points, mastery levels, saving and loading it back
 6. every real file in `content/` loads
 7. activity for the profile: date maths, answers per day and the streak
+8. the code editor's text: typing, auto-indent, backspace, paste and undo
+9. Exam prep: loading problems, the rule checker, reading test results, solved
+   problems in `progress.txt`, every problem file loading, and one real answer
+   compiled and run (right, wrong and not compiling)
 
 ## Files
 
@@ -166,22 +236,25 @@ ANSWER: 7
 | `screen_map.cpp` | the topic map |
 | `screen_lesson.cpp` | a lesson in three panes: learn, code, memory |
 | `screen_quiz.cpp` | a quiz and its results |
-| `screen_exam.cpp` | Exam prep: the Coding Exam 2 lab problems, NeetCode style |
+| `practice.cpp/.h` | Exam prep problems: loading, rule checks, compiling and testing answers (no drawing) |
+| `editbuf.cpp/.h` | the code editor's text and edits (no drawing) |
+| `editor.cpp/.h` | the code editor: drawing with C/C++ colours, keys and clicks |
+| `screen_exam.cpp` | Exam prep: the problem sets and list, NeetCode style |
+| `screen_problem.cpp` | one problem, LeetCode style: description, editor, test results |
 | `screen_profile.cpp` | the profile: stats, badges, pinned topics, activity heatmap |
-| `content/` | topics, lessons and quizzes |
+| `content/` | topics, lessons, quizzes, and Exam prep problems in `content/practice/` |
 | `fonts/` | IBM Plex Sans and JetBrains Mono, both under the SIL Open Font License (licences included) |
 | `tests/test_core.cpp` | the automatic tests |
 
 ## Still to build
 
-- **Exam prep**: the screen and the 13 problems are in (the 10 lab functions
-  and the 3 doubly linked list inserts). Still to do: solving a problem, the
-  "no []" check, exam mode with a timer, saving which problems are solved, and
-  moving the problem list into a content file. Check the prototypes against the
-  lab sheet.
+- **Exam prep**: 36 problems (the 13 from the Coding Exam 2 Preparation lab and
+  23 from Lab 1) can be solved, run, submitted and timed. Still to do: problems
+  for Exam 1 once it's confirmed, and a model answer to show after solving.
 - **Profile**: stats, pinned topics, the heatmap and recent activity already
   read `progress.txt`. Still to do: choosing a name (it uses the computer's user
-  name for now), Edit profile, and the unlock rules for most badges.
+  name for now), Edit profile, and the unlock rules for most badges ("No []
+  allowed" unlocks when every "no []" Exam prep problem is solved).
 - **More content**: lessons and quizzes for the other topics.
 - **Linked lists in the memory view.** Arrows from one heap block to another
   already work, but a block holds one value, and a node needs two (`data` and
