@@ -1,0 +1,58 @@
+# Pointers & addresses quiz.
+#
+#   QUESTION: <the tag shown above it, e.g. Predict the output>
+#   KIND: choice (default) or line (click the right line of code)
+#   PROMPT: <the question>
+#   CODE: ... END (optional for choice questions, needed for line questions)
+#   OPTION: <one per line, choice questions only>
+#   ANSWER: <option number, or line number for line questions; 1 = first>
+#   EXPLAIN: <shown after answering>
+
+TITLE: Pointers & addresses
+TOPIC: pointers
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int i = 5, j = 10;
+int *ptr = &i;
+*ptr = 3;
+ptr = &j;
+printf("%d %d\n", i, *ptr);
+END
+OPTION: 5 10
+OPTION: 3 10
+OPTION: 3 3
+OPTION: 5 3
+ANSWER: 2
+EXPLAIN: *ptr = 3 changes i to 3. Then ptr moves to j, so *ptr is 10.
+
+QUESTION: Trace the pointer
+PROMPT: After these lines, what value does ptr hold?
+CODE:
+int i = 5;   // i is at address 1000
+int j = 10;  // j is at address 1004
+int *ptr = &j;
+END
+OPTION: 10
+OPTION: 1004
+OPTION: 1000
+OPTION: 5
+ANSWER: 2
+EXPLAIN: ptr holds the address of j, which is 1004. *ptr would be 10.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that uses a dangling pointer.
+CODE:
+int main() {
+    int *p;
+    if (true) {
+        int x = 5;
+        p = &x;
+    }
+    cout << *p << endl;
+}
+END
+ANSWER: 7
+EXPLAIN: x only exists inside the if block and goes out of scope at the brace on line 6. Line 7 then reads *p, memory that no longer belongs to x.

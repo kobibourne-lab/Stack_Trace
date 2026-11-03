@@ -1,0 +1,15 @@
+# Built programs
+stacktrace
+stacktrace.exe
+run_tests
+run_tests.exe
+
+# Each person's own progress (made when you answer quiz questions)
+progress.txt
+test_progress.txt
+
+# Screenshots raylib takes with F12
+screenshot*.png
+
+# Mac
+.DS_Store

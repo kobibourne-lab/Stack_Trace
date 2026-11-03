@@ -1,0 +1,61 @@
+# Pass by pointer - swap_ints from the Coding Exam 2 Preparation lab.
+# Two stack frames: main and swap_ints. Arrows go from swap_ints into main.
+
+TITLE: swap_ints: changing the caller's variables
+TOPIC: passbyptr
+TEXT: C copies every argument into the function. To let a function change your variables, pass their addresses.
+TEXT: Inside the function, * follows each address back into main's frame.
+
+CODE:
+void swap_ints(int *a, int *b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+int main() {
+    int x = 5, y = 10;
+    swap_ints(&x, &y);
+}
+END
+
+STEP: 8
+EXPLAIN: main makes x and y.
+MEM: main | x | int | 2000 | 5 | changed
+MEM: main | y | int | 2004 | 10 | changed
+
+STEP: 1
+EXPLAIN: Calling swap_ints makes a new frame. a and b are copies of the addresses &x and &y.
+MEM: main | x | int | 2000 | 5
+MEM: main | y | int | 2004 | 10
+MEM: swap_ints | a | int* | 1980 | ->x | changed
+MEM: swap_ints | b | int* | 1988 | ->y | changed
+
+STEP: 2
+EXPLAIN: *a follows the arrow to x and copies 5 into temp.
+MEM: main | x | int | 2000 | 5
+MEM: main | y | int | 2004 | 10
+MEM: swap_ints | a | int* | 1980 | ->x
+MEM: swap_ints | b | int* | 1988 | ->y
+MEM: swap_ints | temp | int | 1996 | 5 | changed
+
+STEP: 3
+EXPLAIN: *a = *b copies y's value into x. This is a change to main's x, not to a copy.
+MEM: main | x | int | 2000 | 10 | changed
+MEM: main | y | int | 2004 | 10
+MEM: swap_ints | a | int* | 1980 | ->x
+MEM: swap_ints | b | int* | 1988 | ->y
+MEM: swap_ints | temp | int | 1996 | 5
+
+STEP: 4
+EXPLAIN: *b = temp puts the old x into y. The swap is done.
+MEM: main | x | int | 2000 | 10
+MEM: main | y | int | 2004 | 5 | changed
+MEM: swap_ints | a | int* | 1980 | ->x
+MEM: swap_ints | b | int* | 1988 | ->y
+MEM: swap_ints | temp | int | 1996 | 5
+
+STEP: 9
+EXPLAIN: swap_ints returns and its frame is gone. x and y stay swapped: x = 10, y = 5.
+MEM: main | x | int | 2000 | 10
+MEM: main | y | int | 2004 | 5

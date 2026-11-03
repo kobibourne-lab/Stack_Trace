@@ -1,0 +1,53 @@
+# Dynamic memory - the getPtrToFive leak from Noel's Memory Management slides.
+# Blocks made with new go in the "heap" area. A block nothing points at any
+# more has leaked.
+
+TITLE: new, delete and the leak in a loop
+TOPIC: dynmem
+TEXT: new makes memory on the heap that stays until you delete it, even after the function that made it returns.
+TEXT: Watch what happens to each block when p is pointed somewhere else.
+
+CODE:
+int *getPtrToFive() {
+    int *x = new int;
+    *x = 5;
+    return x;
+}
+
+int main() {
+    int *p;
+    for (int i = 0; i < 3; ++i) {
+        p = getPtrToFive();
+        cout << *p << endl;
+    }
+}
+END
+
+STEP: 8
+EXPLAIN: p is declared on main's stack. It doesn't point anywhere yet.
+MEM: main | p | int* | 3000 | ? | changed
+
+STEP: 10
+EXPLAIN: First time round: getPtrToFive makes an int on the heap holding 5 and returns its address. p points at it.
+MEM: main | p | int* | 3000 | ->block1 | changed
+MEM: heap | block1 | int | 9000 | 5 | changed
+
+STEP: 10
+EXPLAIN: Second time round: a new block, and p moves to it. Nothing points at block1 any more, so it can never be deleted. That's a memory leak.
+MEM: main | p | int* | 3000 | ->block2 | changed
+MEM: heap | block1 | int | 9000 | 5
+MEM: heap | block2 | int | 9016 | 5 | changed
+
+STEP: 10
+EXPLAIN: Third time round: another block, another leak. Two blocks are lost.
+MEM: main | p | int* | 3000 | ->block3 | changed
+MEM: heap | block1 | int | 9000 | 5
+MEM: heap | block2 | int | 9016 | 5
+MEM: heap | block3 | int | 9032 | 5 | changed
+
+STEP: 13
+EXPLAIN: Adding delete p; after the loop only frees block3. The fix is delete p; inside the loop, after the cout.
+MEM: main | p | int* | 3000 | ->block3
+MEM: heap | block1 | int | 9000 | 5
+MEM: heap | block2 | int | 9016 | 5
+MEM: heap | block3 | int | 9032 | 5

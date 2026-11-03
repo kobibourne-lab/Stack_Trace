@@ -1,0 +1,57 @@
+# Pointers & addresses - Noel's "An Illustration" example from the
+# Pointers in C, C++ slides, stepped through one line at a time.
+#
+# Each STEP is a full picture of memory after that line has run.
+#   STEP: <line number to highlight>
+#   EXPLAIN: <what just happened>
+#   MEM: area | name | type | address | value [| changed]
+# A value of ->name draws an arrow to the cell called name.
+
+TITLE: The twin operators: & and *
+TOPIC: pointers
+TEXT: Every variable lives at an address in memory. A pointer is a variable that stores one of those addresses.
+TEXT: & gives you the address of a variable. * follows a pointer to the variable it points at.
+
+CODE:
+int i = 5, j = 10;
+int *ptr;
+ptr = &i;
+*ptr = 3;
+ptr = &j;
+*ptr = -2;
+END
+
+STEP: 1
+EXPLAIN: i and j are made on the stack, each with its own address.
+MEM: main | i | int | 1000 | 5 | changed
+MEM: main | j | int | 1004 | 10 | changed
+
+STEP: 2
+EXPLAIN: ptr is declared but not set. Until it is, it holds whatever was already in that memory.
+MEM: main | i | int | 1000 | 5
+MEM: main | j | int | 1004 | 10
+MEM: main | ptr | int* | 1008 | ? | changed
+
+STEP: 3
+EXPLAIN: &i is the address of i (1000). ptr now holds 1000, so it points at i.
+MEM: main | i | int | 1000 | 5
+MEM: main | j | int | 1004 | 10
+MEM: main | ptr | int* | 1008 | ->i | changed
+
+STEP: 4
+EXPLAIN: *ptr follows the arrow to i, so this changes i to 3. ptr itself doesn't change.
+MEM: main | i | int | 1000 | 3 | changed
+MEM: main | j | int | 1004 | 10
+MEM: main | ptr | int* | 1008 | ->i
+
+STEP: 5
+EXPLAIN: ptr now holds the address of j instead. i keeps its value.
+MEM: main | i | int | 1000 | 3
+MEM: main | j | int | 1004 | 10
+MEM: main | ptr | int* | 1008 | ->j | changed
+
+STEP: 6
+EXPLAIN: The same *ptr as before, but now it reaches j. j becomes -2.
+MEM: main | i | int | 1000 | 3
+MEM: main | j | int | 1004 | -2 | changed
+MEM: main | ptr | int* | 1008 | ->j
