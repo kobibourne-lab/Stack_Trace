@@ -9,6 +9,7 @@
 //   4. a quiz session: score, lives, and the last answer's feedback staying up
 //   5. progress: points, mastery levels, and saving then loading it back
 //   6. the real content files in content/ all load
+//   7. activity for the profile: date maths, answers per day and the streak
 //
 // Same style as the Hospital project's tests: nothing printed when a check
 // passes, a FAIL line when one doesn't, and exit code 1 if anything failed.
@@ -270,6 +271,37 @@ static void test_real_content()
     }
 }
 
+static void test_activity()
+{
+    // Dates: round trips, month and leap-year edges, bad input
+    CHECK(date_to_days("1970-01-01") == 0);
+    CHECK(days_to_date(date_to_days("2026-11-03")) == "2026-11-03");
+    CHECK(date_add_days("2026-11-01", -1) == "2026-10-31");
+    CHECK(date_add_days("2028-02-28", 1) == "2028-02-29");
+    CHECK(date_add_days("2026-12-31", 1) == "2027-01-01");
+    CHECK(date_to_days("not a date") == -1);
+    CHECK(date_weekday("2026-11-03") == 1);   // a Tuesday (0 = Monday)
+    CHECK(date_weekday("2026-11-01") == 6);   // a Sunday
+
+    Progress p;
+    CHECK(progress_streak(p, "2026-11-03") == 0);
+
+    progress_record(p, "pointers", true, "2026-10-30");
+    progress_record(p, "pointers", true, "2026-11-01");
+    progress_record(p, "pointers", false, "2026-11-02");
+    progress_record(p, "dynmem", true, "2026-11-02");
+    CHECK(answers_per_day(p)["2026-11-02"] == 2);
+    CHECK(progress_correct_count(p) == 3);
+    CHECK(progress_total_points(p) == 15 + 10);   // pointers 10+10-5, dynmem 10
+
+    // Nothing today yet: the streak still counts back from yesterday (1st, 2nd)
+    CHECK(progress_streak(p, "2026-11-03") == 2);
+    progress_record(p, "dynmem", true, "2026-11-03");
+    CHECK(progress_streak(p, "2026-11-03") == 3);
+    // A gap of two days breaks it
+    CHECK(progress_streak(p, "2026-11-05") == 0);
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -278,6 +310,7 @@ int main()
     run("quiz session: score and lives", test_quiz_session);
     run("progress: points, levels, save and load", test_progress);
     run("the real content files load", test_real_content);
+    run("activity: dates, answers per day and streaks", test_activity);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

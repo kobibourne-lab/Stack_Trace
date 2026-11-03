@@ -12,7 +12,8 @@
 //   screen_map.cpp      the topic map
 //   screen_lesson.cpp   a lesson: tutorial text, code, and the memory view step by step
 //   screen_quiz.cpp     a quiz, then its results
-//   screen_placeholder.cpp  Exam prep and Profile, still to be built
+//   screen_exam.cpp     Exam prep: the Coding Exam 2 lab problems, NeetCode style
+//   screen_profile.cpp  the profile: stats, badges, pinned topics, activity heatmap
 //
 // The files marked "no drawing" never call raylib, so tests/test_core.cpp can
 // test them without a window: make test.
@@ -112,8 +113,8 @@ int main()
             case Screen::Map:      screen_map(app); break;
             case Screen::Lesson:   screen_lesson(app); break;
             case Screen::Quiz:     screen_quiz(app); break;
-            case Screen::ExamPrep:
-            case Screen::Profile:  screen_placeholder(app); break;
+            case Screen::ExamPrep: screen_exam(app); break;
+            case Screen::Profile:  screen_profile(app); break;
         }
 
         ui_end_frame();

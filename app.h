@@ -24,6 +24,9 @@ struct App {
 
     QuizSession quiz;            // the quiz in progress
 
+    int examSelected = 0;        // the problem picked on the Exam prep screen
+    std::string examMessage;     // shown on its card, e.g. "not built yet"
+
     std::string message;         // shown on the map, e.g. a file that wouldn't load
 };
 
@@ -40,4 +43,5 @@ void record_answer(App &app, const std::string &topic, bool correct);
 void screen_map(App &app);
 void screen_lesson(App &app);
 void screen_quiz(App &app);
-void screen_placeholder(App &app);   // Exam prep and Profile, for now
+void screen_exam(App &app);
+void screen_profile(App &app);

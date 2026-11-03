@@ -10,6 +10,7 @@
 #include <ctime>
 #include <fstream>
 #include <cstdlib>
+#include <cstdio>
 
 bool progress_load(const std::string &path, Progress &p, std::string &error)
 {
@@ -111,4 +112,96 @@ std::string today_string()
     char buf[16];
     std::strftime(buf, sizeof buf, "%Y-%m-%d", t);
     return buf;
+}
+
+// ---------------------------------------------------------------------------
+// Dates and activity
+// ---------------------------------------------------------------------------
+
+// Days from the civil calendar date, without time zones getting involved
+// (Howard Hinnant's days_from_civil algorithm).
+static int days_from_civil(int y, int m, int d)
+{
+    y -= m <= 2;
+    int era = (y >= 0 ? y : y - 399) / 400;
+    int yoe = y - era * 400;
+    int doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+
+int date_to_days(const std::string &date)
+{
+    if (date.size() != 10 || date[4] != '-' || date[7] != '-') return -1;
+    for (int i : { 0, 1, 2, 3, 5, 6, 8, 9 })
+        if (date[i] < '0' || date[i] > '9') return -1;
+    int y = std::atoi(date.substr(0, 4).c_str());
+    int m = std::atoi(date.substr(5, 2).c_str());
+    int d = std::atoi(date.substr(8, 2).c_str());
+    if (m < 1 || m > 12 || d < 1 || d > 31) return -1;
+    return days_from_civil(y, m, d);
+}
+
+std::string days_to_date(int z)
+{
+    z += 719468;
+    int era = (z >= 0 ? z : z - 146096) / 146097;
+    int doe = z - era * 146097;
+    int yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int y = yoe + era * 400;
+    int doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    int mp = (5 * doy + 2) / 153;
+    int d = doy - (153 * mp + 2) / 5 + 1;
+    int m = mp + (mp < 10 ? 3 : -9);
+    y += (m <= 2);
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d", y, m, d);
+    return buf;
+}
+
+std::string date_add_days(const std::string &date, int n)
+{
+    int days = date_to_days(date);
+    return days < 0 ? date : days_to_date(days + n);
+}
+
+int date_weekday(const std::string &date)
+{
+    int days = date_to_days(date);
+    if (days < 0) return 0;
+    return ((days % 7) + 7 + 3) % 7;   // 1970-01-01 was a Thursday
+}
+
+std::map<std::string, int> answers_per_day(const Progress &p)
+{
+    std::map<std::string, int> counts;
+    for (const AnswerRecord &a : p.answers) counts[a.date]++;
+    return counts;
+}
+
+int progress_streak(const Progress &p, const std::string &today)
+{
+    std::map<std::string, int> counts = answers_per_day(p);
+    std::string day = today;
+    if (counts.find(day) == counts.end()) day = date_add_days(today, -1);
+    int streak = 0;
+    while (counts.find(day) != counts.end()) {
+        streak++;
+        day = date_add_days(day, -1);
+    }
+    return streak;
+}
+
+int progress_total_points(const Progress &p)
+{
+    int total = 0;
+    for (const auto &entry : p.points) total += entry.second;
+    return total;
+}
+
+int progress_correct_count(const Progress &p)
+{
+    int n = 0;
+    for (const AnswerRecord &a : p.answers) if (a.correct) n++;
+    return n;
 }
