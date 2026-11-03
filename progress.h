@@ -39,3 +39,25 @@ const char *mastery_name(Mastery m);   // "Not started", "Familiar"...
 
 // Today's date as "YYYY-MM-DD".
 std::string today_string();
+
+// ---------------------------------------------------------------------------
+// Dates and activity, for the Profile screen. Dates are "YYYY-MM-DD" strings.
+// ---------------------------------------------------------------------------
+
+// Days since 1970-01-01, or -1 if the text isn't a valid date.
+int date_to_days(const std::string &date);
+std::string days_to_date(int days);
+std::string date_add_days(const std::string &date, int n);   // n can be negative
+
+// 0 = Monday ... 6 = Sunday (the heatmap's rows).
+int date_weekday(const std::string &date);
+
+// How many answers were given on each date.
+std::map<std::string, int> answers_per_day(const Progress &p);
+
+// Days in a row with at least one answer, counting back from today. If there's
+// nothing today yet, the streak is still alive from yesterday (like GitHub).
+int progress_streak(const Progress &p, const std::string &today);
+
+int progress_total_points(const Progress &p);
+int progress_correct_count(const Progress &p);

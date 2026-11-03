@@ -149,6 +149,7 @@ ANSWER: 7
 4. a quiz run: score, lives, and the last answer's feedback staying on screen
 5. progress: points, mastery levels, saving and loading it back
 6. every real file in `content/` loads
+7. activity for the profile: date maths, answers per day and the streak
 
 ## Files
 
@@ -165,17 +166,22 @@ ANSWER: 7
 | `screen_map.cpp` | the topic map |
 | `screen_lesson.cpp` | a lesson in three panes: learn, code, memory |
 | `screen_quiz.cpp` | a quiz and its results |
-| `screen_placeholder.cpp` | Exam prep and Profile, still to be built |
+| `screen_exam.cpp` | Exam prep: the Coding Exam 2 lab problems, NeetCode style |
+| `screen_profile.cpp` | the profile: stats, badges, pinned topics, activity heatmap |
 | `content/` | topics, lessons and quizzes |
 | `fonts/` | IBM Plex Sans and JetBrains Mono, both under the SIL Open Font License (licences included) |
 | `tests/test_core.cpp` | the automatic tests |
 
 ## Still to build
 
-- **Exam prep** (NeetCode style): the 10 functions from the Coding Exam 2
-  Preparation lab, with difficulty tags, a solved tick and an exam mode.
-- **Profile** (GitHub style): streak, badges, pinned topics and a heatmap of
-  answers per day, all from `progress.txt`.
+- **Exam prep**: the screen and the 13 problems are in (the 10 lab functions
+  and the 3 doubly linked list inserts). Still to do: solving a problem, the
+  "no []" check, exam mode with a timer, saving which problems are solved, and
+  moving the problem list into a content file. Check the prototypes against the
+  lab sheet.
+- **Profile**: stats, pinned topics, the heatmap and recent activity already
+  read `progress.txt`. Still to do: choosing a name (it uses the computer's user
+  name for now), Edit profile, and the unlock rules for most badges.
 - **More content**: lessons and quizzes for the other topics.
 - **Linked lists in the memory view.** Arrows from one heap block to another
   already work, but a block holds one value, and a node needs two (`data` and
