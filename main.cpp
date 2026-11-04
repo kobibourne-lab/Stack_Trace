@@ -17,6 +17,9 @@
 //   editor.cpp/.h       the code editor: drawing, colours, keys
 //   screen_exam.cpp     Exam prep: the problem list, NeetCode style
 //   screen_problem.cpp  one problem, LeetCode style: description, editor, test results
+//   net.cpp/.h          Versus: the connection between two computers (no raylib, see net.h)
+//   versus.cpp/.h       Versus: the match rules and messages              (no drawing)
+//   screen_versus.cpp   Versus: lobby, countdown, live match and result
 //   screen_profile.cpp  the profile: stats, badges, pinned topics, activity heatmap
 //
 // The files marked "no drawing" never call raylib, so tests/test_core.cpp can
@@ -131,6 +134,7 @@ void record_answer(App &app, const std::string &topic, bool correct)
 int main()
 {
     SetConfigFlags(FLAG_MSAA_4X_HINT);
+    net_init();   // for Versus mode (needed on Windows)
     InitWindow(SCREEN_W, SCREEN_H, "Stack Trace - learn C and C++ by watching memory");
     SetExitKey(KEY_NULL);   // ESC goes back a screen instead of closing the window
     SetTargetFPS(60);
@@ -168,6 +172,7 @@ int main()
             case Screen::Quiz:     screen_quiz(app); break;
             case Screen::ExamPrep: screen_exam(app); break;
             case Screen::Problem:  screen_problem(app); break;
+            case Screen::Versus:   screen_versus(app); break;
             case Screen::Profile:  screen_profile(app); break;
         }
 
@@ -176,6 +181,8 @@ int main()
     }
 
     if (app.screen == Screen::Problem) save_draft(app);
+    versus_quit(app);
+    net_shutdown();
     ui_unload_fonts();
     CloseWindow();
     return 0;

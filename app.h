@@ -9,8 +9,10 @@
 #include "practice.h"
 #include "editbuf.h"
 #include "editor.h"
+#include "net.h"
+#include "versus.h"
 
-enum class Screen { Map, Lesson, Quiz, ExamPrep, Problem, Profile };
+enum class Screen { Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -21,6 +23,7 @@ struct Workspace {
     double lastSaved = 0;
 
     bool examMode = false;             // a timer, no hints, and no saved draft
+    bool versus = false;               // part of a Versus match (screen_versus.cpp runs it)
     double started = 0;                // GetTime() when it was opened
     double endsAt = 0;                 // exam mode: when time runs out
     bool timeUp = false;
@@ -33,11 +36,29 @@ struct Workspace {
     bool resultWasSubmit = false;
     bool accepted = false;             // the last submit was accepted
     int selectedTest = 0;              // the test whose details are shown
+    int runCount = 0;                  // goes up after every run (Versus watches it)
 
     int hintsShown = 0;
     float descScroll = 0, descHeight = 0;
     float consoleScroll = 0;
     float detailScroll = 0, detailHeight = 0;
+};
+
+// Versus mode: the connection, the match, and the lobby's text boxes.
+struct VersusState {
+    NetConn net;
+    VsMatch match;
+    std::string myName;
+    std::string joinAddress;        // what's typed in the Join box
+    int focus = 0;                  // the text box being typed in: 0 none, 1 name, 2 address
+    std::string localAddress;       // this computer's address, shown when hosting
+    std::string message;            // an error or notice in the lobby
+    bool helloSent = false;
+    int lastRunCount = 0;           // the workspace's runCount when last checked
+    int lastLines = -1;             // the line count last sent
+    double lastLinesSent = 0;
+    bool timeUpHandled = false;
+    bool codeSent = false;
 };
 
 struct App {
@@ -63,6 +84,7 @@ struct App {
     std::string examMessage;     // shown on its card
 
     Workspace work;              // the open problem
+    VersusState vs;              // Versus mode
 
     std::string message;         // shown on the map, e.g. a file that wouldn't load
 };
@@ -86,4 +108,15 @@ void screen_quiz(App &app);
 void screen_exam(App &app);
 void screen_problem(App &app);
 void save_draft(App &app);           // saves the open problem's code (main.cpp calls it on quit too)
+void open_versus(App &app);
+void screen_versus(App &app);
+void versus_quit(App &app);          // tells the other player you've gone (main.cpp calls it on quit)
+
+// Pieces of the problem screen that Versus reuses (screen_problem.cpp)
+void problem_start_run(App &app, bool submit);
+void problem_run_pending(App &app);
+void problem_end_frame(App &app);
+void problem_draw_description(App &app, Rectangle r);
+void problem_draw_editor(App &app, Rectangle box, bool locked);
+void problem_draw_console(App &app, Rectangle r);
 void screen_profile(App &app);

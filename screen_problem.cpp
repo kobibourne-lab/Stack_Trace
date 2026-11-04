@@ -70,7 +70,7 @@ static void leave(App &app)
 // Running
 // ---------------------------------------------------------------------------
 
-static void start_run(App &app, bool submit)
+void problem_start_run(App &app, bool submit)
 {
     Workspace &w = app.work;
     if (w.runPhase != 0) return;
@@ -85,6 +85,7 @@ static void do_run(App &app)
     save_draft(app);
     w.result = run_answer(p, eb_text(w.code), WORK_DIR);
     w.hasResult = true;
+    w.runCount++;
     w.resultWasSubmit = w.submitting;
     w.consoleScroll = 0;
     w.detailScroll = 0;
@@ -113,7 +114,7 @@ static void do_run(App &app)
 // Left: the description
 // ---------------------------------------------------------------------------
 
-static void draw_description(App &app, Rectangle r)
+void problem_draw_description(App &app, Rectangle r)
 {
     Workspace &w = app.work;
     const Problem &p = current(app);
@@ -138,7 +139,8 @@ static void draw_description(App &app, Rectangle r)
     tx += tag(p.difficulty, tx, y, difficulty_color(p.difficulty), true) + 8;
     tx += tag(set.exam.empty() ? set.title : set.exam, tx, y, set.exam == "Exam 2" ? COL_PURPLE : COL_BLUE, false) + 8;
     if (progress_is_solved(app.progress, p.id)) tx += tag("Solved", tx, y, COL_GREEN, false) + 8;
-    if (w.examMode) tag("Exam mode", tx, y, COL_AMBER, true);
+    if (w.versus) tag("Versus", tx, y, COL_AMBER, true);
+    else if (w.examMode) tag("Exam mode", tx, y, COL_AMBER, true);
     y += 36;
 
     for (const std::string &para : p.text) y += ui_text_wrapped(para, x, y, w2, 15, COL_TEXT_SOFT) + 8;
@@ -170,7 +172,7 @@ static void draw_description(App &app, Rectangle r)
         ui_text("Hints", x, y, 14, COL_TEXT, FontKind::UiBold);
         y += 24;
         if (w.examMode) {
-            ui_text("Hints are off in exam mode.", x, y, 14, COL_MUTED);
+            ui_text(w.versus ? "Hints are off in Versus." : "Hints are off in exam mode.", x, y, 14, COL_MUTED);
             y += 24;
         } else {
             for (int i = 0; i < w.hintsShown && i < (int)p.hints.size(); i++) {
@@ -229,7 +231,7 @@ static void draw_tick(float x, float y, bool ok)
     }
 }
 
-static void draw_console(App &app, Rectangle r)
+void problem_draw_console(App &app, Rectangle r)
 {
     Workspace &w = app.work;
     const RunResult &res = w.result;
@@ -376,6 +378,37 @@ static void draw_console(App &app, Rectangle r)
     EndScissorMode();
 }
 
+// The editor, with its bar (file name, Reset code) above it
+void problem_draw_editor(App &app, Rectangle editorBox, bool locked)
+{
+    Workspace &w = app.work;
+    const Problem &p = current(app);
+    ui_panel(editorBox, COL_SURFACE, COL_LINE, 1);
+    ui_text("solution.cpp", editorBox.x + 18, editorBox.y + 11, 13, COL_TEXT, FontKind::Mono);
+    std::string lang = w.versus ? "only you can see this" : "C / C++";
+    ui_text(lang, editorBox.x + 18 + ui_text_width("solution.cpp", 13, FontKind::Mono) + 16, editorBox.y + 11, 13, COL_MUTED, FontKind::Mono);
+    if (ui_button("Reset code", { editorBox.x + editorBox.width - 12 - 110, editorBox.y + 5, 110, 28 }, locked ? ButtonStyle::Disabled : ButtonStyle::Outline, COL_TEXT_SOFT)) {
+        std::string starter;
+        for (const std::string &line : p.starter) starter += line + "\n";
+        eb_replace_all(w.code, starter);   // Ctrl+Z brings your code back
+    }
+    Rectangle editArea = { editorBox.x + 1, editorBox.y + 38, editorBox.width - 2, editorBox.height - 39 };
+    editor_update_draw(w.code, w.view, editArea, w.runPhase == 0, locked);
+}
+
+// Runs happen in two frames, so "Running" is on screen while the (blocking)
+// compile and run happens: call this at the start of the frame...
+void problem_run_pending(App &app)
+{
+    if (app.work.runPhase == 2) do_run(app);
+}
+
+// ...and this at the end.
+void problem_end_frame(App &app)
+{
+    if (app.work.runPhase == 1) app.work.runPhase = 2;
+}
+
 // ---------------------------------------------------------------------------
 
 void screen_problem(App &app)
@@ -385,12 +418,12 @@ void screen_problem(App &app)
     const Problem &p = current(app);
     const ProblemSet &set = app.practice[w.set];
 
-    if (w.runPhase == 2) do_run(app);
+    problem_run_pending(app);
 
     // Exam mode: time's up submits whatever is there
     if (w.examMode && !w.timeUp && !w.accepted && GetTime() >= w.endsAt) {
         w.timeUp = true;
-        start_run(app, true);
+        problem_start_run(app, true);
     }
 
     bool cmd = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
@@ -398,7 +431,7 @@ void screen_problem(App &app)
     bool locked = w.timeUp;
     if (IsKeyPressed(KEY_ESCAPE)) { leave(app); return; }
     if (!locked && ((cmd && IsKeyPressed(KEY_ENTER)) || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F6)))
-        start_run(app, shift || IsKeyPressed(KEY_F6));
+        problem_start_run(app, shift || IsKeyPressed(KEY_F6));
 
     if (GetTime() - w.lastSaved > 2.0) save_draft(app);
 
@@ -426,30 +459,18 @@ void screen_problem(App &app)
     Rectangle editorBox = { rx, top, rw, 342 };
     Rectangle console = { rx, editorBox.y + editorBox.height + 12, rw, bottom - (editorBox.y + editorBox.height + 12) };
 
-    draw_description(app, desc);
+    problem_draw_description(app, desc);
+    problem_draw_editor(app, editorBox, locked);
 
-    // The editor, with a bar above it
-    ui_panel(editorBox, COL_SURFACE, COL_LINE, 1);
-    ui_text("solution.cpp", editorBox.x + 18, editorBox.y + 11, 13, COL_TEXT, FontKind::Mono);
-    std::string lang = "C / C++";
-    ui_text(lang, editorBox.x + 18 + ui_text_width("solution.cpp", 13, FontKind::Mono) + 16, editorBox.y + 11, 13, COL_MUTED, FontKind::Mono);
-    if (ui_button("Reset code", { editorBox.x + editorBox.width - 12 - 110, editorBox.y + 5, 110, 28 }, locked ? ButtonStyle::Disabled : ButtonStyle::Outline, COL_TEXT_SOFT)) {
-        std::string starter;
-        for (const std::string &line : p.starter) starter += line + "\n";
-        eb_replace_all(w.code, starter);   // Ctrl+Z brings your code back
-    }
-    Rectangle editArea = { editorBox.x + 1, editorBox.y + 38, editorBox.width - 2, editorBox.height - 39 };
-    editor_update_draw(w.code, w.view, editArea, w.runPhase == 0, locked);
-
-    draw_console(app, console);
+    problem_draw_console(app, console);
 
     // ----- Footer -----
     ui_footer_hints({ "Ctrl/Cmd+Enter run", "Ctrl/Cmd+Shift+Enter submit", "ESC problems" });
     float by = SCREEN_H - FOOTER_H + 8;
     ButtonStyle runStyle = (locked || w.runPhase != 0) ? ButtonStyle::Disabled : ButtonStyle::Outline;
     ButtonStyle submitStyle = (locked || w.runPhase != 0) ? ButtonStyle::Disabled : ButtonStyle::Primary;
-    if (ui_button("Submit", { SCREEN_W - MARGIN - 120, by, 120, 40 }, submitStyle)) start_run(app, true);
-    if (ui_button("Run", { SCREEN_W - MARGIN - 120 - 12 - 100, by, 100, 40 }, runStyle, COL_TEXT)) start_run(app, false);
+    if (ui_button("Submit", { SCREEN_W - MARGIN - 120, by, 120, 40 }, submitStyle)) problem_start_run(app, true);
+    if (ui_button("Run", { SCREEN_W - MARGIN - 120 - 12 - 100, by, 100, 40 }, runStyle, COL_TEXT)) problem_start_run(app, false);
     if (w.accepted) {
         std::string msg = w.examMode ? "Solved in " + clock_text(w.stoppedAt - w.started) : "Solved";
         float mw = ui_text_width(msg, 15, FontKind::UiBold);
@@ -461,5 +482,5 @@ void screen_problem(App &app)
     }
 
     // "Running" shows for one frame before the (blocking) run starts
-    if (w.runPhase == 1) w.runPhase = 2;
+    problem_end_frame(app);
 }

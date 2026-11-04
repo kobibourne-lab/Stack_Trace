@@ -50,8 +50,9 @@ tasks (build, run the tests, clean) are under Terminal > Run Task.
 | Lesson | RIGHT or SPACE next line, LEFT back a line, Q quiz, ESC topic map |
 | Quiz | 1 to 4 pick an option (or click; click a line for "spot the bug"), ENTER next, ESC topic map |
 | Results | R try again, ENTER topic map |
-| Exam prep | UP / DOWN choose a problem, LEFT / RIGHT change set, ENTER solve, X exam mode, ESC topic map |
+| Exam prep | UP / DOWN choose a problem, LEFT / RIGHT change set, ENTER solve, X exam mode, V versus, ESC topic map |
 | A problem | type in the editor, Ctrl+Enter (Cmd+Enter on Mac) or F5 run, Ctrl/Cmd+Shift+Enter or F6 submit, Ctrl/Cmd+V paste, Ctrl/Cmd+Z undo, ESC back to the list |
+| Versus | the same keys as a problem; ESC twice leaves the match; on the result, R rematch |
 
 Your progress is saved in `progress.txt` after every answer. Delete it to start again.
 Your Exam prep code is saved as you type, in `saves/`.
@@ -77,8 +78,17 @@ Your Exam prep code is saved as you type, in `saves/`.
   and strings don't count). **Exam mode** adds a countdown, hides the hints and
   submits by itself when time runs out. Solving a problem for the first time
   also counts towards its topic's mastery on the map.
+- **Versus mode** puts two people on the same problem with the same clock.
+  One copy of Stack Trace hosts (listens on port 5050), the other joins with the
+  host's address, and they swap short lines of text: names, the match settings,
+  "I'm running", each run's result ("3 of 4 tests"), "accepted" with the time,
+  and at the end, each player's code. Never the code during the match. The
+  first to submit an accepted answer wins; if nobody does, whoever passed the
+  most tests. `net.cpp` moves the lines (Mac/Linux sockets, or Winsock on
+  Windows), `versus.cpp` decides what they mean, and `screen_versus.cpp` draws
+  it, reusing the problem screen's editor, runner and results.
 - **The code that doesn't draw** (`content.cpp`, `quiz.cpp`, `progress.cpp`,
-  `practice.cpp`, `editbuf.cpp`) never calls raylib. That keeps it testable without a window, the same split
+  `practice.cpp`, `editbuf.cpp`, `versus.cpp`, `net.cpp`) never calls raylib. That keeps it testable without a window, the same split
   as `sim.c` in the Hospital project.
 
 ## Writing content
@@ -205,6 +215,25 @@ END
 - The Lab 1 problems' tests come from the Lab 1 question files. The Exam 2
   problems use the lab sheet's prototypes and examples, with new tests.
 
+## Playing Versus
+
+1. Put both laptops on **one phone's hotspot**. College Wi-Fi stops laptops
+   connecting to each other.
+2. On one laptop (a Mac is easiest: Windows Firewall is stricter about
+   incoming connections), go to Exam prep, press **Versus**, then **Host a match**.
+   It shows its address, e.g. `10.170.59.202`.
+3. On the other, press **Versus**, type that address in **Join** (the start is
+   filled in already, since you share a hotspot) and press **Join match**.
+4. The host picks the problem set, difficulty and minutes, and presses **Start**.
+
+If a firewall asks whether Stack Trace may accept connections, allow it (on
+Windows, tick Public as well as Private, as a hotspot usually counts as public).
+
+To check the network on its own, before playing: on the host's Mac,
+`nc -l 5050`; on the Windows laptop, in PowerShell,
+`Test-NetConnection <host address> -Port 5050`. `TcpTestSucceeded : True` means
+it'll work.
+
 ## Tests
 
 `make test` runs `tests/test_core.cpp`, with no window:
@@ -220,6 +249,11 @@ END
 9. Exam prep: loading problems, the rule checker, reading test results, solved
    problems in `progress.txt`, every problem file loading, and one real answer
    compiled and run (right, wrong and not compiling)
+10. Versus: the messages, a whole match from start to result, who wins (faster,
+    only one solved, most tests, someone left), and the end-of-time rules
+11. Versus: a real connection between two sockets on this computer: joining,
+    swapping lines (including one bigger than a network packet), noticing when
+    the other side leaves, and the errors for a wrong or unreachable address
 
 ## Files
 
@@ -241,6 +275,9 @@ END
 | `editor.cpp/.h` | the code editor: drawing with C/C++ colours, keys and clicks |
 | `screen_exam.cpp` | Exam prep: the problem sets and list, NeetCode style |
 | `screen_problem.cpp` | one problem, LeetCode style: description, editor, test results |
+| `net.cpp/.h` | Versus: the connection between two computers (no raylib: windows.h clashes with it) |
+| `versus.cpp/.h` | Versus: the messages and match rules (no drawing) |
+| `screen_versus.cpp` | Versus: lobby, countdown, live match and result |
 | `screen_profile.cpp` | the profile: stats, badges, pinned topics, activity heatmap |
 | `content/` | topics, lessons, quizzes, and Exam prep problems in `content/practice/` |
 | `fonts/` | IBM Plex Sans and JetBrains Mono, both under the SIL Open Font License (licences included) |
