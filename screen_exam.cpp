@@ -127,7 +127,7 @@ static void draw_list(App &app, const ProblemSet &set, Rectangle area)
     if (app.examScroll > maxScroll) app.examScroll = maxScroll;
     if (app.examScroll < 0) app.examScroll = 0;
 
-    BeginScissorMode((int)area.x, (int)area.y, (int)area.width + 4, (int)area.height);
+    ui_scissor((int)area.x, (int)area.y, (int)area.width + 4, (int)area.height);
     float x = area.x, y = area.y - app.examScroll;
     std::string group;
     for (int i = 0; i < (int)set.problems.size(); i++) {

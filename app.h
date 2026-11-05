@@ -12,7 +12,7 @@
 #include "net.h"
 #include "versus.h"
 
-enum class Screen { Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -62,7 +62,7 @@ struct VersusState {
 };
 
 struct App {
-    Screen screen = Screen::Map;
+    Screen screen = Screen::Title;   // the start screen comes first
     bool quit = false;
 
     std::vector<Topic> topics;
@@ -102,6 +102,7 @@ void open_problem(App &app, int set, int problem, bool examMode);
 void record_answer(App &app, const std::string &topic, bool correct);
 
 // One function per screen: handles its input and draws it, once per frame.
+void screen_title(App &app);
 void screen_map(App &app);
 void screen_lesson(App &app);
 void screen_quiz(App &app);

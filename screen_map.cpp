@@ -62,6 +62,7 @@ static void handle_keys(App &app)
     if (IsKeyPressed(KEY_Q)) open_quiz(app);
     if (IsKeyPressed(KEY_E)) app.screen = Screen::ExamPrep;
     if (IsKeyPressed(KEY_P)) app.screen = Screen::Profile;
+    if (IsKeyPressed(KEY_ESCAPE)) app.screen = Screen::Title;
 }
 
 static void draw_course_mastery(const App &app, float x, float y)
@@ -204,5 +205,5 @@ void screen_map(App &app)
 
     draw_topic_card(app, { MARGIN + MAP_W + 24, HEADER_H + 22, SCREEN_W - 2 * MARGIN - MAP_W - 24, 470 });
 
-    ui_footer_hints({ "<- -> choose topic", "UP DOWN change track", "ENTER lesson", "Q quiz", "E exam prep", "P profile" });
+    ui_footer_hints({ "<- -> choose topic", "UP DOWN change track", "ENTER lesson", "Q quiz", "E exam prep", "P profile", "ESC start screen" });
 }
