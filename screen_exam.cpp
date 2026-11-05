@@ -256,11 +256,17 @@ void screen_exam(App &app)
 {
     if (IsKeyPressed(KEY_ESCAPE)) { app.examMessage.clear(); open_map(app); return; }
     if (IsKeyPressed(KEY_P)) { app.examMessage.clear(); app.screen = Screen::Profile; return; }
+    if (IsKeyPressed(KEY_V)) { app.examMessage.clear(); open_versus(app); return; }
 
     ui_header("Exam prep - practise the labs, LeetCode style");
     if (ui_button("Back to the map", { SCREEN_W - MARGIN - 170, 12, 170, 40 }, ButtonStyle::Outline, COL_TEXT)) {
         app.examMessage.clear();
         open_map(app);
+        return;
+    }
+    if (ui_button("Versus", { SCREEN_W - MARGIN - 170 - 12 - 120, 12, 120, 40 }, ButtonStyle::Outline, COL_AMBER)) {
+        app.examMessage.clear();
+        open_versus(app);
         return;
     }
 
@@ -310,5 +316,5 @@ void screen_exam(App &app)
 
     if (!app.practiceError.empty())
         ui_text("Some problems didn't load: " + app.practiceError, MARGIN, SCREEN_H - FOOTER_H - 4, 11, COL_CORAL, FontKind::Mono);
-    ui_footer_hints({ "UP DOWN choose", "LEFT RIGHT change set", "ENTER solve", "X exam mode", "P profile", "ESC topic map" });
+    ui_footer_hints({ "UP DOWN choose", "LEFT RIGHT change set", "ENTER solve", "X exam mode", "V versus", "P profile", "ESC topic map" });
 }

@@ -14,6 +14,8 @@
 //   9. Exam prep problems: loading, the rule checker, reading test results,
 //      solved problems in progress.txt, every real problem file loading,
 //      and one real answer compiled and run (skipped if there's no compiler)
+//  10. Versus: the messages, a whole match from both sides, and who wins
+//  11. Versus: a real connection between two sockets on this computer
 //
 // Same style as the Hospital project's tests: nothing printed when a check
 // passes, a FAIL line when one doesn't, and exit code 1 if anything failed.
@@ -25,6 +27,10 @@
 #include "../progress.h"
 #include "../practice.h"
 #include "../editbuf.h"
+#include "../versus.h"
+#include "../net.h"
+#include <chrono>
+#include <thread>
 
 static int checksFailed = 0;
 static int testsRun = 0, testsFailed = 0;
@@ -505,6 +511,211 @@ static void test_real_problems()
     CHECK(broken.compilerOutput.find("solution.cpp:1") != std::string::npos);   // the student's own line number
 }
 
+static RunResult fake_run(RunStatus status, int passed, int failed)
+{
+    RunResult r;
+    r.status = status;
+    r.passed = passed;
+    r.failed = failed;
+    for (int i = 0; i < passed + failed; i++) {
+        TestResult t;
+        t.passed = i < passed;
+        r.tests.push_back(t);
+    }
+    return r;
+}
+
+static void test_versus()
+{
+    // Messages
+    VsMessage msg = vs_parse("HELLO 1 Kobi Bourne");
+    CHECK(msg.kind == "HELLO");
+    CHECK(msg.args.size() == 3);
+    CHECK(msg.rest == "1 Kobi Bourne");
+    std::string code = "int f()\n{\n\treturn 1; // a \\ b\n}\n";
+    CHECK(vs_escape(code).find('\n') == std::string::npos);    // fits on one line
+    CHECK(vs_unescape(vs_escape(code)) == code);
+    CHECK(vs_unescape(vs_escape("a\\nb")) == "a\\nb");          // a real backslash-n stays as it was
+
+    // A match, from Ryan's side (host), against Kobi
+    VsMatch ryan;
+    ryan.host = true;
+    ryan.me.name = "Ryan";
+    vs_apply(ryan, "HELLO 1 Kobi", 0);
+    CHECK(ryan.helloReceived);
+    CHECK(ryan.them.name == "Kobi");
+    vs_begin(ryan, "exam2", "exam2/09_sum_array", 10, 100.0);
+    CHECK(ryan.phase == VsPhase::Countdown);
+    CHECK(!vs_check_end(ryan, 101.0));
+    CHECK(ryan.phase == VsPhase::Countdown);
+    vs_check_end(ryan, 103.5);
+    CHECK(ryan.phase == VsPhase::Playing);
+    CHECK(vs_remaining(ryan, 103.0 + 60) == 540);
+
+    vs_apply(ryan, "RUNNING", 110);
+    CHECK(ryan.them.running);
+    vs_apply(ryan, "RAN 0 4 compile", 112);
+    CHECK(!ryan.them.running);
+    CHECK(ryan.them.compileErrors == 1);
+    CHECK(ryan.feed.size() == 1 && ryan.feed[0].text == "Ran: compile error");
+    vs_apply(ryan, "RAN 3 4 wrong", 150);
+    CHECK(ryan.them.bestPassed == 3);
+    CHECK(ryan.feed.back().text == "Ran: 3 / 4 tests");
+
+    // Ryan's own runs: a wrong answer, then an accepted submit
+    std::vector<std::string> out = vs_my_run(ryan, fake_run(RunStatus::Failed, 2, 2), false, 160);
+    CHECK(out.size() == 1 && out[0] == "RAN 2 4 wrong");
+    out = vs_my_run(ryan, fake_run(RunStatus::Passed, 4, 0), false, 170);
+    CHECK(out.size() == 1);                        // Run, not Submit: passing isn't finishing
+    CHECK(!ryan.me.finished);
+    out = vs_my_run(ryan, fake_run(RunStatus::Passed, 4, 0), true, 200);
+    CHECK(out.size() == 2 && out[1] == "DONE 97.0");
+    CHECK(ryan.me.finished && ryan.me.over);
+    CHECK(!vs_check_end(ryan, 201));               // Kobi is still going
+
+    vs_apply(ryan, "DONE 140.5", 245);
+    CHECK(vs_check_end(ryan, 245));
+    CHECK(ryan.phase == VsPhase::Finished);
+    std::string why;
+    CHECK(vs_outcome(ryan, why) == 1);             // 97 seconds beats 140.5
+    CHECK(ryan.myWins == 1 && ryan.theirWins == 0);
+    vs_check_end(ryan, 300);
+    CHECK(ryan.myWins == 1);                       // only counted once
+
+    // Passing the tests but breaking a rule isn't a finish
+    VsMatch m;
+    vs_begin(m, "exam2", "x", 10, 0);
+    vs_check_end(m, 4);
+    RunResult rule = fake_run(RunStatus::Passed, 4, 0);
+    rule.ruleProblems.push_back("no []");
+    out = vs_my_run(m, rule, true, 30);
+    CHECK(out.size() == 1 && out[0] == "RAN 4 4 rule");
+    CHECK(!m.me.finished);
+    CHECK(m.me.bestPassed == 0);                   // a rule-breaking run doesn't count
+
+    // Nobody solves it: time's up, most tests wins
+    vs_my_run(m, fake_run(RunStatus::Failed, 3, 1), true, 100);
+    vs_apply(m, "RAN 1 4 wrong", 120);
+    CHECK(!vs_check_end(m, 603));                  // time's up, but nobody has said they're over
+    vs_my_time_up(m);
+    CHECK(!vs_check_end(m, 605));                  // waiting for Kobi's last run
+    vs_apply(m, "OVER", 606);
+    CHECK(vs_check_end(m, 606));
+    CHECK(vs_outcome(m, why) == 1);                // 3 tests beats 1
+
+    // Kobi never says OVER: it ends anyway after the grace period
+    VsMatch g;
+    vs_begin(g, "exam2", "x", 1, 0);
+    vs_check_end(g, 4);
+    vs_my_time_up(g);
+    CHECK(!vs_check_end(g, 3 + 60 + 5));
+    CHECK(vs_check_end(g, 3 + 60 + END_GRACE_SECONDS + 1));
+    CHECK(vs_outcome(g, why) == 0);                // nothing passed on either side: a draw
+
+    // Leaving: the one who stays wins
+    VsMatch l;
+    l.them.name = "Kobi";
+    vs_begin(l, "exam2", "x", 10, 0);
+    vs_check_end(l, 4);
+    vs_apply(l, "LEFT", 50);
+    CHECK(vs_check_end(l, 50));
+    CHECK(vs_outcome(l, why) == 1);
+    CHECK(why == "Kobi left the match.");
+
+    // The joiner: START opens the problem, SETTINGS only from the host
+    VsMatch kobi;
+    kobi.host = false;
+    vs_apply(kobi, "SETTINGS lab1 Hard 20", 0);
+    CHECK(kobi.lobbySet == "lab1" && kobi.lobbyDifficulty == "Hard" && kobi.lobbyMinutes == 20);
+    vs_apply(kobi, "START exam2 exam2/01_swap_ints 5", 10);
+    CHECK(kobi.startRequested);
+    CHECK(kobi.problemId == "exam2/01_swap_ints" && kobi.minutes == 5);
+    CHECK(kobi.phase == VsPhase::Countdown);
+    vs_apply(kobi, "CODE int x;\\nint y;", 20);
+    CHECK(kobi.them.hasCode && kobi.them.code == "int x;\nint y;");
+
+    // Different versions don't play
+    VsMatch old;
+    vs_apply(old, "HELLO 2 Kobi", 0);
+    CHECK(!old.helloReceived);
+    CHECK(!old.notice.empty());
+    vs_apply(old, "SOMETHING NEW 1 2 3", 0);          // unknown messages are ignored
+
+    CHECK(!vs_default_name().empty());
+}
+
+// Two sockets on this computer: one hosts, one joins, and they swap lines.
+static void test_network()
+{
+    CHECK(net_init());
+    const int port = 5099;                          // not 5050, so it doesn't clash with a real match
+    NetConn host, guest;
+    CHECK(net_host(host, port));
+    CHECK(host.state == NetState::Listening);
+    double t0 = 0;
+    CHECK(net_join(guest, "127.0.0.1", port, t0));
+
+    auto pump = [&](int frames) {
+        for (int i = 0; i < frames; i++) {
+            net_update(host, t0);
+            net_update(guest, t0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    };
+    for (int i = 0; i < 200 && (host.state != NetState::Connected || guest.state != NetState::Connected); i++) pump(1);
+    CHECK(host.state == NetState::Connected);
+    CHECK(guest.state == NetState::Connected);
+    CHECK(host.peerAddress == "127.0.0.1");
+
+    CHECK(net_send(guest, "HELLO 1 Kobi"));
+    CHECK(net_send(guest, "RAN 3 4 wrong"));
+    std::string big(20000, 'x');                    // bigger than one network packet
+    CHECK(net_send(host, "CODE " + big));
+    std::string line;
+    std::vector<std::string> atHost;
+    std::string atGuest;
+    for (int i = 0; i < 200 && (atHost.size() < 2 || atGuest.empty()); i++) {
+        pump(1);
+        while (net_receive(host, line)) atHost.push_back(line);
+        if (net_receive(guest, line)) atGuest = line;
+    }
+    CHECK(atHost.size() == 2);
+    CHECK(atHost.size() == 2 && atHost[0] == "HELLO 1 Kobi" && atHost[1] == "RAN 3 4 wrong");
+    CHECK(atGuest == "CODE " + big);
+
+    // The guest leaves: the host notices
+    net_close(guest);
+    for (int i = 0; i < 200 && host.state == NetState::Connected; i++) pump(1);
+    CHECK(host.state == NetState::Failed);
+    CHECK(host.error == "The other player left.");
+    net_close(host);
+
+    // Joining when nobody is hosting fails with a clear message
+    NetConn lonely;
+    net_join(lonely, "127.0.0.1", port, 0);
+    for (int i = 0; i < 200 && lonely.state == NetState::Connecting; i++) { net_update(lonely, 0); std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    CHECK(lonely.state == NetState::Failed);
+    net_close(lonely);
+
+    // A bad address is caught before trying
+    NetConn typo;
+    CHECK(!net_join(typo, "10.170.59", port, 0));
+    CHECK(typo.state == NetState::Failed);
+    CHECK(!net_join(typo, "10.170.59.300", port, 0));
+
+    // Joining somewhere that never answers gives up after the time limit
+    NetConn slow;
+    net_join(slow, "10.255.255.1", port, 0);
+    if (slow.state == NetState::Connecting) {
+        net_update(slow, 7.0);                      // pretend 7 seconds have passed
+        CHECK(slow.state == NetState::Failed);
+        CHECK(slow.error.find("same hotspot") != std::string::npos);
+    }
+    net_close(slow);
+
+    net_shutdown();
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -517,6 +728,8 @@ int main()
     run("code editor: typing, indent, paste, undo", test_editor);
     run("exam prep: loading, rules, results, solved", test_practice);
     run("exam prep: real problems, and one compiled and run", test_real_problems);
+    run("versus: messages, a whole match, who wins", test_versus);
+    run("versus: a real connection on this computer", test_network);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;
