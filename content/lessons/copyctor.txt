@@ -1,0 +1,46 @@
+# Copy constructors - the shallow copy problem with a char* member, from
+# Noel's Classes in C++ slides.
+TITLE: Shallow copies: two objects, one string
+TOPIC: copyctor
+TEXT: Copying an object with no copy constructor of your own copies each member exactly. For a pointer, that copies the address, not what it points at.
+TEXT: Watch two objects end up sharing one string.
+
+CODE:
+class Person {
+public:
+    char *name;
+    Person(const char *n) {
+        name = new char[4];
+        strcpy(name, n);
+    }
+};
+int main() {
+    Person a("Ann");
+    Person b = a;
+    b.name[0] = 'D';
+}
+END
+
+STEP: 10
+EXPLAIN: a's constructor makes a char array on the heap and copies "Ann" into it. a.name points at it.
+MEM: main | a.name | char* | 3000 | ->buf | changed
+MEM: heap | buf | char[4] | 9000 | "Ann" | changed
+
+STEP: 11
+EXPLAIN: Person b = a uses the default copy constructor. b.name gets the same address as a.name, so both point at one string. That's a shallow copy.
+MEM: main | a.name | char* | 3000 | ->buf
+MEM: main | b.name | char* | 3008 | ->buf | changed
+MEM: heap | buf | char[4] | 9000 | "Ann"
+
+STEP: 12
+EXPLAIN: Changing b's name changes a's too. And if Person had a destructor that deletes name, the same block would be deleted twice.
+MEM: main | a.name | char* | 3000 | ->buf
+MEM: main | b.name | char* | 3008 | ->buf
+MEM: heap | buf | char[4] | 9000 | "Dnn" | changed
+
+STEP: 11
+EXPLAIN: The fix: a copy constructor that makes a deep copy, with its own new char[4] and strcpy. Then each object has its own string.
+MEM: main | a.name | char* | 3000 | ->buf
+MEM: main | b.name | char* | 3008 | ->buf2 | changed
+MEM: heap | buf | char[4] | 9000 | "Ann"
+MEM: heap | buf2 | char[4] | 9016 | "Ann" | changed

@@ -1,0 +1,39 @@
+# Functions & pass by value - the function gets a copy, so the caller's
+# variable doesn't change. Compare with Pass by pointer (topic 08).
+TITLE: Pass by value: the function gets a copy
+TOPIC: functions
+TEXT: Calling a function makes a new stack frame for its parameters and local variables.
+TEXT: Passing by value copies the argument into that frame. Changing the copy doesn't change the original.
+
+CODE:
+void addTen(int n) {
+    n = n + 10;
+}
+int main() {
+    int x = 5;
+    addTen(x);
+    printf("%d\n", x);
+}
+END
+
+STEP: 5
+EXPLAIN: x is made in main's stack frame.
+MEM: main | x | int | 2000 | 5 | changed
+
+STEP: 1
+EXPLAIN: addTen(x) makes a new frame on top of main's. n is a new variable, and x's value, 5, is copied into it.
+MEM: main | x | int | 2000 | 5
+MEM: addTen | n | int | 1980 | 5 | changed
+
+STEP: 2
+EXPLAIN: n becomes 15. Only the copy changes: x, at a different address, is still 5.
+MEM: main | x | int | 2000 | 5
+MEM: addTen | n | int | 1980 | 15 | changed
+
+STEP: 3
+EXPLAIN: addTen returns and its whole frame is thrown away, n and all. The 15 is lost.
+MEM: main | x | int | 2000 | 5
+
+STEP: 7
+EXPLAIN: Prints 5. To change x, pass its address instead (void addTen(int *n)), or return the new value.
+MEM: main | x | int | 2000 | 5

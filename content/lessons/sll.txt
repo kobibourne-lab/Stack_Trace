@@ -1,0 +1,85 @@
+# Singly linked list - building a list of three nodes, then walking it the way
+# PrintList does in the Pointers & Linked List lecture. Each node is one heap
+# block, shown as one box per field (n1.data, n1.next).
+TITLE: A singly linked list, node by node
+TOPIC: sll
+TEXT: Each node holds a value and a pointer to the next node. The last one's next is nullptr.
+TEXT: head points at the first node. Walk the list by following next until you reach nullptr.
+
+CODE:
+struct Node { int data; Node *next; };
+Node *head = new Node{1, nullptr};
+head->next = new Node{2, nullptr};
+head->next->next = new Node{3, nullptr};
+Node *cur = head;
+while (cur != nullptr)
+    cur = cur->next;
+END
+
+STEP: 2
+EXPLAIN: The first node is made on the heap. head points at it, and its next is nullptr: the list ends here.
+MEM: main | head | Node* | 3000 | ->n1.data | changed
+MEM: heap | n1.data | int | 9000 | 1 | changed
+MEM: heap | n1.next | Node* | 9008 | nullptr | changed
+
+STEP: 3
+EXPLAIN: A second node, linked from the first one's next.
+MEM: main | head | Node* | 3000 | ->n1.data
+MEM: heap | n1.data | int | 9000 | 1
+MEM: heap | n1.next | Node* | 9008 | ->n2.data | changed
+MEM: heap | n2.data | int | 9016 | 2 | changed
+MEM: heap | n2.next | Node* | 9024 | nullptr | changed
+
+STEP: 4
+EXPLAIN: And a third. Nodes don't have to be next to each other: only the arrows link them.
+MEM: main | head | Node* | 3000 | ->n1.data
+MEM: heap | n1.data | int | 9000 | 1
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 2
+MEM: heap | n2.next | Node* | 9024 | ->n3.data | changed
+MEM: heap | n3.data | int | 9032 | 3 | changed
+MEM: heap | n3.next | Node* | 9040 | nullptr | changed
+
+STEP: 5
+EXPLAIN: cur starts at the first node. Use a separate cur: moving head would lose the start of the list.
+MEM: main | head | Node* | 3000 | ->n1.data
+MEM: main | cur | Node* | 3008 | ->n1.data | changed
+MEM: heap | n1.data | int | 9000 | 1
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 2
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 3
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 7
+EXPLAIN: cur = cur->next follows the arrow out of the node cur is on, to the second node.
+MEM: main | head | Node* | 3000 | ->n1.data
+MEM: main | cur | Node* | 3008 | ->n2.data | changed
+MEM: heap | n1.data | int | 9000 | 1
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 2
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 3
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 7
+EXPLAIN: And on to the third.
+MEM: main | head | Node* | 3000 | ->n1.data
+MEM: main | cur | Node* | 3008 | ->n3.data | changed
+MEM: heap | n1.data | int | 9000 | 1
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 2
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 3
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 7
+EXPLAIN: The third node's next is nullptr, so cur becomes nullptr and the loop stops. Every node was visited once.
+MEM: main | head | Node* | 3000 | ->n1.data
+MEM: main | cur | Node* | 3008 | nullptr | changed
+MEM: heap | n1.data | int | 9000 | 1
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 2
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 3
+MEM: heap | n3.next | Node* | 9040 | nullptr

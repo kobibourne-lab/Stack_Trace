@@ -10,26 +10,26 @@
 # Exam 1 = C basics is a guess until Noel confirms it. Exam 2 = pointers and
 # linked lists comes from the "Coding Exam 2 Preparation" lab.
 
-basics    | I/O & types            | C basics          | Exam 1 | -                   | -
-control   | Control flow           | C basics          | Exam 1 | -                   | -
-arrays    | Arrays & 2D arrays     | C basics          | Exam 1 | -                   | -
-strings   | Strings & \0           | C basics          | Exam 1 | -                   | -
-functions | Functions & pass by value | C basics       | Exam 1 | -                   | -
+basics    | I/O & types            | C basics          | Exam 1 | lessons/basics.txt    | -
+control   | Control flow           | C basics          | Exam 1 | lessons/control.txt   | -
+arrays    | Arrays & 2D arrays     | C basics          | Exam 1 | lessons/arrays.txt    | -
+strings   | Strings & \0           | C basics          | Exam 1 | lessons/strings.txt   | -
+functions | Functions & pass by value | C basics          | Exam 1 | lessons/functions.txt | -
 
 pointers  | Pointers & addresses   | Pointers & memory | Exam 2 | lessons/pointers.txt | quizzes/pointers.txt
-arith     | Pointer arithmetic     | Pointers & memory | Exam 2 | -                   | -
+arith     | Pointer arithmetic     | Pointers & memory | Exam 2 | lessons/arith.txt     | -
 passbyptr | Pass by pointer        | Pointers & memory | Exam 2 | lessons/passbyptr.txt | -
-dblptr    | Double pointers        | Pointers & memory | Exam 2 | -                   | -
+dblptr    | Double pointers        | Pointers & memory | Exam 2 | lessons/dblptr.txt    | -
 dynmem    | Dynamic memory         | Pointers & memory | Exam 2 | lessons/dynmem.txt  | -
-membugs   | Memory bugs            | Pointers & memory | Exam 2 | -                   | -
-funcptr   | Function pointers      | Pointers & memory | Exam 2 | -                   | -
+membugs   | Memory bugs            | Pointers & memory | Exam 2 | lessons/membugs.txt   | -
+funcptr   | Function pointers      | Pointers & memory | Exam 2 | lessons/funcptr.txt   | -
 
-sll       | Singly linked list     | Linked lists      | Exam 2 | -                   | -
-dll       | Doubly linked list     | Linked lists      | Exam 2 | -                   | -
+sll       | Singly linked list     | Linked lists      | Exam 2 | lessons/sll.txt       | -
+dll       | Doubly linked list     | Linked lists      | Exam 2 | lessons/dll.txt       | -
 
-classes   | Classes & methods      | C++ classes       | -      | -                   | -
-ctors     | Constructors           | C++ classes       | -      | -                   | -
-copyctor  | Copy constructors      | C++ classes       | -      | -                   | -
-access    | Access & static        | C++ classes       | -      | -                   | -
-dtors     | Destructors            | C++ classes       | -      | -                   | -
-objarrays | Arrays of objects      | C++ classes       | -      | -                   | -
+classes   | Classes & methods      | C++ classes       | -      | lessons/classes.txt   | -
+ctors     | Constructors           | C++ classes       | -      | lessons/ctors.txt     | -
+copyctor  | Copy constructors      | C++ classes       | -      | lessons/copyctor.txt  | -
+access    | Access & static        | C++ classes       | -      | lessons/access.txt    | -
+dtors     | Destructors            | C++ classes       | -      | lessons/dtors.txt     | -
+objarrays | Arrays of objects      | C++ classes       | -      | lessons/objarrays.txt | -

@@ -1,0 +1,43 @@
+# Function pointers - a variable that holds which function to call, from the
+# end of Noel's Memory Management slides.
+TITLE: Function pointers: choosing what to call
+TOPIC: funcptr
+TEXT: A function's code has an address too. A function pointer holds one, so calling through it runs that function.
+TEXT: The type says what the function takes and returns: int (*f)(int) takes an int and returns an int.
+
+CODE:
+int square(int n) { return n * n; }
+int twice(int n) { return n * 2; }
+int main() {
+    int (*f)(int) = square;
+    int a = f(4);
+    f = twice;
+    int b = f(4);
+}
+END
+
+STEP: 4
+EXPLAIN: f holds the address of square's code. The code isn't on the stack, so there's no arrow, just its name.
+MEM: main | f | int(*)(int) | 3000 | &square | changed
+
+STEP: 1
+EXPLAIN: f(4) calls whatever f points at: square, with n = 4.
+MEM: main | f | int(*)(int) | 3000 | &square
+MEM: main | a | int | 3008 | ?
+MEM: square | n | int | 2980 | 4 | changed
+
+STEP: 5
+EXPLAIN: square returns 16 into a.
+MEM: main | f | int(*)(int) | 3000 | &square
+MEM: main | a | int | 3008 | 16 | changed
+
+STEP: 6
+EXPLAIN: Now f points at twice instead. Same type, so it's allowed.
+MEM: main | f | int(*)(int) | 3000 | &twice | changed
+MEM: main | a | int | 3008 | 16
+
+STEP: 7
+EXPLAIN: The same call, f(4), now runs twice: b is 8. This is how one function can be handed different behaviour, like qsort's compare.
+MEM: main | f | int(*)(int) | 3000 | &twice
+MEM: main | a | int | 3008 | 16
+MEM: main | b | int | 3012 | 8 | changed

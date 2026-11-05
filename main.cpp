@@ -30,6 +30,7 @@
 #include "theme.h"
 #include "ui.h"
 #include "app.h"
+#include "logo_icon.h"
 #include <fstream>
 #include <sstream>
 
@@ -165,12 +166,22 @@ int main()
     }
     ClearWindowState(FLAG_WINDOW_HIDDEN);
 
-    // The window and taskbar icon (the same idea as the Hospital project)
-    if (FileExists("logo.png")) {
-        Image logo = LoadImage("logo.png");
-        ImageFormat(&logo, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);   // the format SetWindowIcon needs
-        SetWindowIcon(logo);
-        UnloadImage(logo);   // the window keeps its own copy
+    // The window and taskbar icon. The logo is built into the program
+    // (logo_icon.h), so it doesn't matter where Stack Trace is run from. It's
+    // given in a few sizes, so Windows can pick a sharp one for the title bar
+    // (16 px) and the taskbar (32 px and up).
+    Image logo = LoadImageFromMemory(".png", LOGO_ICON_PNG, (int)sizeof(LOGO_ICON_PNG));
+    if (logo.data) {
+        ImageFormat(&logo, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);   // the format the icon needs
+        const int sizes[] = { 16, 24, 32, 48, 64 };
+        Image icons[5];
+        for (int i = 0; i < 5; i++) {
+            icons[i] = ImageCopy(logo);
+            if (sizes[i] != logo.width) ImageResize(&icons[i], sizes[i], sizes[i]);
+        }
+        SetWindowIcons(icons, 5);
+        for (int i = 0; i < 5; i++) UnloadImage(icons[i]);   // the window keeps its own copies
+        UnloadImage(logo);
     }
     ui_load_fonts();
 

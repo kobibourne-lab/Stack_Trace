@@ -1,0 +1,67 @@
+# Arrays of objects - on the stack and on the heap with new[] and delete[],
+# from Noel's Classes in C++ slides.
+TITLE: Arrays of objects
+TOPIC: objarrays
+TEXT: In an array of objects, every element is a whole object, and each one is made by the default constructor.
+TEXT: An array made with new[] must be freed with delete[], which runs each object's destructor.
+
+CODE:
+class Point {
+public:
+    int x, y;
+    Point() : x(0), y(0) {}
+};
+int main() {
+    Point a[2];
+    a[1].x = 5;
+    Point *p = new Point[2];
+    p[0].y = 7;
+    delete[] p;
+}
+END
+
+STEP: 7
+EXPLAIN: Two Points side by side. The default constructor ran for each, so every x and y is 0.
+MEM: main | a[0].x | int | 3000 | 0 | changed
+MEM: main | a[0].y | int | 3004 | 0 | changed
+MEM: main | a[1].x | int | 3008 | 0 | changed
+MEM: main | a[1].y | int | 3012 | 0 | changed
+
+STEP: 8
+EXPLAIN: a[1] is the second Point, and .x is its x.
+MEM: main | a[0].x | int | 3000 | 0
+MEM: main | a[0].y | int | 3004 | 0
+MEM: main | a[1].x | int | 3008 | 5 | changed
+MEM: main | a[1].y | int | 3012 | 0
+
+STEP: 9
+EXPLAIN: new Point[2] makes the array on the heap, running the constructor for each. p points at the first one.
+MEM: main | a[0].x | int | 3000 | 0
+MEM: main | a[0].y | int | 3004 | 0
+MEM: main | a[1].x | int | 3008 | 5
+MEM: main | a[1].y | int | 3012 | 0
+MEM: main | p | Point* | 3016 | ->hp[0].x | changed
+MEM: heap | hp[0].x | int | 9000 | 0 | changed
+MEM: heap | hp[0].y | int | 9004 | 0 | changed
+MEM: heap | hp[1].x | int | 9008 | 0 | changed
+MEM: heap | hp[1].y | int | 9012 | 0 | changed
+
+STEP: 10
+EXPLAIN: p[0] is the first Point on the heap, the same as (*p). p[1] would be the next one along.
+MEM: main | a[0].x | int | 3000 | 0
+MEM: main | a[0].y | int | 3004 | 0
+MEM: main | a[1].x | int | 3008 | 5
+MEM: main | a[1].y | int | 3012 | 0
+MEM: main | p | Point* | 3016 | ->hp[0].x
+MEM: heap | hp[0].x | int | 9000 | 0
+MEM: heap | hp[0].y | int | 9004 | 7 | changed
+MEM: heap | hp[1].x | int | 9008 | 0
+MEM: heap | hp[1].y | int | 9012 | 0
+
+STEP: 11
+EXPLAIN: delete[] frees the whole heap array. Plain delete p would be a bug here, because the array was made with new[]. a on the stack is freed by itself at the end of main.
+MEM: main | a[0].x | int | 3000 | 0
+MEM: main | a[0].y | int | 3004 | 0
+MEM: main | a[1].x | int | 3008 | 5
+MEM: main | a[1].y | int | 3012 | 0
+MEM: main | p | Point* | 3016 | 9000 | changed

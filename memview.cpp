@@ -30,6 +30,23 @@ struct Placed {
     bool heap;
 };
 
+// The block a cell belongs to. A block can be split into fields, one cell each:
+// "n1.data" and "n1.next" are both part of block "n1", and "arr[1].x" is part of
+// "arr". Pointing at any field keeps the whole block from counting as leaked.
+static std::string block_of(const std::string &name)
+{
+    size_t cut = name.find_first_of(".[");
+    return cut == std::string::npos ? name : name.substr(0, cut);
+}
+
+// A frame's label: "main" shows as "main()", but a name that already has
+// brackets ("Point(int, int)") or is more than one word ("static data") shows
+// as it is.
+static std::string frame_label(const std::string &area)
+{
+    return area.find_first_of("( ") == std::string::npos ? area + "()" : area;
+}
+
 static bool is_pointer(const MemCell &c) { return c.value.size() > 2 && c.value.compare(0, 2, "->") == 0; }
 static std::string target_of(const MemCell &c) { return c.value.substr(2); }
 
@@ -78,7 +95,7 @@ void memview_draw(const Step &step, Rectangle area)
         float h = FRAME_HEAD + cells.size() * ROW_H + 8;
         bool newest = (f == (int)frames.size() - 1) && frames.size() > 1;
         ui_panel({ stackX, y, stackW, h }, COL_BG, newest ? COL_AMBER : COL_LINE, 1);
-        ui_text(frames[f] + "()", stackX + 12, y + 8, 14, newest ? COL_AMBER : COL_MUTED, FontKind::MonoBold);
+        ui_text(frame_label(frames[f]), stackX + 12, y + 8, 14, newest ? COL_AMBER : COL_MUTED, FontKind::MonoBold);
 
         for (size_t i = 0; i < cells.size(); i++) {
             float rowY = y + FRAME_HEAD + i * ROW_H;
@@ -107,7 +124,7 @@ void memview_draw(const Step &step, Rectangle area)
     // Which cells something points at (a heap block with nothing pointing at it has leaked).
     std::map<std::string, bool> pointedAt;
     for (const Placed &p : placed)
-        if (is_pointer(*p.cell)) pointedAt[target_of(*p.cell)] = true;
+        if (is_pointer(*p.cell)) pointedAt[block_of(target_of(*p.cell))] = true;
 
     // ----- The cells themselves -----
     int arrowIndex = 0;
@@ -126,7 +143,7 @@ void memview_draw(const Step &step, Rectangle area)
             text = ac;
         }
         if (c.value == "?") text = COL_MUTED;
-        bool leaked = p.heap && !pointedAt[c.name];
+        bool leaked = p.heap && !pointedAt[block_of(c.name)];
         if (leaked) { border = COL_CORAL; text = COL_CORAL; shown += "  leaked"; }
         // Solid colours only: ui_panel draws the border underneath the fill
         if (c.changed) { border = COL_AMBER; fill = ColorAlphaBlend(COL_SURFACE, Fade(COL_AMBER, 0.14f), WHITE); }

@@ -1,0 +1,39 @@
+# Destructors - freeing an object's heap memory automatically when it goes out
+# of scope, from Noel's Classes in C++ and Memory Management slides.
+TITLE: Destructors clean up for you
+TOPIC: dtors
+TEXT: A destructor (~ and the class name) runs by itself when an object goes away: at the end of its scope, or on delete.
+TEXT: If the object made something with new, its destructor is where to delete it.
+
+CODE:
+class Buffer {
+    int *data;
+public:
+    Buffer() { data = new int[3]; }
+    ~Buffer() { delete[] data; }
+};
+int main() {
+    {
+        Buffer b;
+    }
+}
+END
+
+STEP: 4
+EXPLAIN: Buffer b; runs the constructor, which makes an array of 3 ints on the heap.
+MEM: main | b.data | int* | 3000 | ->arr | changed
+MEM: Buffer | this | Buffer* | 2980 | ->b.data | changed
+MEM: heap | arr | int[3] | 9000 | ? ? ? | changed
+
+STEP: 9
+EXPLAIN: b is ready, and owns the array.
+MEM: main | b.data | int* | 3000 | ->arr
+MEM: heap | arr | int[3] | 9000 | ? ? ?
+
+STEP: 5
+EXPLAIN: At the closing brace on line 10, b goes out of scope and ~Buffer runs by itself. delete[] (not delete, since it was new int[3]) frees the array.
+MEM: main | b.data | int* | 3000 | 9000 | changed
+MEM: ~Buffer | this | Buffer* | 2980 | ->b.data | changed
+
+STEP: 11
+EXPLAIN: b and its array are both gone, so nothing leaked. Without the destructor, every Buffer made would leak its array.

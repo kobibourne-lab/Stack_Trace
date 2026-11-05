@@ -1,0 +1,67 @@
+# Arrays & 2D arrays - elements side by side, finding the max, and a 2D grid.
+TITLE: Arrays: elements side by side
+TOPIC: arrays
+TEXT: An array is a row of variables of the same type, one straight after another in memory.
+TEXT: a[i] is the element i places from the start: its address is the start plus i times the element size.
+
+CODE:
+int a[4] = {3, 8, 1, 6};
+int max = a[0];
+for (int i = 1; i < 4; i++)
+    if (a[i] > max) max = a[i];
+int g[2][2] = {{1, 2}, {3, 4}};
+END
+
+STEP: 1
+EXPLAIN: Four ints, 4 bytes apart. a[2] is at 1000 + 2 x 4 = 1008. There's no a[4]: the last element is a[3].
+MEM: main | a[0] | int | 1000 | 3 | changed
+MEM: main | a[1] | int | 1004 | 8 | changed
+MEM: main | a[2] | int | 1008 | 1 | changed
+MEM: main | a[3] | int | 1012 | 6 | changed
+
+STEP: 2
+EXPLAIN: Start by guessing the first element is the biggest.
+MEM: main | a[0] | int | 1000 | 3
+MEM: main | a[1] | int | 1004 | 8
+MEM: main | a[2] | int | 1008 | 1
+MEM: main | a[3] | int | 1012 | 6
+MEM: main | max | int | 1016 | 3 | changed
+
+STEP: 4
+EXPLAIN: i is 1: a[1] is 8, bigger than 3, so max becomes 8.
+MEM: main | a[0] | int | 1000 | 3
+MEM: main | a[1] | int | 1004 | 8
+MEM: main | a[2] | int | 1008 | 1
+MEM: main | a[3] | int | 1012 | 6
+MEM: main | max | int | 1016 | 8 | changed
+MEM: main | i | int | 1020 | 1 | changed
+
+STEP: 4
+EXPLAIN: i is 2: a[2] is 1, not bigger than 8, so max stays.
+MEM: main | a[0] | int | 1000 | 3
+MEM: main | a[1] | int | 1004 | 8
+MEM: main | a[2] | int | 1008 | 1
+MEM: main | a[3] | int | 1012 | 6
+MEM: main | max | int | 1016 | 8
+MEM: main | i | int | 1020 | 2 | changed
+
+STEP: 4
+EXPLAIN: i is 3: a[3] is 6, not bigger. Then i++ makes 4, i < 4 is false, and the loop ends. max is 8.
+MEM: main | a[0] | int | 1000 | 3
+MEM: main | a[1] | int | 1004 | 8
+MEM: main | a[2] | int | 1008 | 1
+MEM: main | a[3] | int | 1012 | 6
+MEM: main | max | int | 1016 | 8
+MEM: main | i | int | 1020 | 3 | changed
+
+STEP: 5
+EXPLAIN: A 2D array is still one row after another in memory: g[1][0] comes straight after g[0][1].
+MEM: main | a[0] | int | 1000 | 3
+MEM: main | a[1] | int | 1004 | 8
+MEM: main | a[2] | int | 1008 | 1
+MEM: main | a[3] | int | 1012 | 6
+MEM: main | max | int | 1016 | 8
+MEM: main | g[0][0] | int | 1024 | 1 | changed
+MEM: main | g[0][1] | int | 1028 | 2 | changed
+MEM: main | g[1][0] | int | 1032 | 3 | changed
+MEM: main | g[1][1] | int | 1036 | 4 | changed

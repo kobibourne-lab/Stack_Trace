@@ -14,6 +14,8 @@ ifeq ($(OS),Windows_NT)
     LDFLAGS = -lraylib -lopengl32 -lgdi32 -lwinmm $(NETLIBS)
     TARGET  = stacktrace.exe
     TESTS   = run_tests.exe
+    # The .exe's own icon (File Explorer, a pinned taskbar button), from logo.ico
+    ICON_RES = stacktrace_res.o
 else
     CXX     = c++
     BREW   := $(shell brew --prefix 2>/dev/null)
@@ -24,6 +26,7 @@ else
         LDFLAGS   = -lraylib
     endif
     NETLIBS =
+    ICON_RES =
     TARGET  = stacktrace
     TESTS   = run_tests
 endif
@@ -31,8 +34,12 @@ endif
 # The tests only use the files that don't draw, so they need no raylib and no window
 TEST_SRC = tests/test_core.cpp content.cpp quiz.cpp progress.cpp practice.cpp editbuf.cpp versus.cpp net.cpp
 
-$(TARGET): $(SRC) $(wildcard *.h)
-	$(CXX) $(CXXFLAGS) $(SRC) $(LDFLAGS) -o $(TARGET)
+$(TARGET): $(SRC) $(wildcard *.h) $(ICON_RES)
+	$(CXX) $(CXXFLAGS) $(SRC) $(ICON_RES) $(LDFLAGS) -o $(TARGET)
+
+# Windows only: turn the icon into something the linker can put in the .exe
+stacktrace_res.o: stacktrace.rc logo.ico
+	windres stacktrace.rc -O coff -o stacktrace_res.o
 
 run: $(TARGET)
 	./$(TARGET)
@@ -45,7 +52,7 @@ $(TESTS): $(TEST_SRC) content.h quiz.h progress.h practice.h editbuf.h versus.h 
 	$(CXX) $(CXXFLAGS) $(TEST_SRC) $(NETLIBS) -o $(TESTS)
 
 clean:
-	rm -f $(TARGET) $(TESTS) test_progress.txt
+	rm -f $(TARGET) $(TESTS) test_progress.txt stacktrace_res.o
 	rm -rf practice_build
 
 .PHONY: run test clean

@@ -1,0 +1,47 @@
+# Constructors - a default constructor and one with parameters, both using an
+# initialiser list, as in Noel's Classes in C++ slides.
+TITLE: Constructors set an object up
+TOPIC: ctors
+TEXT: A constructor runs by itself whenever an object is made, so the object never starts with rubbish in it.
+TEXT: The initialiser list (after the :) sets the members before the constructor's body runs.
+
+CODE:
+class Point {
+    int x, y;
+public:
+    Point() : x(0), y(0) {}
+    Point(int a, int b) : x(a), y(b) {}
+};
+int main() {
+    Point o;
+    Point p(3, 4);
+}
+END
+
+STEP: 4
+EXPLAIN: Point o; with no arguments runs the default constructor. this points at o, and the initialiser list sets x and y to 0.
+MEM: main | o.x | int | 3000 | 0 | changed
+MEM: main | o.y | int | 3004 | 0 | changed
+MEM: Point() | this | Point* | 2980 | ->o.x | changed
+
+STEP: 8
+EXPLAIN: o is ready.
+MEM: main | o.x | int | 3000 | 0
+MEM: main | o.y | int | 3004 | 0
+
+STEP: 5
+EXPLAIN: Point p(3, 4) has two ints, so the other constructor runs: x(a) and y(b) copy them in.
+MEM: main | o.x | int | 3000 | 0
+MEM: main | o.y | int | 3004 | 0
+MEM: main | p.x | int | 3008 | 3 | changed
+MEM: main | p.y | int | 3012 | 4 | changed
+MEM: Point(int, int) | this | Point* | 2980 | ->p.x | changed
+MEM: Point(int, int) | a | int | 2988 | 3 | changed
+MEM: Point(int, int) | b | int | 2992 | 4 | changed
+
+STEP: 9
+EXPLAIN: Both objects are set up. Which constructor runs depends on the arguments, the same as overloaded functions.
+MEM: main | o.x | int | 3000 | 0
+MEM: main | o.y | int | 3004 | 0
+MEM: main | p.x | int | 3008 | 3
+MEM: main | p.y | int | 3012 | 4

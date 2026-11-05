@@ -1,0 +1,57 @@
+# Control flow - a for loop with an if inside, one pass at a time.
+TITLE: Loops and ifs, one pass at a time
+TOPIC: control
+TEXT: A for loop runs its body while the condition is true, and does the i++ at the end of each pass.
+TEXT: Watch i change each time round, and when the if lets sum change.
+
+CODE:
+int sum = 0;
+for (int i = 1; i <= 3; i++) {
+    if (i % 2 == 1)
+        sum += i;
+}
+printf("%d\n", sum);
+END
+
+STEP: 1
+EXPLAIN: sum starts at 0.
+MEM: main | sum | int | 1000 | 0 | changed
+
+STEP: 2
+EXPLAIN: The loop starts: i is 1. 1 <= 3 is true, so the body runs.
+MEM: main | sum | int | 1000 | 0
+MEM: main | i | int | 1004 | 1 | changed
+
+STEP: 4
+EXPLAIN: 1 % 2 is 1, so i is odd and the if is true: sum += 1.
+MEM: main | sum | int | 1000 | 1 | changed
+MEM: main | i | int | 1004 | 1
+
+STEP: 2
+EXPLAIN: End of the body, so i++ makes i 2. 2 <= 3, so round again.
+MEM: main | sum | int | 1000 | 1
+MEM: main | i | int | 1004 | 2 | changed
+
+STEP: 3
+EXPLAIN: 2 % 2 is 0, so the if is false and sum += i is skipped.
+MEM: main | sum | int | 1000 | 1
+MEM: main | i | int | 1004 | 2
+
+STEP: 2
+EXPLAIN: i++ makes i 3. 3 <= 3 is still true.
+MEM: main | sum | int | 1000 | 1
+MEM: main | i | int | 1004 | 3 | changed
+
+STEP: 4
+EXPLAIN: 3 is odd, so sum += 3 makes sum 4.
+MEM: main | sum | int | 1000 | 4 | changed
+MEM: main | i | int | 1004 | 3
+
+STEP: 2
+EXPLAIN: i++ makes i 4. 4 <= 3 is false, so the loop stops here, before the body.
+MEM: main | sum | int | 1000 | 4
+MEM: main | i | int | 1004 | 4 | changed
+
+STEP: 6
+EXPLAIN: Prints 4 (1 + 3). i is gone: it was declared in the for, so it only existed inside the loop.
+MEM: main | sum | int | 1000 | 4

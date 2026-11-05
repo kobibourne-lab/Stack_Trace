@@ -1,0 +1,58 @@
+# Pointer arithmetic - moving a pointer along an array, as in the exercises
+# at the end of the Pointers in C, C++ slides.
+TITLE: Pointer arithmetic: moving along an array
+TOPIC: arith
+TEXT: Adding 1 to a pointer moves it on one element, not one byte. For an int*, that's 4 bytes.
+TEXT: This is how the Exam 2 lab functions walk an array without using [].
+
+CODE:
+int a[3] = {10, 20, 30};
+int *p = a;
+p++;
+*p = 25;
+int *q = p + 1;
+printf("%d %ld\n", *q, q - a);
+END
+
+STEP: 1
+EXPLAIN: Three ints in a row, 4 bytes apart.
+MEM: main | a[0] | int | 1000 | 10 | changed
+MEM: main | a[1] | int | 1004 | 20 | changed
+MEM: main | a[2] | int | 1008 | 30 | changed
+
+STEP: 2
+EXPLAIN: An array's name is the address of its first element, so p = a points p at a[0].
+MEM: main | a[0] | int | 1000 | 10
+MEM: main | a[1] | int | 1004 | 20
+MEM: main | a[2] | int | 1008 | 30
+MEM: main | p | int* | 1016 | ->a[0] | changed
+
+STEP: 3
+EXPLAIN: p++ moves on one int: 1000 + 4 = 1004, which is a[1].
+MEM: main | a[0] | int | 1000 | 10
+MEM: main | a[1] | int | 1004 | 20
+MEM: main | a[2] | int | 1008 | 30
+MEM: main | p | int* | 1016 | ->a[1] | changed
+
+STEP: 4
+EXPLAIN: *p is whatever p points at, a[1], so a[1] becomes 25. p[0] = 25 would do the same.
+MEM: main | a[0] | int | 1000 | 10
+MEM: main | a[1] | int | 1004 | 25 | changed
+MEM: main | a[2] | int | 1008 | 30
+MEM: main | p | int* | 1016 | ->a[1]
+
+STEP: 5
+EXPLAIN: p + 1 is one more int along: 1008, a[2]. p itself doesn't move.
+MEM: main | a[0] | int | 1000 | 10
+MEM: main | a[1] | int | 1004 | 25
+MEM: main | a[2] | int | 1008 | 30
+MEM: main | p | int* | 1016 | ->a[1]
+MEM: main | q | int* | 1024 | ->a[2] | changed
+
+STEP: 6
+EXPLAIN: Prints 30 2. *q is a[2]. q - a counts elements, not bytes: (1008 - 1000) / 4 = 2.
+MEM: main | a[0] | int | 1000 | 10
+MEM: main | a[1] | int | 1004 | 25
+MEM: main | a[2] | int | 1008 | 30
+MEM: main | p | int* | 1016 | ->a[1]
+MEM: main | q | int* | 1024 | ->a[2]
