@@ -11,6 +11,7 @@
 #include "editor.h"
 #include "net.h"
 #include "versus.h"
+#include "mascot.h"
 
 enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile };
 
@@ -87,6 +88,10 @@ struct App {
     VersusState vs;              // Versus mode
 
     std::string message;         // shown on the map, e.g. a file that wouldn't load
+
+    Mal mal;                     // the mascot, shared by every screen
+    int levelShown = 1;          // the level last celebrated, so each level-up shows once
+    float levelUpLeft = 0;       // seconds left on the level-up banner
 };
 
 // Moving between screens. open_lesson and open_quiz load the files for the
@@ -100,6 +105,11 @@ void open_problem(App &app, int set, int problem, bool examMode);
 
 // Records an answer for the topic and saves progress.txt straight away.
 void record_answer(App &app, const std::string &topic, bool correct);
+
+// If the XP has reached a new level since the last check, show the level-up
+// banner (with a fanfare). record_answer calls it; so does anything else that
+// gives XP.
+void check_level_up(App &app);
 
 // One function per screen: handles its input and draws it, once per frame.
 void screen_title(App &app);

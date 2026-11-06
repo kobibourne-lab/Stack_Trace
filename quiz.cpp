@@ -32,9 +32,12 @@ bool quiz_answer(QuizSession &s, int choice)
     s.lastCorrect = (choice == q->answer);
     if (s.lastCorrect) {
         s.score++;
+        s.combo++;
+        if (s.combo > s.bestCombo) s.bestCombo = s.combo;
     } else {
         s.lives--;
         s.missed.push_back(s.index);
+        s.combo = 0;
     }
     return s.lastCorrect;
 }

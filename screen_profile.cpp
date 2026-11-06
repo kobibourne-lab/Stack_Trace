@@ -97,9 +97,9 @@ static void draw_sidebar(const App &app, float x, float y)
 
     ui_text(name, cx - ui_text_width(name, 22, FontKind::UiBold) / 2, y, 22, COL_TEXT, FontKind::UiBold);
     y += 30;
-    std::string handle = "@" + name + "  |  local profile";
-    ui_text(handle, cx - ui_text_width(handle, 13, FontKind::Mono) / 2, y, 13, COL_MUTED, FontKind::Mono);
-    y += 28;
+    int xp = progress_xp(p);   // the RPG level, where GitHub shows your handle
+    ui_level_badge(cx - ui_level_badge_width(xp) / 2, y, xp);
+    y += 50;
 
     ui_button("Edit profile", { x, y, SIDE_W, 36 }, ButtonStyle::Disabled);
     y += 54;

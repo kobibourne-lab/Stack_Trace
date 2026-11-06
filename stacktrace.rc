@@ -1,3 +1,6 @@
-// The icon Windows shows for stacktrace.exe: in File Explorer, and on the
-// taskbar when it's pinned. Built by windres (part of w64devkit) in the makefile.
-1 ICON "logo.ico"
+// The icon Windows shows for stacktrace.exe: in File Explorer, on the taskbar
+// and in the title bar. Built by windres (part of w64devkit) in the makefile.
+// raylib's window library (GLFW) looks for an icon called GLFW_ICON in the
+// .exe and uses it for the window from the moment it's made, so the taskbar
+// never shows the default icon.
+GLFW_ICON ICON "logo.ico"

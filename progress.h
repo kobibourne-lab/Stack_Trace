@@ -72,4 +72,24 @@ std::map<std::string, int> answers_per_day(const Progress &p);
 int progress_streak(const Progress &p, const std::string &today);
 
 int progress_total_points(const Progress &p);
+
+// ---------------------------------------------------------------------------
+// XP and levels, RPG style. XP only ever goes up (unlike a topic's points,
+// which drop for wrong answers), and it's worked out from what's already in
+// progress.txt, so the file format doesn't change.
+// ---------------------------------------------------------------------------
+
+const int XP_CORRECT = 10;   // a right quiz answer
+const int XP_WRONG = 2;      // a wrong one still counts for having a go
+const int XP_SOLVED = 25;    // an Exam prep problem solved
+
+int progress_xp(const Progress &p);
+
+// Level 1 starts at 0 XP. Each level needs 50 XP more than the one before:
+// level 2 at 50, level 3 at 150, level 4 at 300, level 5 at 500 ...
+int xp_for_level(int level);
+int level_for_xp(int xp);
+
+// A title for each level, e.g. "Pointer Apprentice" at level 5.
+std::string level_title(int level);
 int progress_correct_count(const Progress &p);
