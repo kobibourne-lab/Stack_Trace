@@ -227,6 +227,48 @@ int progress_total_points(const Progress &p)
     return total;
 }
 
+int progress_xp(const Progress &p)
+{
+    int xp = 0;
+    for (const AnswerRecord &a : p.answers) xp += a.correct ? XP_CORRECT : XP_WRONG;
+    xp += (int)p.solved.size() * XP_SOLVED;
+    return xp;
+}
+
+int xp_for_level(int level)
+{
+    if (level <= 1) return 0;
+    return 25 * level * (level - 1);   // 50, 150, 300, 500, 750 ...
+}
+
+int level_for_xp(int xp)
+{
+    int level = 1;
+    while (xp >= xp_for_level(level + 1)) level++;
+    return level;
+}
+
+std::string level_title(int level)
+{
+    static const char *titles[] = {
+        "Hello, World",        // 1
+        "printf Apprentice",   // 2
+        "Loop Runner",         // 3
+        "Array Walker",        // 4
+        "Pointer Apprentice",  // 5
+        "Address Hunter",      // 6
+        "Heap Explorer",       // 7
+        "Leak Hunter",         // 8
+        "List Linker",         // 9
+        "Class Architect",     // 10
+        "Segfault Survivor",   // 11
+        "Memory Wizard",       // 12 and up
+    };
+    const int count = (int)(sizeof(titles) / sizeof(titles[0]));
+    if (level < 1) level = 1;
+    return titles[level > count ? count - 1 : level - 1];
+}
+
 int progress_correct_count(const Progress &p)
 {
     int n = 0;

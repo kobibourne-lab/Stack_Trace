@@ -15,6 +15,8 @@ struct QuizSession {
     int chosen = 0;         // what was picked (option or line number, 1 = first)
     bool lastCorrect = false;
     std::vector<int> missed;  // indexes of the questions answered wrongly
+    int combo = 0;          // right answers in a row; a wrong answer resets it
+    int bestCombo = 0;      // the longest run this quiz
 };
 
 void quiz_start(QuizSession &s, const Quiz &quiz);

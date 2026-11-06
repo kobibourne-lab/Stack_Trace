@@ -179,7 +179,24 @@ static void draw_topic_card(App &app, Rectangle r)
         open_quiz(app);
     y += 66;
 
-    if (!app.message.empty()) ui_text_wrapped(app.message, x, y, w, 14, COL_CORAL);
+    if (!app.message.empty()) {
+        ui_text_wrapped(app.message, x, y, w, 14, COL_CORAL);
+        return;
+    }
+
+    // Mal, at the bottom of the card, with a word about this topic
+    mal_set_base(app.mal, MalMood::Idle);
+    Vector2 feet = { r.x + 64, r.y + r.height - 18 };
+    mal_draw(app.mal, feet, 70);
+    const char *line = "";
+    switch (m) {
+        case Mastery::NotStarted: line = "New topic! Start with the lesson, then I'll quiz you on it."; break;
+        case Mastery::Attempted:  line = "We've had a go at this one. Run through the lesson again?"; break;
+        case Mastery::Familiar:   line = "Getting there! A couple more good quizzes and it's Proficient."; break;
+        case Mastery::Proficient: line = "Nearly mastered. One more good quiz!"; break;
+        case Mastery::Mastered:   line = "Mastered! This bit of memory is spotless."; break;
+    }
+    mal_say(line, r.x + 118, r.y + r.height - 118, r.width - 140, { feet.x + 30, feet.y - 52 });
 }
 
 void screen_map(App &app)
@@ -192,6 +209,8 @@ void screen_map(App &app)
         app.screen = Screen::Profile;
     if (ui_button("Exam prep", { SCREEN_W - MARGIN - 110 - 12 - 120, 12, 120, 40 }, ButtonStyle::Outline, COL_PURPLE))
         app.screen = Screen::ExamPrep;
+    int xp = progress_xp(app.progress);
+    ui_level_badge(SCREEN_W - MARGIN - 242 - 28 - ui_level_badge_width(xp), 15, xp);
 
     float x = MARGIN, y = HEADER_H + 22;
     draw_course_mastery(app, x, y);

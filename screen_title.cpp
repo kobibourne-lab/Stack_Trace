@@ -5,6 +5,7 @@
 #include "app.h"
 #include "theme.h"
 #include "ui.h"
+#include "sfx.h"
 #include <cmath>
 
 // The example on the right, one line at a time
@@ -74,6 +75,50 @@ static void draw_demo(Rectangle r)
                     step == 3 ? COL_GREEN : COL_TEXT_SOFT);
 }
 
+// Mal sits on top of the demo panel, with something to say. Asleep if you
+// haven't practised today; click Mal to poke it.
+static void draw_mal(App &app, int streak)
+{
+    static int pokes = 0;
+    const Progress &p = app.progress;
+    bool practisedToday = false;
+    for (const AnswerRecord &a : p.answers) if (a.date == today_string()) { practisedToday = true; break; }
+    bool asleep = !p.answers.empty() && !practisedToday && pokes == 0;
+    mal_set_base(app.mal, asleep ? MalMood::Sleep : MalMood::Idle);
+
+    Vector2 feet = { 1120, 112 };
+    float size = 78;
+    Rectangle hit = { feet.x - size * 0.45f, feet.y - size * 1.25f, size * 0.9f, size * 1.25f };
+    if (CheckCollisionPointRec(GetMousePosition(), hit)) {
+        ui_want_hand();
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            pokes++;
+            mal_react(app.mal, pokes % 4 == 0 ? MalMood::Cheer : MalMood::Happy, 1.4f);
+            sfx_play(Sfx::Correct);
+        }
+    }
+    mal_draw(app.mal, feet, size);
+
+    // What Mal says
+    std::string line;
+    static const char *pokeLines[] = {
+        "Hey! That tickles. I'm a heap block, not a button.",
+        "Poke me again and I'll segfault on purpose.",
+        "Did you know I'm exactly 8 bytes? Okay, more like 80.",
+        "Wheee! Right, back to work. Pointers won't learn themselves.",
+    };
+    if (pokes > 0) line = pokeLines[(pokes - 1) % 4];
+    else if (p.answers.empty())
+        line = "Hi, I'm Mal! I live at 0x9000, in this machine's memory. Learn with me and help keep it leak-free.";
+    else if (asleep)
+        line = "zzz... nobody's run me today... Answer a question to wake me up.";
+    else if (streak > 1)
+        line = std::to_string(streak) + " days in a row! Keep it up and nobody gets free()'d.";
+    else
+        line = "Welcome back! Pick up where you left off, or try a quiz.";
+    mal_say(line, 760, 18, 300, { feet.x - 44, feet.y - 62 });
+}
+
 void screen_title(App &app)
 {
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) { open_map(app); return; }
@@ -109,23 +154,22 @@ void screen_title(App &app)
     if (ui_button("Quit", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_MUTED)) { app.quit = true; return; }
     y += bh + 28;
 
-    // A welcome back line, once there's some progress to show
+    // Your level, and the streak beside it, once there's some progress to show
     const Progress &p = app.progress;
+    int streak = progress_streak(p, today_string());
     if (!p.answers.empty()) {
-        int streak = progress_streak(p, today_string());
-        int maxPoints = (int)app.topics.size() * POINTS_MAX;
-        std::string back = "Welcome back.  " + std::to_string(progress_total_points(p)) + " / " +
-                           std::to_string(maxPoints) + " mastery points";
-        if (streak > 0) back += "  |  " + std::to_string(streak) + (streak == 1 ? " day streak" : " day streak");
-        ui_text(back, x, y, 14, COL_MUTED, FontKind::Mono);
+        float bw2 = ui_level_badge(x, y, progress_xp(p));
+        if (streak > 0)
+            ui_text(std::to_string(streak) + " day streak", x + bw2 + 24, y + 9, 15, COL_AMBER, FontKind::MonoBold);
     }
 
     draw_demo({ 700, 112, 484, 398 });
+    draw_mal(app, streak);
 
     // Along the bottom: who made it, and the keys
     float fy = SCREEN_H - FOOTER_H;
     DrawLine(0, (int)fy, SCREEN_W, (int)fy, COL_LINE_SOFT);
-    ui_text("ENTER start   E exam prep   V versus   P profile   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
+    ui_text("ENTER start   E exam prep   V versus   P profile   M sound   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
             COL_MUTED, FontKind::Mono);
     const char *credit = "Advanced Programming, SETU  |  Ryan Mulcahy & Kobi Bourne";
     ui_text(credit, SCREEN_W - MARGIN - ui_text_width(credit, 13), fy + 19, 13, COL_MUTED);

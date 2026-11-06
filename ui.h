@@ -81,6 +81,11 @@ int ui_code(const std::vector<std::string> &lines, Rectangle r, int highlight, C
 // Lives as hearts, filled or empty.
 void ui_hearts(float x, float y, int lives, int maxLives);
 
+// The RPG level badge: "LV 3", the level's title, and a thin bar of XP towards
+// the next level. Drawn with its top-left at (x, y); returns how wide it was.
+float ui_level_badge(float x, float y, int xp);
+float ui_level_badge_width(int xp);
+
 // Colours for the five mastery levels.
 Color mastery_color(Mastery m);
 

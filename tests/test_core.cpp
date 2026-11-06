@@ -716,6 +716,47 @@ static void test_network()
     net_shutdown();
 }
 
+static void test_xp_and_combo()
+{
+    // Levels: 0 XP is level 1, and each level needs 50 more than the last
+    CHECK(level_for_xp(0) == 1);
+    CHECK(level_for_xp(49) == 1);
+    CHECK(level_for_xp(50) == 2);
+    CHECK(level_for_xp(149) == 2);
+    CHECK(level_for_xp(150) == 3);
+    CHECK(xp_for_level(5) == 500);
+    CHECK(level_for_xp(xp_for_level(12)) == 12);
+    CHECK(level_title(1) == "Hello, World");
+    CHECK(level_title(5) == "Pointer Apprentice");
+    CHECK(level_title(40) == "Memory Wizard");   // past the end: the top title
+
+    // XP: right +10, wrong +2, and it never goes down
+    Progress p;
+    CHECK(progress_xp(p) == 0);
+    progress_record(p, "pointers", true, "2026-11-06");
+    progress_record(p, "pointers", false, "2026-11-06");
+    CHECK(progress_xp(p) == XP_CORRECT + XP_WRONG);
+
+    // Combos: right answers in a row, reset by a wrong one
+    Quiz quiz;
+    for (int i = 0; i < 5; i++) {
+        Question q;
+        q.options = { "a", "b" };
+        q.answer = 1;
+        quiz.questions.push_back(q);
+    }
+    QuizSession s;
+    quiz_start(s, quiz);
+    quiz_answer(s, 1); quiz_next(s);
+    quiz_answer(s, 1); quiz_next(s);
+    CHECK(s.combo == 2);
+    quiz_answer(s, 2); quiz_next(s);   // wrong
+    CHECK(s.combo == 0);
+    quiz_answer(s, 1); quiz_next(s);
+    CHECK(s.combo == 1);
+    CHECK(s.bestCombo == 2);
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -730,6 +771,7 @@ int main()
     run("exam prep: real problems, and one compiled and run", test_real_problems);
     run("versus: messages, a whole match, who wins", test_versus);
     run("versus: a real connection on this computer", test_network);
+    run("XP, levels and quiz combos", test_xp_and_combo);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

@@ -31,6 +31,8 @@
 #include "ui.h"
 #include "app.h"
 #include "logo_icon.h"
+#include "fx.h"
+#include "sfx.h"
 #include <fstream>
 #include <sstream>
 
@@ -41,6 +43,7 @@
 void open_map(App &app)
 {
     app.screen = Screen::Map;
+    if (app.mal.mood == MalMood::Freed) mal_react(app.mal, MalMood::Idle, 0);   // Mal builds itself back up
 }
 
 void open_lesson(App &app)
@@ -129,6 +132,39 @@ void record_answer(App &app, const std::string &topic, bool correct)
     std::string error;
     if (!progress_save(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
+    check_level_up(app);
+}
+
+void check_level_up(App &app)
+{
+    int level = level_for_xp(progress_xp(app.progress));
+    if (level <= app.levelShown) return;
+    app.levelShown = level;
+    app.levelUpLeft = 3.4f;
+    sfx_play(Sfx::LevelUp);
+    mal_react(app.mal, MalMood::Cheer, 3.0f);
+    fx_burst({ SCREEN_W / 2.0f, 110 }, 60, COL_AMBER, COL_GREEN);
+}
+
+// The level-up banner: drops in from the top, stays a moment, slides away.
+static void draw_level_up(const App &app)
+{
+    if (app.levelUpLeft <= 0) return;
+    const float total = 3.4f;
+    float age = total - app.levelUpLeft;
+    float in = ease_out_back(age / 0.45f);
+    float out = app.levelUpLeft < 0.4f ? ease_out_cubic(1 - app.levelUpLeft / 0.4f) : 0;
+    float w = 560, h = 118;
+    float x = (SCREEN_W - w) / 2, y = -h + (h + 24) * in - (h + 40) * out;
+
+    ui_panel({ x, y + 6, w, h }, { 120, 84, 38, 255 }, { 120, 84, 38, 255 }, 0);   // the chunky base
+    ui_panel({ x, y, w, h }, COL_SURFACE_2, COL_AMBER, 2);
+    mal_draw(app.mal, { x + 70, y + h - 14 }, 76);
+
+    int level = app.levelShown;
+    ui_text("LEVEL UP!", x + 140, y + 18, 15, COL_AMBER, FontKind::MonoBold);
+    ui_text("Level " + std::to_string(level), x + 140, y + 40, 32, COL_TEXT, FontKind::MonoBold);
+    ui_text(level_title(level), x + 140, y + 82, 16, COL_TEXT_SOFT, FontKind::UiBold);
 }
 
 // The screens are laid out for SCREEN_W x SCREEN_H (1280 x 720). In a bigger
@@ -164,9 +200,8 @@ int main()
         ClearBackground(COL_BG);
         EndDrawing();
     }
-    ClearWindowState(FLAG_WINDOW_HIDDEN);
-
-    // The window and taskbar icon. The logo is built into the program
+    // The window and taskbar icon, set before the window is shown so the
+    // taskbar button gets it straight away. The logo is built into the program
     // (logo_icon.h), so it doesn't matter where Stack Trace is run from. It's
     // given in a few sizes, so Windows can pick a sharp one for the title bar
     // (16 px) and the taskbar (32 px and up).
@@ -183,6 +218,9 @@ int main()
         for (int i = 0; i < 5; i++) UnloadImage(icons[i]);   // the window keeps its own copies
         UnloadImage(logo);
     }
+    ClearWindowState(FLAG_WINDOW_HIDDEN);
+    sfx_init();
+
     ui_load_fonts();
 
     App app;
@@ -205,15 +243,26 @@ int main()
         TraceLog(LOG_WARNING, "PRACTICE: %s", app.practiceError.c_str());
     if (!progress_load(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
+    app.levelShown = level_for_xp(progress_xp(app.progress));   // only celebrate new levels
 
     while (!WindowShouldClose() && !app.quit) {
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
+        // M mutes, except where you type code (M is a letter you might need there)
+        if (IsKeyPressed(KEY_M) && app.screen != Screen::Problem && app.screen != Screen::Versus) sfx_toggle_mute();
+
+        float dt = GetFrameTime();
+        fx_update(dt);
+        mal_update(app.mal, dt);
+        if (app.levelUpLeft > 0) app.levelUpLeft -= dt;
 
         // Scale the screens to the window, and the mouse to match
         Camera2D fit = fit_screen();
-        ui_set_fit(fit);
         SetMouseOffset((int)-fit.offset.x, (int)-fit.offset.y);
         SetMouseScale(1.0f / fit.zoom, 1.0f / fit.zoom);
+        Vector2 shake = fx_shake_offset();   // screen shake moves the picture, not the mouse
+        fit.offset.x += shake.x * fit.zoom;
+        fit.offset.y += shake.y * fit.zoom;
+        ui_set_fit(fit);
 
         BeginDrawing();
         ClearBackground(COL_BG);
@@ -230,6 +279,8 @@ int main()
             case Screen::Versus:   screen_versus(app); break;
             case Screen::Profile:  screen_profile(app); break;
         }
+        fx_draw();
+        draw_level_up(app);
 
         ui_end_frame();
         EndMode2D();
@@ -239,6 +290,7 @@ int main()
     if (app.screen == Screen::Problem) save_draft(app);
     versus_quit(app);
     net_shutdown();
+    sfx_close();
     ui_unload_fonts();
     CloseWindow();
     return 0;

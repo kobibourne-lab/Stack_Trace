@@ -1,6 +1,7 @@
 // ui.cpp - shared drawing pieces. See ui.h.
 
 #include "ui.h"
+#include "sfx.h"
 #include <cmath>
 #include <sstream>
 
@@ -194,10 +195,22 @@ void ui_triangle(Vector2 a, Vector2 b, Vector2 c, Color color)
     DrawTriangle(a, c, b, color);
 }
 
+// A colour part way from the background to c (solid, so nothing shows through).
+static Color mix_bg(Color c, float amount)
+{
+    return { (unsigned char)(COL_BG.r + (c.r - COL_BG.r) * amount), (unsigned char)(COL_BG.g + (c.g - COL_BG.g) * amount),
+             (unsigned char)(COL_BG.b + (c.b - COL_BG.b) * amount), 255 };
+}
+
+// Buttons are chunky, Duolingo style: a raised face on a darker base. Holding
+// the mouse down pushes the face down onto the base, and letting go clicks.
+const float BUTTON_DEPTH = 4;
+
 bool ui_button(const std::string &label, Rectangle r, ButtonStyle style, Color accent)
 {
     bool hover = style != ButtonStyle::Disabled && CheckCollisionPointRec(GetMousePosition(), r);
     if (hover) wantHand = true;
+    bool held = hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
     Color fill, border, textColor;
     switch (style) {
@@ -217,13 +230,21 @@ bool ui_button(const std::string &label, Rectangle r, ButtonStyle style, Color a
             textColor = COL_MUTED;
             break;
     }
-    ui_panel(r, fill, border, 1);
+    // The base, then the face: up by the depth normally, nearly flat when held
+    Color base = style == ButtonStyle::Primary ? mix_bg(accent, 0.55f)
+               : style == ButtonStyle::Outline ? mix_bg(accent, 0.4f) : COL_LINE_SOFT;
+    ui_panel({ r.x, r.y + BUTTON_DEPTH, r.width, r.height - BUTTON_DEPTH }, base, base, 0);
+    float sink = held ? BUTTON_DEPTH - 1 : 0;
+    Rectangle face = { r.x, r.y + sink, r.width, r.height - BUTTON_DEPTH };
+    ui_panel(face, fill, border, style == ButtonStyle::Outline ? 1.5f : 1);
 
     float size = 16;
     float w = ui_text_width(label, size, FontKind::UiBold);
-    ui_text(label, r.x + (r.width - w) / 2, r.y + (r.height - size * 1.25f) / 2, size, textColor, FontKind::UiBold);
+    ui_text(label, face.x + (face.width - w) / 2, face.y + (face.height - size * 1.25f) / 2, size, textColor, FontKind::UiBold);
 
-    return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool clicked = hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (clicked) sfx_play(Sfx::Click);
+    return clicked;
 }
 
 // ---------------------------------------------------------------------------
@@ -378,6 +399,37 @@ static void draw_heart(float x, float y, float s, Color color)
     DrawCircleV({ x + r, y + r }, r, color);
     DrawCircleV({ x + 3 * r, y + r }, r, color);
     ui_triangle({ x, y + r * 1.2f }, { x + s, y + r * 1.2f }, { x + s / 2, y + s * 0.95f }, color);
+}
+
+float ui_level_badge_width(int xp)
+{
+    int level = level_for_xp(xp);
+    std::string lv = "LV " + std::to_string(level);
+    float boxW = ui_text_width(lv, 14, FontKind::MonoBold) + 18;
+    float titleW = ui_text_width(level_title(level), 13, FontKind::UiBold);
+    return boxW + 10 + fmaxf(titleW + 56, 150);
+}
+
+float ui_level_badge(float x, float y, int xp)
+{
+    int level = level_for_xp(xp);
+    int from = xp_for_level(level), to = xp_for_level(level + 1);
+    std::string lv = "LV " + std::to_string(level);
+    float boxW = ui_text_width(lv, 14, FontKind::MonoBold) + 18;
+
+    ui_panel({ x, y + 3, boxW, 34 }, mix_bg(COL_AMBER, 0.55f), mix_bg(COL_AMBER, 0.55f), 0);   // chunky, like the buttons
+    ui_panel({ x, y, boxW, 34 }, COL_AMBER, COL_AMBER, 0);
+    ui_text(lv, x + 9, y + 8, 14, COL_BG, FontKind::MonoBold);
+
+    float tx = x + boxW + 10, w = ui_level_badge_width(xp) - boxW - 10;
+    ui_text(level_title(level), tx, y + 1, 13, COL_TEXT, FontKind::UiBold);
+    Rectangle bar = { tx, y + 22, w, 6 };
+    DrawRectangleRounded(bar, 1, 6, COL_LINE_SOFT);
+    float f = to > from ? (float)(xp - from) / (to - from) : 0;
+    if (f > 0) DrawRectangleRounded({ bar.x, bar.y, bar.width * f, bar.height }, 1, 6, COL_AMBER);
+    std::string count = std::to_string(xp - from) + "/" + std::to_string(to - from);
+    ui_text(count, tx + w - ui_text_width(count, 10, FontKind::Mono), y + 3, 10, COL_MUTED, FontKind::Mono);
+    return boxW + 10 + w;
 }
 
 void ui_hearts(float x, float y, int lives, int maxLives)
