@@ -1,0 +1,63 @@
+# Singly linked list quiz.
+
+TITLE: Singly linked list
+TOPIC: sll
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct Node { int data; Node *next; };
+int main() {
+    Node c{3, nullptr}, b{2, &c}, a{1, &b};
+    int sum = 0;
+    for (Node *p = &a; p != nullptr; p = p->next)
+        sum += p->data;
+    printf("%d\n", sum);
+}
+END
+OPTION: 1
+OPTION: 3
+OPTION: 5
+OPTION: 6
+ANSWER: 4
+EXPLAIN: The list is a -> b -> c. p visits all three, adding 1 + 2 + 3, and stops at c's nullptr.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct Node { int data; Node *next; };
+int main() {
+    Node c{30, nullptr}, b{20, &c}, a{10, &b};
+    Node *head = &a;
+    printf("%d\n", head->next->next->data);
+}
+END
+OPTION: 30
+OPTION: 10
+OPTION: 20
+OPTION: It crashes
+ANSWER: 1
+EXPLAIN: head->next is b, and b's next is c, so this is c.data: 30.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This never stops. Click the loop that never moves on.
+CODE:
+void printList(Node *head) {
+    while (head != nullptr) {
+        cout << head->data << " ";
+    }
+    cout << endl;
+}
+END
+ANSWER: 2
+EXPLAIN: The loop never changes head, so the condition is always true. Add head = head->next; inside the loop.
+
+QUESTION: Choose
+PROMPT: Why does InsertAtEnd in the lecture take Node **head, not Node *head?
+OPTION: To make it faster
+OPTION: Because nodes are on the heap
+OPTION: So it can change the caller's head when the list is empty
+OPTION: So it can delete the list
+ANSWER: 3
+EXPLAIN: Inserting into an empty list means head itself must change. With a plain Node*, the function would only change its own copy.

@@ -1,0 +1,54 @@
+# Double pointers - a pointer to a pointer, as in the Pointers in C, C++
+# slides, and the Node** head in the linked list lecture.
+TITLE: Double pointers: a pointer to a pointer
+TOPIC: dblptr
+TEXT: A pointer is a variable too, so it has an address, and another pointer can point at it.
+TEXT: **pp follows two arrows. *pp is the pointer in the middle, so changing *pp changes where it points.
+
+CODE:
+int x = 5, y = 1;
+int *p = &x;
+int **pp = &p;
+**pp = 9;
+*pp = &y;
+**pp = 7;
+END
+
+STEP: 1
+EXPLAIN: Two ints on the stack.
+MEM: main | x | int | 1000 | 5 | changed
+MEM: main | y | int | 1004 | 1 | changed
+
+STEP: 2
+EXPLAIN: p holds the address of x.
+MEM: main | x | int | 1000 | 5
+MEM: main | y | int | 1004 | 1
+MEM: main | p | int* | 1008 | ->x | changed
+
+STEP: 3
+EXPLAIN: pp holds the address of p. Its type is int**: a pointer to an int*.
+MEM: main | x | int | 1000 | 5
+MEM: main | y | int | 1004 | 1
+MEM: main | p | int* | 1008 | ->x
+MEM: main | pp | int** | 1016 | ->p | changed
+
+STEP: 4
+EXPLAIN: **pp follows both arrows: pp to p, then p to x. So x becomes 9.
+MEM: main | x | int | 1000 | 9 | changed
+MEM: main | y | int | 1004 | 1
+MEM: main | p | int* | 1008 | ->x
+MEM: main | pp | int** | 1016 | ->p
+
+STEP: 5
+EXPLAIN: *pp is p itself, so this changes p: it now points at y. This is how a function given Node **head can change the caller's head.
+MEM: main | x | int | 1000 | 9
+MEM: main | y | int | 1004 | 1
+MEM: main | p | int* | 1008 | ->y | changed
+MEM: main | pp | int** | 1016 | ->p
+
+STEP: 6
+EXPLAIN: The same **pp as before now reaches y, because p moved. y becomes 7.
+MEM: main | x | int | 1000 | 9
+MEM: main | y | int | 1004 | 7 | changed
+MEM: main | p | int* | 1008 | ->y
+MEM: main | pp | int** | 1016 | ->p

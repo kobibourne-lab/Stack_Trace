@@ -1,0 +1,72 @@
+# Constructors quiz.
+
+TITLE: Constructors
+TOPIC: ctors
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Box {
+public:
+    int w;
+    Box() : w(1) { printf("A"); }
+    Box(int x) : w(x) { printf("B"); }
+};
+int main() {
+    Box a;
+    Box b(5);
+    Box c = 7;
+    printf(" %d\n", a.w + b.w + c.w);
+}
+END
+OPTION: ABB 13
+OPTION: AB 13
+OPTION: ABB 6
+OPTION: AAB 13
+ANSWER: 1
+EXPLAIN: a uses the default constructor (A, w = 1). b(5) and c = 7 both use Box(int) (B, B). 1 + 5 + 7 = 13.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class T {
+public:
+    T() { printf("x"); }
+};
+int main() {
+    T arr[3];
+    T *p = nullptr;
+    printf("\n");
+}
+END
+OPTION: x
+OPTION: xxxx
+OPTION: xxx
+OPTION: Nothing
+ANSWER: 3
+EXPLAIN: The array makes 3 objects, so the constructor runs 3 times. T *p is only a pointer: no object, no constructor.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: After Point p(3, 4); x and y hold rubbish. Click the first wrong line.
+CODE:
+class Point {
+    int x, y;
+public:
+    Point(int x, int y) {
+        x = x;
+        y = y;
+    }
+};
+END
+ANSWER: 5
+EXPLAIN: The parameter x hides the member x, so x = x copies the parameter onto itself. Use this->x = x, or an initialiser list: : x(x), y(y).
+
+QUESTION: Choose
+PROMPT: Point only has the constructor Point(int a, int b). What does Point p; do?
+OPTION: Makes p with x and y set to 0
+OPTION: Makes p with rubbish in x and y
+OPTION: It doesn't compile
+OPTION: Calls Point(0, 0)
+ANSWER: 3
+EXPLAIN: Once a class has any constructor of its own, C++ no longer makes the default one for you. Add Point() if you need it.

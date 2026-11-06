@@ -1,0 +1,48 @@
+# Classes & methods - an object is its members side by side, and a method gets
+# a hidden this pointer. From Noel's Classes in C++ slides.
+TITLE: Objects, methods and this
+TOPIC: classes
+TEXT: An object is its member variables side by side, like a struct. Each object has its own copy of them.
+TEXT: A method is called on one object, and gets a hidden pointer to it called this.
+
+CODE:
+class Point {
+public:
+    int x, y;
+    void move(int dx) { x += dx; }
+};
+int main() {
+    Point p;
+    p.x = 1; p.y = 2;
+    p.move(5);
+}
+END
+
+STEP: 7
+EXPLAIN: p is made on the stack. Its members haven't been set yet, so they hold rubbish.
+MEM: main | p.x | int | 3000 | ? | changed
+MEM: main | p.y | int | 3004 | ? | changed
+
+STEP: 8
+EXPLAIN: The dot reaches a member of an object.
+MEM: main | p.x | int | 3000 | 1 | changed
+MEM: main | p.y | int | 3004 | 2 | changed
+
+STEP: 4
+EXPLAIN: p.move(5) makes a frame for move. this holds p's address, and dx is 5.
+MEM: main | p.x | int | 3000 | 1
+MEM: main | p.y | int | 3004 | 2
+MEM: Point::move | this | Point* | 2980 | ->p.x | changed
+MEM: Point::move | dx | int | 2988 | 5 | changed
+
+STEP: 4
+EXPLAIN: x inside a method means this->x: p's x. It becomes 6.
+MEM: main | p.x | int | 3000 | 6 | changed
+MEM: main | p.y | int | 3004 | 2
+MEM: Point::move | this | Point* | 2980 | ->p.x
+MEM: Point::move | dx | int | 2988 | 5
+
+STEP: 9
+EXPLAIN: move returns and its frame is gone, but the change stays: it was made to p itself, through this.
+MEM: main | p.x | int | 3000 | 6
+MEM: main | p.y | int | 3004 | 2

@@ -1,0 +1,55 @@
+# Doubly linked list quiz.
+
+TITLE: Doubly linked list
+TOPIC: dll
+
+QUESTION: Choose
+PROMPT: After inserting n between a and b (where a->next was b), which must be true?
+OPTION: n->prev == b
+OPTION: b->next == n
+OPTION: a->next == n and b->prev == n
+OPTION: a->prev == n
+ANSWER: 3
+EXPLAIN: n sits between them, so a now leads forward to n and b leads back to n. Also n->prev == a and n->next == b.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct Node { int data; Node *prev, *next; };
+int main() {
+    Node a{1, nullptr, nullptr}, b{2, nullptr, nullptr};
+    Node c{3, nullptr, nullptr};
+    a.next = &b; b.prev = &a;
+    b.next = &c; c.prev = &b;
+    printf("%d %d\n", c.prev->prev->data,
+                       a.next->next->data);
+}
+END
+OPTION: 1 3
+OPTION: 3 1
+OPTION: 2 2
+OPTION: 1 1
+ANSWER: 1
+EXPLAIN: From c, two steps back is a (1). From a, two steps forward is c (3).
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This crashes when the list is empty. Click the line.
+CODE:
+void insertAtBeginning(Node *&head, int value) {
+    Node *n = new Node{value, nullptr, head};
+    head->prev = n;
+    head = n;
+}
+END
+ANSWER: 3
+EXPLAIN: If the list is empty, head is nullptr and head->prev crashes. Only do it if (head != nullptr).
+
+QUESTION: Choose
+PROMPT: Inserting a node in the middle of a doubly linked list: how many pointers have to be set?
+OPTION: 2
+OPTION: 3
+OPTION: 6
+OPTION: 4
+ANSWER: 4
+EXPLAIN: The new node's prev and next, the node before's next, and the node after's prev.

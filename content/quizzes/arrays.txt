@@ -1,0 +1,57 @@
+# Arrays & 2D arrays quiz.
+
+TITLE: Arrays & 2D arrays
+TOPIC: arrays
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int a[5] = {4, 1, 7, 3, 9};
+int total = 0;
+for (int i = 0; i < 5; i += 2)
+    total += a[i];
+printf("%d\n", total);
+END
+OPTION: 24
+OPTION: 4
+OPTION: 13
+OPTION: 20
+ANSWER: 4
+EXPLAIN: i is 0, 2 and 4, so this adds a[0] + a[2] + a[4] = 4 + 7 + 9 = 20.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int g[2][3] = {{1, 2, 3}, {4, 5, 6}};
+printf("%d\n", g[1][2]);
+END
+OPTION: 5
+OPTION: 6
+OPTION: 3
+OPTION: 2
+ANSWER: 2
+EXPLAIN: g[1] is the second row, {4, 5, 6}, and [2] is its third element: 6.
+
+QUESTION: Trace the memory
+PROMPT: a starts at address 2000. What is the address of a[3]?
+CODE:
+int a[4];
+END
+OPTION: 2003
+OPTION: 2012
+OPTION: 2016
+OPTION: 2004
+ANSWER: 2
+EXPLAIN: Each int is 4 bytes, so a[3] is 3 x 4 = 12 bytes after the start: 2012.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that reads past the end of the array.
+CODE:
+int a[5] = {1, 2, 3, 4, 5};
+int sum = 0;
+for (int i = 0; i <= 5; i++)
+    sum += a[i];
+END
+ANSWER: 3
+EXPLAIN: a has 5 elements, a[0] to a[4]. i <= 5 lets i reach 5, and a[5] is past the end. Use i < 5.

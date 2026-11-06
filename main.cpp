@@ -9,6 +9,7 @@
 //   ui.cpp/.h           shared drawing: text, panels, buttons, code, header
 //   memview.cpp/.h      the memory view: stack frames, heap blocks, pointer arrows
 //   theme.h             colours and sizes
+//   screen_title.cpp    the start screen: logo, menu and a looping pointer demo
 //   screen_map.cpp      the topic map
 //   screen_lesson.cpp   a lesson: tutorial text, code, and the memory view step by step
 //   screen_quiz.cpp     a quiz, then its results
@@ -29,6 +30,7 @@
 #include "theme.h"
 #include "ui.h"
 #include "app.h"
+#include "logo_icon.h"
 #include <fstream>
 #include <sstream>
 
@@ -129,15 +131,58 @@ void record_answer(App &app, const std::string &topic, bool correct)
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
 }
 
+// The screens are laid out for SCREEN_W x SCREEN_H (1280 x 720). In a bigger
+// window they're scaled up to fit and centred, with the mouse scaled to match
+// so the buttons still work. Same idea as the Hospital project's fit_screen.
+static Camera2D fit_screen()
+{
+    float sx = (float)GetScreenWidth() / SCREEN_W, sy = (float)GetScreenHeight() / SCREEN_H;
+    float scale = sx < sy ? sx : sy;
+    Camera2D cam = {};
+    cam.zoom = scale;
+    cam.offset = { (GetScreenWidth() - SCREEN_W * scale) / 2, (GetScreenHeight() - SCREEN_H * scale) / 2 };
+    return cam;
+}
+
 // ---------------------------------------------------------------------------
 
 int main()
 {
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    // Like the Hospital project: a window that can be any size. It starts
+    // hidden, is made to fill the screen (as a normal window, with its title bar,
+    // so it can be minimised), and is only shown once it's been drawn full size.
+    // F11 switches to full screen and back.
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIDDEN);
     net_init();   // for Versus mode (needed on Windows)
     InitWindow(SCREEN_W, SCREEN_H, "Stack Trace - learn C and C++ by watching memory");
+    SetWindowMinSize(SCREEN_W / 2, SCREEN_H / 2);
+    MaximizeWindow();
     SetExitKey(KEY_NULL);   // ESC goes back a screen instead of closing the window
     SetTargetFPS(60);
+    for (int i = 0; i < 3; i++) {   // let the new size take effect before showing the window
+        BeginDrawing();
+        ClearBackground(COL_BG);
+        EndDrawing();
+    }
+    ClearWindowState(FLAG_WINDOW_HIDDEN);
+
+    // The window and taskbar icon. The logo is built into the program
+    // (logo_icon.h), so it doesn't matter where Stack Trace is run from. It's
+    // given in a few sizes, so Windows can pick a sharp one for the title bar
+    // (16 px) and the taskbar (32 px and up).
+    Image logo = LoadImageFromMemory(".png", LOGO_ICON_PNG, (int)sizeof(LOGO_ICON_PNG));
+    if (logo.data) {
+        ImageFormat(&logo, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);   // the format the icon needs
+        const int sizes[] = { 16, 24, 32, 48, 64 };
+        Image icons[5];
+        for (int i = 0; i < 5; i++) {
+            icons[i] = ImageCopy(logo);
+            if (sizes[i] != logo.width) ImageResize(&icons[i], sizes[i], sizes[i]);
+        }
+        SetWindowIcons(icons, 5);
+        for (int i = 0; i < 5; i++) UnloadImage(icons[i]);   // the window keeps its own copies
+        UnloadImage(logo);
+    }
     ui_load_fonts();
 
     App app;
@@ -162,11 +207,21 @@ int main()
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
 
     while (!WindowShouldClose() && !app.quit) {
+        if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
+
+        // Scale the screens to the window, and the mouse to match
+        Camera2D fit = fit_screen();
+        ui_set_fit(fit);
+        SetMouseOffset((int)-fit.offset.x, (int)-fit.offset.y);
+        SetMouseScale(1.0f / fit.zoom, 1.0f / fit.zoom);
+
         BeginDrawing();
         ClearBackground(COL_BG);
+        BeginMode2D(fit);
         ui_begin_frame();
 
         switch (app.screen) {
+            case Screen::Title:    screen_title(app); break;
             case Screen::Map:      screen_map(app); break;
             case Screen::Lesson:   screen_lesson(app); break;
             case Screen::Quiz:     screen_quiz(app); break;
@@ -177,6 +232,7 @@ int main()
         }
 
         ui_end_frame();
+        EndMode2D();
         EndDrawing();
     }
 

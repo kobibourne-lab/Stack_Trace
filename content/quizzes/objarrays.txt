@@ -1,0 +1,68 @@
+# Arrays of objects quiz.
+
+TITLE: Arrays of objects
+TOPIC: objarrays
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class P {
+public:
+    P() { printf("c"); }
+    ~P() { printf("d"); }
+};
+int main() {
+    P *ps = new P[3];
+    delete[] ps;
+    printf("\n");
+}
+END
+OPTION: cd
+OPTION: cccd
+OPTION: cdcdcd
+OPTION: cccddd
+ANSWER: 4
+EXPLAIN: new P[3] constructs all 3 objects, then delete[] destroys all 3. Plain delete would only be right for one object.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Point { public: int x = 0, y = 0; };
+int main() {
+    Point pts[3];
+    pts[1].x = 4;
+    (pts + 2)->y = 6;
+    printf("%d %d %d\n", pts[0].x, pts[1].x, pts[2].y);
+}
+END
+OPTION: 4 0 6
+OPTION: 0 4 6
+OPTION: 0 0 6
+OPTION: 4 6 0
+ANSWER: 2
+EXPLAIN: pts + 2 points at pts[2], so (pts + 2)->y is pts[2].y. pts[0] is untouched.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that won't compile.
+CODE:
+class Point {
+public:
+    int x, y;
+    Point(int a, int b) : x(a), y(b) {}
+};
+int main() {
+    Point pts[3];
+}
+END
+ANSWER: 7
+EXPLAIN: An array needs a default constructor to make each element, and Point doesn't have one. Add Point() : x(0), y(0) {}.
+
+QUESTION: Choose
+PROMPT: Point *arr[3]; and each arr[i] was made with new Point(). How do you free them?
+OPTION: delete[] arr;
+OPTION: delete arr[i]; for each i
+OPTION: delete arr;
+OPTION: Nothing: they free themselves
+ANSWER: 2
+EXPLAIN: arr itself is a normal array of 3 pointers on the stack. Each Point was its own new, so each needs its own delete.

@@ -1,6 +1,7 @@
 // ui.cpp - shared drawing pieces. See ui.h.
 
 #include "ui.h"
+#include <cmath>
 #include <sstream>
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,23 @@ static Font &font_for(FontKind kind) { return fonts[(int)kind]; }
 static float spacing_for(FontKind kind, float size)
 {
     return loaded[(int)kind] ? 0.0f : size / 10.0f;
+}
+
+// ---------------------------------------------------------------------------
+// Scaling to the window
+// ---------------------------------------------------------------------------
+
+static Camera2D currentFit = { { 0, 0 }, { 0, 0 }, 0, 1 };
+
+void ui_set_fit(Camera2D fit) { currentFit = fit; }
+
+// BeginScissorMode works in real window pixels and ignores the camera, so the
+// box is scaled and moved the same way the camera moves everything else.
+void ui_scissor(int x, int y, int width, int height)
+{
+    float s = currentFit.zoom;
+    BeginScissorMode((int)(currentFit.offset.x + x * s), (int)(currentFit.offset.y + y * s),
+                     (int)(width * s + 0.5f), (int)(height * s + 0.5f));
 }
 
 void ui_begin_frame() { wantHand = false; wantIbeam = false; }
@@ -212,12 +230,85 @@ bool ui_button(const std::string &label, Rectangle r, ButtonStyle style, Color a
 // Header and footer
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The logo
+// ---------------------------------------------------------------------------
+
+// A rounded box with an outline: drawn as the outline colour, then the fill
+// inset by the line's thickness (on our solid backgrounds that's the same).
+static void logo_box(Rectangle r, float radius, float line, Color fill, Color outline)
+{
+    auto roundness = [](Rectangle b, float rad) {
+        float shorter = b.width < b.height ? b.width : b.height;
+        return shorter > 0 ? (2 * rad / shorter > 1 ? 1 : 2 * rad / shorter) : 0;
+    };
+    if (line > 0) {
+        DrawRectangleRounded(r, roundness(r, radius), 8, outline);
+        r = { r.x + line, r.y + line, r.width - 2 * line, r.height - 2 * line };
+        radius -= line;
+    }
+    DrawRectangleRounded(r, roundness(r, radius), 8, fill);
+}
+
+// An arrowhead: two short lines meeting at tip, pointing along (dx, dy).
+static void logo_arrowhead(Vector2 tip, float dx, float dy, float len, float thick, Color c)
+{
+    float l = sqrtf(dx * dx + dy * dy);
+    dx /= l; dy /= l;
+    Vector2 a = { tip.x - dx * len - dy * len * 0.75f, tip.y - dy * len + dx * len * 0.75f };
+    Vector2 b = { tip.x - dx * len + dy * len * 0.75f, tip.y - dy * len - dx * len * 0.75f };
+    DrawLineEx(a, tip, thick, c);
+    DrawLineEx(b, tip, thick, c);
+    DrawCircleV(tip, thick / 2, c);
+}
+
+void ui_logo(float x, float y, float size)
+{
+    // Laid out on a 170 x 170 grid, then scaled.
+    float k = size / 170.0f;
+    auto R = [&](float rx, float ry, float rw, float rh) { return Rectangle{ x + rx * k, y + ry * k, rw * k, rh * k }; };
+    auto P = [&](float px, float py) { return Vector2{ x + px * k, y + py * k }; };
+    float line = fmaxf(1.0f, 2.5f * k);
+    bool detailed = size >= 100;
+
+    logo_box(R(0, 0, 170, 170), 28 * k, fmaxf(1.0f, 1.2f * k), COL_BG, COL_LINE);
+
+    // The stack: the newest frame on top, in amber
+    logo_box(R(88, 32, 66, 24), 5 * k, 0, COL_AMBER, COL_AMBER);
+    logo_box(R(88, 64, 66, 24), 5 * k, line * 0.8f, COL_SURFACE, COL_PURPLE);
+    logo_box(R(88, 96, 66, 24), 5 * k, line * 0.8f, COL_SURFACE, COL_LINE);
+    logo_box(R(88, 128, 66, 22), 5 * k, line * 0.8f, COL_SURFACE, COL_LINE);
+    if (detailed) {
+        float fs = 13 * k;
+        ui_text("swap", x + 121 * k - ui_text_width("swap", fs, FontKind::MonoBold) / 2, y + 37 * k, fs, COL_BG, FontKind::MonoBold);
+        ui_text("main", x + 121 * k - ui_text_width("main", fs, FontKind::Mono) / 2, y + 69 * k, fs, COL_PURPLE, FontKind::Mono);
+    }
+
+    // The trace line, climbing from the oldest frame to p's frame
+    float tl = 3.5f * k;
+    Vector2 trace[] = { P(18, 139), P(42, 139), P(56, 108), P(68, 76), P(82, 76) };
+    for (int i = 0; i < 4; i++) {
+        DrawLineEx(trace[i], trace[i + 1], tl, COL_GREEN);
+        DrawCircleV(trace[i + 1], tl / 2, COL_GREEN);
+    }
+    DrawCircleV(trace[0], 4.5f * k, COL_GREEN);
+
+    // The pointer p, with the green cursor from STACK_TRACE, and its arrow
+    logo_box(R(16, 30, 44, 38), 7 * k, line, COL_SURFACE, COL_BLUE);
+    float ps = 22 * k;
+    ui_text("p", x + 38 * k - ui_text_width("p", ps, FontKind::MonoBold) / 2, y + 34 * k, ps, COL_BLUE, FontKind::MonoBold);
+    DrawRectangleRec(R(44, 58, 10, 3.5f), COL_GREEN);
+    DrawSplineSegmentBezierCubic(P(60, 49), P(72, 49), P(74, 44), P(83, 44), 3 * k, COL_BLUE);
+    logo_arrowhead(P(84, 44), 1, 0, 7 * k, 3 * k, COL_BLUE);
+}
+
 void ui_header(const std::string &subtitle)
 {
     DrawRectangle(0, 0, SCREEN_W, HEADER_H, COL_BG);
     DrawLine(0, HEADER_H - 1, SCREEN_W, HEADER_H - 1, COL_LINE_SOFT);
 
-    float x = MARGIN, y = 20;
+    ui_logo(MARGIN, 12, 40);
+    float x = MARGIN + 52, y = 20;
     ui_text("STACK", x, y, 22, COL_TEXT, FontKind::MonoBold);
     x += ui_text_width("STACK", 22, FontKind::MonoBold);
     ui_text("_", x, y, 22, COL_GREEN, FontKind::MonoBold);
@@ -250,7 +341,7 @@ int ui_code(const std::vector<std::string> &lines, Rectangle r, int highlight, C
     float top = r.y + 10;
     int clicked = 0;
 
-    BeginScissorMode((int)r.x, (int)r.y, (int)r.width, (int)r.height);
+    ui_scissor((int)r.x, (int)r.y, (int)r.width, (int)r.height);
     for (int i = 0; i < (int)lines.size(); i++) {
         int number = i + 1;
         Rectangle row = { r.x + 1, top + i * lineH, r.width - 2, lineH };

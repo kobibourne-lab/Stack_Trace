@@ -1,0 +1,58 @@
+# I/O & types - what C does with int, double and char, and why 7 / 2 is 3.
+TITLE: Types, casting and integer division
+TOPIC: basics
+TEXT: Every variable has a type, and the type decides how much memory it takes and what an operation does with it.
+TEXT: Watch int division throw away the remainder, and how a cast fixes it.
+
+CODE:
+int a = 7, b = 2;
+int q = a / b;
+double d = a / b;
+double e = (double)a / b;
+char c = 'A' + 2;
+printf("%d %.1f %.1f %c\n", q, d, e, c);
+END
+
+STEP: 1
+EXPLAIN: a and b are ints: 4 bytes each, side by side on the stack.
+MEM: main | a | int | 1000 | 7 | changed
+MEM: main | b | int | 1004 | 2 | changed
+
+STEP: 2
+EXPLAIN: int divided by int gives an int. The remainder is thrown away, so 7 / 2 is 3.
+MEM: main | a | int | 1000 | 7
+MEM: main | b | int | 1004 | 2
+MEM: main | q | int | 1008 | 3 | changed
+
+STEP: 3
+EXPLAIN: Still 3.0, not 3.5! a / b is worked out as int division first (3), and only then turned into a double. A double is 8 bytes.
+MEM: main | a | int | 1000 | 7
+MEM: main | b | int | 1004 | 2
+MEM: main | q | int | 1008 | 3
+MEM: main | d | double | 1016 | 3.0 | changed
+
+STEP: 4
+EXPLAIN: (double)a turns a into 7.0 before dividing, so this is double division: 3.5.
+MEM: main | a | int | 1000 | 7
+MEM: main | b | int | 1004 | 2
+MEM: main | q | int | 1008 | 3
+MEM: main | d | double | 1016 | 3.0
+MEM: main | e | double | 1024 | 3.5 | changed
+
+STEP: 5
+EXPLAIN: A char is a 1-byte number. 'A' is 65, plus 2 is 67, which is 'C'.
+MEM: main | a | int | 1000 | 7
+MEM: main | b | int | 1004 | 2
+MEM: main | q | int | 1008 | 3
+MEM: main | d | double | 1016 | 3.0
+MEM: main | e | double | 1024 | 3.5
+MEM: main | c | char | 1032 | 'C' | changed
+
+STEP: 6
+EXPLAIN: Prints: 3 3.0 3.5 C. Each % in the format matches one value: %d an int, %f a double, %c a char.
+MEM: main | a | int | 1000 | 7
+MEM: main | b | int | 1004 | 2
+MEM: main | q | int | 1008 | 3
+MEM: main | d | double | 1016 | 3.0
+MEM: main | e | double | 1024 | 3.5
+MEM: main | c | char | 1032 | 'C'

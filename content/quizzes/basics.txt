@@ -1,0 +1,57 @@
+# I/O & types quiz.
+
+TITLE: I/O & types
+TOPIC: basics
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int a = 7, b = 2;
+double d = a / b;
+printf("%.1f\n", d);
+END
+OPTION: 3.5
+OPTION: 3.0
+OPTION: 3
+OPTION: 4.0
+ANSWER: 2
+EXPLAIN: a / b is int division, so it gives 3. Only then is it turned into a double: 3.0. Write (double)a / b to get 3.5.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int x = 10;
+double y = (double)x / 4;
+printf("%.2f\n", y);
+END
+OPTION: 2.00
+OPTION: 2.25
+OPTION: 3.00
+OPTION: 2.50
+ANSWER: 4
+EXPLAIN: The cast turns x into 10.0 before dividing, so this is double division: 10.0 / 4 = 2.5, printed with 2 decimal places.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+char c = 'a' + 1;
+printf("%c %d\n", c, c);
+END
+OPTION: b 98
+OPTION: a 97
+OPTION: b 66
+OPTION: b b
+ANSWER: 1
+EXPLAIN: A char is a small number. 'a' is 97, so c is 98. %c prints it as a letter (b), %d as a number (98).
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This crashes or reads nothing. Click the line with the bug.
+CODE:
+int age;
+printf("Enter your age: ");
+scanf("%d", age);
+printf("You are %d\n", age);
+END
+ANSWER: 3
+EXPLAIN: scanf needs the address of where to put the number: scanf("%d", &age). Without the &, it writes to whatever address age happens to hold.

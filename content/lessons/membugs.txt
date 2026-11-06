@@ -1,0 +1,49 @@
+# Memory bugs - returning the address of a local, and using memory after
+# delete. Both from Noel's Memory Management slides.
+TITLE: Dangling pointers and use after delete
+TOPIC: membugs
+TEXT: A dangling pointer still holds an address, but the memory there isn't yours any more.
+TEXT: Using it might seem to work, print rubbish or crash later. The compiler won't always warn you.
+
+CODE:
+int *bad() {
+    int local = 42;
+    return &local;
+}
+int main() {
+    int *p = bad();
+    int *h = new int(5);
+    delete h;
+    *h = 6;
+}
+END
+
+STEP: 2
+EXPLAIN: main calls bad(). local lives in bad's stack frame.
+MEM: main | p | int* | 3000 | ? | changed
+MEM: bad | local | int | 2980 | 42 | changed
+
+STEP: 3
+EXPLAIN: return &local hands back the address of local: 2980.
+MEM: main | p | int* | 3000 | ?
+MEM: bad | local | int | 2980 | 42
+
+STEP: 6
+EXPLAIN: bad's frame is gone, but p still holds 2980, where local used to be. p is dangling: *p is undefined behaviour. Never return the address of a local.
+MEM: main | p | int* | 3000 | 2980 | changed
+
+STEP: 7
+EXPLAIN: new int(5) makes an int on the heap, and h points at it.
+MEM: main | p | int* | 3000 | 2980
+MEM: main | h | int* | 3008 | ->block | changed
+MEM: heap | block | int | 9000 | 5 | changed
+
+STEP: 8
+EXPLAIN: delete frees the block, but h still holds 9000. Set h = nullptr after a delete so it can't be used by mistake.
+MEM: main | p | int* | 3000 | 2980
+MEM: main | h | int* | 3008 | 9000 | changed
+
+STEP: 9
+EXPLAIN: Use after delete: this writes into memory that may now belong to something else. Deleting h a second time (a double delete) is just as bad.
+MEM: main | p | int* | 3000 | 2980
+MEM: main | h | int* | 3008 | 9000

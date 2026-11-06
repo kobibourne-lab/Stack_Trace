@@ -1,0 +1,68 @@
+# Classes & methods quiz.
+
+TITLE: Classes & methods
+TOPIC: classes
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Counter {
+public:
+    int n = 0;
+    void add() { n++; }
+};
+int main() {
+    Counter a, b;
+    a.add(); a.add(); b.add();
+    printf("%d %d\n", a.n, b.n);
+}
+END
+OPTION: 3 3
+OPTION: 2 1
+OPTION: 1 2
+OPTION: 2 2
+ANSWER: 2
+EXPLAIN: Each object has its own n. add() changes the n of the object it was called on.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Point { public: int x = 1; };
+int main() {
+    Point p;
+    Point *q = &p;
+    q->x = 5;
+    printf("%d\n", p.x);
+}
+END
+OPTION: 1
+OPTION: 5
+OPTION: 6
+OPTION: It doesn't compile
+ANSWER: 2
+EXPLAIN: q points at p, and q->x is the same as (*q).x, which is p.x.
+
+QUESTION: Choose
+PROMPT: Inside a method, what is this?
+OPTION: A copy of the object
+OPTION: The class itself
+OPTION: The first member variable
+OPTION: A pointer to the object the method was called on
+ANSWER: 4
+EXPLAIN: p.move(5) passes &p as this, so x inside move means this->x.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: reset is in a separate .cpp file. Click the line that won't compile.
+CODE:
+class Point {
+public:
+    int x;
+    void reset();
+};
+void reset() {
+    x = 0;
+}
+END
+ANSWER: 6
+EXPLAIN: Defined outside the class, it needs the class name: void Point::reset(). Otherwise it's a separate function, and x doesn't exist there.

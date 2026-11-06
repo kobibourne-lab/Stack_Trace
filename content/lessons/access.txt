@@ -1,0 +1,41 @@
+# Access & static - private members, and a static member shared by every
+# object, from Noel's Classes in C++ slides.
+TITLE: Private members and static counts
+TOPIC: access
+TEXT: private members can only be used by the class's own methods. public ones can be used from anywhere.
+TEXT: A static member belongs to the class, not to any one object: there's only ever one of it.
+
+CODE:
+class Counter {
+    int id;
+public:
+    static int count;
+    Counter() { count++; id = count; }
+};
+int Counter::count = 0;
+int main() {
+    Counter a;
+    Counter b;
+}
+END
+
+STEP: 7
+EXPLAIN: count is static, so it lives outside every object, and exists before any object is made.
+MEM: static data | count | int | 500 | 0 | changed
+
+STEP: 9
+EXPLAIN: Making a runs the constructor: count goes up to 1, and a's own id is set to 1.
+MEM: static data | count | int | 500 | 1 | changed
+MEM: main | a.id | int | 3000 | 1 | changed
+
+STEP: 10
+EXPLAIN: b gets its own id, 2, but there's still only one count, which both objects share.
+MEM: static data | count | int | 500 | 2 | changed
+MEM: main | a.id | int | 3000 | 1
+MEM: main | b.id | int | 3004 | 2 | changed
+
+STEP: 11
+EXPLAIN: id is private: a.id in main wouldn't compile. count is public, so main can read it as Counter::count. A static method can't use id, since it isn't called on any object.
+MEM: static data | count | int | 500 | 2
+MEM: main | a.id | int | 3000 | 1
+MEM: main | b.id | int | 3004 | 2

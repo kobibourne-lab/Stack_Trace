@@ -1,0 +1,56 @@
+# Strings & \0 quiz.
+
+TITLE: Strings & \0
+TOPIC: strings
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+char s[] = "Hello";
+printf("%d\n", (int)sizeof(s));
+END
+OPTION: 5
+OPTION: 4
+OPTION: 8
+OPTION: 6
+ANSWER: 4
+EXPLAIN: sizeof counts the whole array: 5 letters plus the '\0' at the end. strlen(s) would be 5.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+char s[10] = "code";
+s[2] = '\0';
+printf("%s %d\n", s, (int)strlen(s));
+END
+OPTION: co 2
+OPTION: code 4
+OPTION: co 4
+OPTION: cod 3
+ANSWER: 1
+EXPLAIN: The '\0' at s[2] ends the string there. printf and strlen both stop at it, so it's "co", length 2.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+char a[] = "cat";
+char b[] = "cat";
+printf("%d\n", a == b);
+END
+OPTION: 1
+OPTION: cat
+OPTION: 0
+OPTION: It doesn't compile
+ANSWER: 3
+EXPLAIN: a == b compares the addresses of two different arrays, not their letters, so it is false (0). Use strcmp(a, b) == 0 to compare strings.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that writes past the end of name.
+CODE:
+char name[5];
+strcpy(name, "Hello");
+printf("%s\n", name);
+END
+ANSWER: 2
+EXPLAIN: "Hello" needs 6 chars: 5 letters and the '\0'. name only has room for 5, so strcpy writes one byte past the end.

@@ -15,6 +15,16 @@ enum class FontKind { Ui, UiBold, Mono, MonoBold };
 void ui_load_fonts();
 void ui_unload_fonts();
 
+// The screens are laid out for SCREEN_W x SCREEN_H and scaled up to fill the
+// window (see main.cpp). main.cpp tells ui.cpp the scale each frame, so
+// ui_scissor can clip in the right place.
+void ui_set_fit(Camera2D fit);
+
+// Use instead of BeginScissorMode: takes the box in screen layout coordinates
+// (the same ones everything is drawn in) and clips to where it really is in
+// the window. End it with EndScissorMode as usual.
+void ui_scissor(int x, int y, int width, int height);
+
 // Call at the start and end of each frame (main.cpp does). The end sets the
 // mouse cursor to a hand when it's over anything clickable.
 void ui_begin_frame();
@@ -49,6 +59,12 @@ enum class ButtonStyle { Primary, Outline, Disabled };
 // button's fill or an Outline button's border and label.
 bool ui_button(const std::string &label, Rectangle r, ButtonStyle style = ButtonStyle::Outline,
                Color accent = COL_GREEN);
+
+// The Stack Trace logo: a pointer p pointing at the newest stack frame, with a
+// trace line climbing the frames. Drawn size x size with its top-left corner at
+// (x, y). Below about 100 px the frame names are left out, since they'd be too
+// small to read.
+void ui_logo(float x, float y, float size);
 
 // The bar across the top of every screen: the logo, then a subtitle.
 void ui_header(const std::string &subtitle);

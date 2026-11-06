@@ -1,0 +1,72 @@
+# Strings & \0 - a char array, the end marker, and counting like strlen.
+TITLE: Strings end with '\0'
+TOPIC: strings
+TEXT: A C string is an array of chars with a '\0' after the last letter. Nothing stores its length.
+TEXT: printf, strlen and strcpy all just walk along until they hit the '\0'.
+
+CODE:
+char s[6] = "Cat";
+s[0] = 'B';
+s[3] = 's';
+int n = 0;
+while (s[n] != '\0') n++;
+s[1] = '\0';
+printf("%s %d\n", s, n);
+END
+
+STEP: 1
+EXPLAIN: "Cat" fills s[0] to s[2], then '\0' marks the end. Chars are 1 byte, so the addresses go up by 1. The rest of s is filled with '\0' too.
+MEM: main | s[0] | char | 1000 | 'C' | changed
+MEM: main | s[1] | char | 1001 | 'a' | changed
+MEM: main | s[2] | char | 1002 | 't' | changed
+MEM: main | s[3] | char | 1003 | '\0' | changed
+MEM: main | s[4] | char | 1004 | '\0' | changed
+MEM: main | s[5] | char | 1005 | '\0' | changed
+
+STEP: 2
+EXPLAIN: A string is just an array, so you can change one letter. s is now "Bat".
+MEM: main | s[0] | char | 1000 | 'B' | changed
+MEM: main | s[1] | char | 1001 | 'a'
+MEM: main | s[2] | char | 1002 | 't'
+MEM: main | s[3] | char | 1003 | '\0'
+MEM: main | s[4] | char | 1004 | '\0'
+MEM: main | s[5] | char | 1005 | '\0'
+
+STEP: 3
+EXPLAIN: This overwrites the old end marker. s is now "Bats": the next '\0' is s[4]. Always leave room for it, or printf runs off the end.
+MEM: main | s[0] | char | 1000 | 'B'
+MEM: main | s[1] | char | 1001 | 'a'
+MEM: main | s[2] | char | 1002 | 't'
+MEM: main | s[3] | char | 1003 | 's' | changed
+MEM: main | s[4] | char | 1004 | '\0'
+MEM: main | s[5] | char | 1005 | '\0'
+
+STEP: 5
+EXPLAIN: The loop moves n along until s[n] is '\0'. It stops at 4, the length of "Bats". That's all strlen does.
+MEM: main | s[0] | char | 1000 | 'B'
+MEM: main | s[1] | char | 1001 | 'a'
+MEM: main | s[2] | char | 1002 | 't'
+MEM: main | s[3] | char | 1003 | 's'
+MEM: main | s[4] | char | 1004 | '\0'
+MEM: main | s[5] | char | 1005 | '\0'
+MEM: main | n | int | 1008 | 4 | changed
+
+STEP: 6
+EXPLAIN: Putting '\0' at s[1] ends the string early. 't' and 's' are still in memory, but nothing reads past the first '\0'.
+MEM: main | s[0] | char | 1000 | 'B'
+MEM: main | s[1] | char | 1001 | '\0' | changed
+MEM: main | s[2] | char | 1002 | 't'
+MEM: main | s[3] | char | 1003 | 's'
+MEM: main | s[4] | char | 1004 | '\0'
+MEM: main | s[5] | char | 1005 | '\0'
+MEM: main | n | int | 1008 | 4
+
+STEP: 7
+EXPLAIN: Prints: B 4. n was counted before the cut, so it doesn't change.
+MEM: main | s[0] | char | 1000 | 'B'
+MEM: main | s[1] | char | 1001 | '\0'
+MEM: main | s[2] | char | 1002 | 't'
+MEM: main | s[3] | char | 1003 | 's'
+MEM: main | s[4] | char | 1004 | '\0'
+MEM: main | s[5] | char | 1005 | '\0'
+MEM: main | n | int | 1008 | 4

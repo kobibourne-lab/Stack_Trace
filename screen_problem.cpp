@@ -127,7 +127,7 @@ void problem_draw_description(App &app, Rectangle r)
     if (w.descScroll > maxScroll) w.descScroll = maxScroll;
     if (w.descScroll < 0) w.descScroll = 0;
 
-    BeginScissorMode((int)r.x + 1, (int)r.y + 1, (int)r.width - 2, (int)r.height - 2);
+    ui_scissor((int)r.x + 1, (int)r.y + 1, (int)r.width - 2, (int)r.height - 2);
     float x = r.x + 22, w2 = r.width - 44;
     float top = r.y + 20 - w.descScroll, y = top;
 
@@ -284,7 +284,7 @@ void problem_draw_console(App &app, Rectangle r)
     if (res.status == RunStatus::CompileError || res.status == RunStatus::NoCompiler) {
         if (CheckCollisionPointRec(GetMousePosition(), body)) w.consoleScroll -= GetMouseWheelMove() * 3;
         if (w.consoleScroll < 0) w.consoleScroll = 0;
-        BeginScissorMode((int)body.x, (int)body.y, (int)body.width, (int)body.height);
+        ui_scissor((int)body.x, (int)body.y, (int)body.width, (int)body.height);
         float ly = body.y + 10;
         if (res.compilerOutput.find("tests:") != std::string::npos) {
             ly += ui_text_wrapped("The tests couldn't call your code. Check the function's name and parameters match the "
@@ -317,7 +317,7 @@ void problem_draw_console(App &app, Rectangle r)
     if (w.consoleScroll > maxScroll) w.consoleScroll = maxScroll;
     if (w.consoleScroll < 0) w.consoleScroll = 0;
 
-    BeginScissorMode((int)list.x, (int)list.y, (int)list.width, (int)list.height);
+    ui_scissor((int)list.x, (int)list.y, (int)list.width, (int)list.height);
     for (int i = (int)w.consoleScroll; i < (int)res.tests.size(); i++) {
         float ry = list.y + 6 + (i - (int)w.consoleScroll) * 24;
         if (ry > list.y + list.height) break;
@@ -348,7 +348,7 @@ void problem_draw_console(App &app, Rectangle r)
 
     float dx = details.x + 17, dw2 = details.x + details.width - dx - 18;
     float dtop = body.y + 10 - w.detailScroll, dy = dtop;
-    BeginScissorMode((int)details.x, (int)details.y, (int)details.width, (int)details.height);
+    ui_scissor((int)details.x, (int)details.y, (int)details.width, (int)details.height);
     for (const std::string &rule : res.ruleProblems)
         dy += ui_text_wrapped(rule, dx, dy, dw2, 13, COL_AMBER) + 6;
     if (w.selectedTest < (int)res.tests.size()) {

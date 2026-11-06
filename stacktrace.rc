@@ -1,0 +1,3 @@
+// The icon Windows shows for stacktrace.exe: in File Explorer, and on the
+// taskbar when it's pinned. Built by windres (part of w64devkit) in the makefile.
+1 ICON "logo.ico"

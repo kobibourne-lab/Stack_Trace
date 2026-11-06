@@ -1,0 +1,66 @@
+# Doubly linked list - insert at the beginning, from Part 2 of the Coding Exam 2
+# Preparation lab. Each node has data, prev and next.
+TITLE: Doubly linked list: insert at the beginning
+TOPIC: dll
+TEXT: In a doubly linked list each node points both ways: next to the node after it, prev to the node before.
+TEXT: Inserting at the front changes three pointers, in both directions. Do them in the right order, or part of the list is lost.
+
+CODE:
+struct Node { int data; Node *prev, *next; };
+Node *head = new Node{2, nullptr, nullptr};
+Node *n = new Node{1, nullptr, nullptr};
+n->next = head;
+head->prev = n;
+head = n;
+END
+
+STEP: 2
+EXPLAIN: A list with one node. Its prev and next are both nullptr.
+MEM: main | head | Node* | 3000 | ->old.data | changed
+MEM: heap | old.data | int | 9000 | 2 | changed
+MEM: heap | old.prev | Node* | 9008 | nullptr | changed
+MEM: heap | old.next | Node* | 9016 | nullptr | changed
+
+STEP: 3
+EXPLAIN: The new node is made, but it isn't in the list yet: nothing in the list points at it.
+MEM: main | head | Node* | 3000 | ->old.data
+MEM: main | n | Node* | 3008 | ->nw.data | changed
+MEM: heap | old.data | int | 9000 | 2
+MEM: heap | old.prev | Node* | 9008 | nullptr
+MEM: heap | old.next | Node* | 9016 | nullptr
+MEM: heap | nw.data | int | 9032 | 1 | changed
+MEM: heap | nw.prev | Node* | 9040 | nullptr | changed
+MEM: heap | nw.next | Node* | 9048 | nullptr | changed
+
+STEP: 4
+EXPLAIN: 1: the new node's next points at the old first node.
+MEM: main | head | Node* | 3000 | ->old.data
+MEM: main | n | Node* | 3008 | ->nw.data
+MEM: heap | old.data | int | 9000 | 2
+MEM: heap | old.prev | Node* | 9008 | nullptr
+MEM: heap | old.next | Node* | 9016 | nullptr
+MEM: heap | nw.data | int | 9032 | 1
+MEM: heap | nw.prev | Node* | 9040 | nullptr
+MEM: heap | nw.next | Node* | 9048 | ->old.data | changed
+
+STEP: 5
+EXPLAIN: 2: the old first node's prev points back at the new one. Do this before moving head, while head still points at the old node. (If the list was empty, skip it.)
+MEM: main | head | Node* | 3000 | ->old.data
+MEM: main | n | Node* | 3008 | ->nw.data
+MEM: heap | old.data | int | 9000 | 2
+MEM: heap | old.prev | Node* | 9008 | ->nw.data | changed
+MEM: heap | old.next | Node* | 9016 | nullptr
+MEM: heap | nw.data | int | 9032 | 1
+MEM: heap | nw.prev | Node* | 9040 | nullptr
+MEM: heap | nw.next | Node* | 9048 | ->old.data
+
+STEP: 6
+EXPLAIN: 3: head moves to the new node. Its prev stays nullptr, since nothing comes before it. The list is 1 <-> 2.
+MEM: main | head | Node* | 3000 | ->nw.data | changed
+MEM: main | n | Node* | 3008 | ->nw.data
+MEM: heap | old.data | int | 9000 | 2
+MEM: heap | old.prev | Node* | 9008 | ->nw.data
+MEM: heap | old.next | Node* | 9016 | nullptr
+MEM: heap | nw.data | int | 9032 | 1
+MEM: heap | nw.prev | Node* | 9040 | nullptr
+MEM: heap | nw.next | Node* | 9048 | ->old.data

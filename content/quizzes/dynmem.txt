@@ -1,0 +1,54 @@
+# Dynamic memory quiz.
+
+TITLE: Dynamic memory
+TOPIC: dynmem
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int *p = new int(5);
+int *q = p;
+*q = 8;
+printf("%d\n", *p);
+delete p;
+END
+OPTION: 5
+OPTION: 8
+OPTION: 13
+OPTION: It crashes
+ANSWER: 2
+EXPLAIN: q = p copies the address, not the int. Both point at the same heap int, so changing *q changes *p.
+
+QUESTION: Choose
+PROMPT: p was made with new int[10]. Which line frees it correctly?
+OPTION: delete p;
+OPTION: free(p);
+OPTION: delete p[10];
+OPTION: delete[] p;
+ANSWER: 4
+EXPLAIN: Memory from new[] must be freed with delete[]. free is only for malloc, and plain delete is for a single new.
+
+QUESTION: Count the leaks
+PROMPT: How many ints are leaked?
+CODE:
+for (int i = 0; i < 3; i++) {
+    int *p = new int(i);
+}
+END
+OPTION: 3
+OPTION: 0
+OPTION: 1
+OPTION: 2
+ANSWER: 1
+EXPLAIN: Each pass makes a new int, and p goes out of scope at the brace without a delete. All 3 are lost.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line with the bug.
+CODE:
+int *a = (int *)malloc(3 * sizeof(int));
+a[0] = 1;
+delete a;
+END
+ANSWER: 3
+EXPLAIN: Memory from malloc must be freed with free(a). Don't mix them: new goes with delete, malloc with free.

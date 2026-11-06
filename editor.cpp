@@ -177,7 +177,7 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
     // ----- Drawing -----
     DrawRectangleRec(r, COL_BG);
     DrawRectangle((int)r.x, (int)r.y, (int)GUTTER - 8, (int)r.height, COL_SURFACE);
-    BeginScissorMode((int)r.x, (int)r.y, (int)r.width, (int)r.height);
+    ui_scissor((int)r.x, (int)r.y, (int)r.width, (int)r.height);
     for (int i = 0; i < visibleRows + 1; i++) {
         int row = v.scrollRow + i;
         if (row >= (int)b.lines.size()) break;

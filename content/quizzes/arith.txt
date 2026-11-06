@@ -1,0 +1,61 @@
+# Pointer arithmetic quiz.
+
+TITLE: Pointer arithmetic
+TOPIC: arith
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int a[4] = {10, 20, 30, 40};
+int *p = a + 1;
+printf("%d %d\n", *p, *(p + 2));
+END
+OPTION: 10 30
+OPTION: 20 40
+OPTION: 20 30
+OPTION: 11 13
+ANSWER: 2
+EXPLAIN: a + 1 points at a[1] (20). p + 2 is two more ints along, a[3] (40).
+
+QUESTION: Trace the pointer
+PROMPT: a starts at address 1000. What address does p hold at the end?
+CODE:
+int a[3];
+int *p = a;
+p += 2;
+END
+OPTION: 1002
+OPTION: 1008
+OPTION: 1004
+OPTION: 1016
+ANSWER: 2
+EXPLAIN: p += 2 moves two ints, not two bytes: 1000 + 2 x 4 = 1008, the address of a[2].
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+char s[] = "hello";
+char *p = s;
+while (*p) p++;
+printf("%d\n", (int)(p - s));
+END
+OPTION: 4
+OPTION: 6
+OPTION: 0
+OPTION: 5
+ANSWER: 4
+EXPLAIN: p moves along until *p is '\0', at s[5]. p - s counts the chars in between: 5. This is strlen_ptr from the lab.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This always adds the first element. Click the wrong line.
+CODE:
+int sum_array(int *arr, int size) {
+    int sum = 0;
+    for (int *p = arr; p < arr + size; p++)
+        sum += arr[0];
+    return sum;
+}
+END
+ANSWER: 4
+EXPLAIN: p moves along the array, but line 4 adds arr[0] every time. It should be sum += *p; (which also obeys the no [] rule).

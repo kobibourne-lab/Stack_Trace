@@ -1,0 +1,72 @@
+# Destructors quiz.
+
+TITLE: Destructors
+TOPIC: dtors
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class T {
+public:
+    char c;
+    T(char x) : c(x) { printf("%c", c); }
+    ~T() { printf("~%c", c); }
+};
+int main() {
+    T a('a');
+    {
+        T b('b');
+    }
+    printf("|");
+}
+END
+OPTION: ab|~b~a
+OPTION: ab~a~b|
+OPTION: ab~b|~a
+OPTION: ~a~bab|
+ANSWER: 3
+EXPLAIN: b's destructor runs at the end of its inner block, before the |. a lives until the end of main, so ~a comes last.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class T {
+public:
+    char c;
+    T(char x) : c(x) { printf("%c", c); }
+    ~T() { printf("~%c", c); }
+};
+int main() {
+    T x('x'), y('y');
+    printf("|");
+}
+END
+OPTION: xy|~x~y
+OPTION: xy~y~x|
+OPTION: xy|~y~x
+OPTION: xy|
+ANSWER: 3
+EXPLAIN: Objects are destroyed in the reverse order they were made: y first, then x.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line with the bug.
+CODE:
+class Buffer {
+    int *data;
+public:
+    Buffer(int n) { data = new int[n]; }
+    ~Buffer() { delete data; }
+};
+END
+ANSWER: 5
+EXPLAIN: data was made with new int[n], an array, so it must be freed with delete[] data.
+
+QUESTION: Choose
+PROMPT: An object was made with new. When does its destructor run?
+OPTION: When you delete it
+OPTION: At the end of the function that made it
+OPTION: Never
+OPTION: When the program ends
+ANSWER: 1
+EXPLAIN: Heap objects live until you delete them. If you never do, the destructor never runs, and anything it should free leaks too.
