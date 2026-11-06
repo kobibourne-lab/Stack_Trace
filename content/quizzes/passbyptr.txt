@@ -1,0 +1,78 @@
+# Pass by pointer quiz.
+
+TITLE: Pass by pointer
+TOPIC: passbyptr
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+void set(int *p) { *p = 42; }
+int main() {
+    int x = 0;
+    set(&x);
+    printf("%d\n", x);
+}
+END
+OPTION: 42
+OPTION: 0
+OPTION: x's address
+OPTION: It doesn't compile
+ANSWER: 1
+EXPLAIN: set gets x's address, so *p = 42 changes x itself.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+void swap(int *a, int *b) {
+    int *t = a;
+    a = b;
+    b = t;
+}
+int main() {
+    int x = 1, y = 2;
+    swap(&x, &y);
+    printf("%d %d\n", x, y);
+}
+END
+OPTION: 2 1
+OPTION: 2 2
+OPTION: 1 2
+OPTION: 1 1
+ANSWER: 3
+EXPLAIN: This swaps the pointers a and b, which are only copies inside swap. x and y are never touched. Swap *a and *b instead.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+void swap(int *a, int *b) {
+    int t = *a;
+    *a = *b;
+    *b = t;
+}
+int main() {
+    int x = 3, y = 8;
+    swap(&x, &y);
+    printf("%d %d\n", x, y);
+}
+END
+OPTION: 3 8
+OPTION: 8 8
+OPTION: 8 3
+OPTION: 3 3
+ANSWER: 3
+EXPLAIN: This is swap_ints from the lab: *a and *b are x and y themselves, so their values really swap.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line with the bug.
+CODE:
+void readNum(int *n) {
+    scanf("%d", &n);
+}
+int main() {
+    int x;
+    readNum(&x);
+}
+END
+ANSWER: 2
+EXPLAIN: n is already a pointer to x. &n is the address of n itself (an int**). It should be scanf("%d", n);

@@ -1,0 +1,68 @@
+# Functions & pass by value quiz.
+
+TITLE: Functions & pass by value
+TOPIC: functions
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+void change(int n) { n = 99; }
+int main() {
+    int x = 1;
+    change(x);
+    printf("%d\n", x);
+}
+END
+OPTION: 99
+OPTION: 0
+OPTION: 1
+OPTION: 100
+ANSWER: 3
+EXPLAIN: change gets a copy of x. Setting the copy to 99 does nothing to x.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int twice(int n) { return n * 2; }
+int main() {
+    int a = twice(twice(3));
+    printf("%d\n", a);
+}
+END
+OPTION: 12
+OPTION: 6
+OPTION: 9
+OPTION: 36
+ANSWER: 1
+EXPLAIN: The inner call runs first: twice(3) is 6. Then twice(6) is 12.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+void zero(int a[]) { a[0] = 0; }
+int main() {
+    int arr[2] = {5, 6};
+    zero(arr);
+    printf("%d %d\n", arr[0], arr[1]);
+}
+END
+OPTION: 5 6
+OPTION: 0 0
+OPTION: 5 0
+OPTION: 0 6
+ANSWER: 4
+EXPLAIN: Arrays aren't copied: the function gets the address of arr's first element, so a[0] = 0 changes arr[0].
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This compiles but prints rubbish. Click the line whose result never gets back to main.
+CODE:
+int square(int n) {
+    int result = n * n;
+}
+int main() {
+    printf("%d\n", square(4));
+}
+END
+ANSWER: 2
+EXPLAIN: result is worked out but never returned. Add return result; (or just return n * n;). -Wall warns about this.

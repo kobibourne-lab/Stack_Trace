@@ -1,0 +1,57 @@
+# Memory bugs quiz.
+
+TITLE: Memory bugs
+TOPIC: membugs
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that is a double delete.
+CODE:
+int *p = new int(1);
+int *q = p;
+delete p;
+delete q;
+END
+ANSWER: 4
+EXPLAIN: p and q hold the same address, so delete q frees the same block a second time. Set pointers to nullptr after a delete.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that creates a dangling pointer.
+CODE:
+int *make() {
+    int x = 10;
+    return &x;
+}
+END
+ANSWER: 3
+EXPLAIN: x lives in make's stack frame, which is gone once make returns. The caller gets the address of memory that's no longer x.
+
+QUESTION: Choose
+PROMPT: What's wrong with this?
+CODE:
+int x = 5;
+int *p = &x;
+delete p;
+END
+OPTION: Nothing: x is freed
+OPTION: It leaks x
+OPTION: x wasn't made with new, so delete is undefined
+OPTION: It should be delete[] p;
+ANSWER: 3
+EXPLAIN: delete is only for memory from new. x is on the stack and is freed by itself at the end of its scope.
+
+QUESTION: Count the leaks
+PROMPT: How many ints are leaked?
+CODE:
+int *p;
+for (int i = 0; i < 3; i++)
+    p = new int(i);
+delete p;
+END
+OPTION: 0
+OPTION: 1
+OPTION: 2
+OPTION: 3
+ANSWER: 3
+EXPLAIN: Each new moves p on, losing the block before. delete p after the loop only frees the last one, so 2 leak. This is Noel's getPtrToFive example.

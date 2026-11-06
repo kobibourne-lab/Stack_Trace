@@ -1,0 +1,68 @@
+# Double pointers quiz.
+
+TITLE: Double pointers
+TOPIC: dblptr
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int x = 4;
+int *p = &x;
+int **pp = &p;
+**pp = 9;
+printf("%d %d\n", x, *p);
+END
+OPTION: 9 9
+OPTION: 4 9
+OPTION: 9 4
+OPTION: 4 4
+ANSWER: 1
+EXPLAIN: **pp follows pp to p, then p to x, so x becomes 9. *p is x too.
+
+QUESTION: Trace the pointer
+PROMPT: What value does *pp hold?
+CODE:
+int x = 5;      // x is at address 1000
+int *p = &x;    // p is at address 1008
+int **pp = &p;
+END
+OPTION: 5
+OPTION: 1008
+OPTION: 1016
+OPTION: 1000
+ANSWER: 4
+EXPLAIN: pp holds 1008 (where p is). *pp is p itself, which holds 1000 (where x is). **pp would be 5.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+void moveTo(int **pp, int *target) { *pp = target; }
+int main() {
+    int a = 1, b = 2;
+    int *p = &a;
+    moveTo(&p, &b);
+    printf("%d\n", *p);
+}
+END
+OPTION: 1
+OPTION: 2
+OPTION: a's address
+OPTION: It crashes
+ANSWER: 2
+EXPLAIN: moveTo gets p's address, so *pp = target changes p itself: it now points at b.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: q is still nullptr after the call. Click the line that should use int** instead.
+CODE:
+void makeInt(int *p) {
+    p = new int(7);
+}
+int main() {
+    int *q = nullptr;
+    makeInt(q);
+    cout << *q << endl;
+}
+END
+ANSWER: 1
+EXPLAIN: makeInt gets a copy of q, so p = new int(7) only changes the copy. Take int **p and write *p = new int(7), then call makeInt(&q).

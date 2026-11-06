@@ -1,0 +1,67 @@
+# Control flow quiz.
+
+TITLE: Control flow
+TOPIC: control
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int count = 0;
+for (int i = 0; i < 10; i += 3)
+    count++;
+printf("%d\n", count);
+END
+OPTION: 3
+OPTION: 10
+OPTION: 4
+OPTION: 9
+ANSWER: 3
+EXPLAIN: i is 0, 3, 6 and 9, then 12 stops the loop. That is 4 passes.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int x = 5;
+switch (x) {
+    case 5: printf("five ");
+    case 6: printf("six ");
+        break;
+    default: printf("other");
+}
+printf("\n");
+END
+OPTION: five
+OPTION: five six other
+OPTION: five six
+OPTION: other
+ANSWER: 3
+EXPLAIN: case 5 has no break, so it falls through into case 6 and prints "six " too. The break there stops it before default.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int n = 0;
+while (n < 5)
+    n += 2;
+printf("%d\n", n);
+END
+OPTION: 6
+OPTION: 5
+OPTION: 4
+OPTION: 7
+ANSWER: 1
+EXPLAIN: n goes 0, 2, 4, 6. The check happens before each pass, so the loop stops once n is 6, not at 5.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This loop never ends. Click the line the programmer thinks is in the loop, but isn't.
+CODE:
+int sum = 0;
+int i = 1;
+while (i <= 10)
+    sum += i;
+    i++;
+printf("%d\n", sum);
+END
+ANSWER: 5
+EXPLAIN: Without braces, a while only repeats the one statement after it (line 4). i++ is indented, but it is outside the loop, so i stays 1 forever.

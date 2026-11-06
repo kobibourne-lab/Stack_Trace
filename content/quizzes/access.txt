@@ -1,0 +1,62 @@
+# Access & static quiz.
+
+TITLE: Access & static
+TOPIC: access
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Car {
+public:
+    static int made;
+    Car() { made++; }
+};
+int Car::made = 0;
+int main() {
+    Car a, b;
+    Car c;
+    printf("%d\n", Car::made);
+}
+END
+OPTION: 1
+OPTION: 3
+OPTION: 0
+OPTION: 2
+ANSWER: 2
+EXPLAIN: made is static, so there is one shared count. Each of the 3 constructors adds 1 to it.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Click the line that won't compile.
+CODE:
+class Account {
+    double balance = 0;
+public:
+    void deposit(double d) { balance += d; }
+};
+int main() {
+    Account a;
+    a.deposit(10);
+    a.balance = 1000000;
+}
+END
+ANSWER: 9
+EXPLAIN: Members of a class are private unless you say otherwise, so main can't touch balance. deposit can, because it's a member function.
+
+QUESTION: Choose
+PROMPT: Why can't a static method use a non-static member variable?
+OPTION: Static methods are slower
+OPTION: The members are private
+OPTION: It can, using ->
+OPTION: It isn't called on an object, so there's no this
+ANSWER: 4
+EXPLAIN: A static method belongs to the class, like Car::count(). There's no particular object, so no object's members to use.
+
+QUESTION: Choose
+PROMPT: What is the difference between a struct and a class in C++?
+OPTION: Members are public by default in a struct, private in a class
+OPTION: A struct can't have methods
+OPTION: Classes always go on the heap
+OPTION: There is no difference at all
+ANSWER: 1
+EXPLAIN: That's the only difference. Both can have methods, constructors and private parts, and both can go on the stack or the heap.

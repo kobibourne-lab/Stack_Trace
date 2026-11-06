@@ -1,0 +1,63 @@
+# Function pointers quiz.
+
+TITLE: Function pointers
+TOPIC: funcptr
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int add(int a, int b) { return a + b; }
+int mul(int a, int b) { return a * b; }
+int main() {
+    int (*op)(int, int) = mul;
+    printf("%d\n", op(3, 4));
+}
+END
+OPTION: 12
+OPTION: 7
+OPTION: 34
+OPTION: 0
+ANSWER: 1
+EXPLAIN: op points at mul, so op(3, 4) calls mul(3, 4).
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int inc(int n) { return n + 1; }
+int apply(int (*f)(int), int x) { return f(f(x)); }
+int main() {
+    printf("%d\n", apply(inc, 5));
+}
+END
+OPTION: 6
+OPTION: 5
+OPTION: 10
+OPTION: 7
+ANSWER: 4
+EXPLAIN: apply calls f twice: inc(5) is 6, then inc(6) is 7.
+
+QUESTION: Choose
+PROMPT: Which declares p as a pointer to a function that takes a double and returns an int?
+OPTION: int *p(double);
+OPTION: int (*p)(double);
+OPTION: int (p*)(double);
+OPTION: double (*p)(int);
+ANSWER: 2
+EXPLAIN: The brackets round *p make p the pointer. Without them, int *p(double) declares a function that returns an int*.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int one() { return 1; }
+int two() { return 2; }
+int main() {
+    int (*fs[2])() = {one, two};
+    printf("%d\n", fs[1]() * 10 + fs[0]());
+}
+END
+OPTION: 12
+OPTION: 21
+OPTION: 3
+OPTION: 2
+ANSWER: 2
+EXPLAIN: fs is an array of two function pointers. fs[1]() calls two (2) and fs[0]() calls one (1): 2 x 10 + 1 = 21.

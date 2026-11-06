@@ -1,0 +1,76 @@
+# Copy constructors quiz.
+
+TITLE: Copy constructors
+TOPIC: copyctor
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Box {
+public:
+    int *v;
+    Box(int x) { v = new int(x); }
+};
+int main() {
+    Box a(1);
+    Box b = a;
+    *b.v = 9;
+    printf("%d\n", *a.v);
+}
+END
+OPTION: 9
+OPTION: 1
+OPTION: 10
+OPTION: It crashes
+ANSWER: 1
+EXPLAIN: There's no copy constructor, so b.v is copied as an address: a and b share one int. Changing it through b changes it for a.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Box {
+public:
+    int *v;
+    Box(int x) { v = new int(x); }
+    Box(const Box &o) { v = new int(*o.v); }
+};
+int main() {
+    Box a(1);
+    Box b = a;
+    *b.v = 9;
+    printf("%d %d\n", *a.v, *b.v);
+}
+END
+OPTION: 9 9
+OPTION: 1 1
+OPTION: 9 1
+OPTION: 1 9
+ANSWER: 4
+EXPLAIN: This copy constructor makes a deep copy: b gets its own new int. Changing b's leaves a's alone.
+
+QUESTION: Choose
+PROMPT: a and b are both Box objects. Which line uses the copy constructor?
+OPTION: b = a;
+OPTION: Box c = a;
+OPTION: Box c(5);
+OPTION: Box *p = &a;
+ANSWER: 2
+EXPLAIN: Box c = a makes a new object from an existing one. b = a copies into an object that already exists, which is operator=, not the copy constructor.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Copying a Name and then letting both go out of scope crashes. Click the line that causes it.
+CODE:
+class Name {
+public:
+    char *s;
+    Name(const char *t) {
+        s = new char[strlen(t) + 1];
+        strcpy(s, t);
+    }
+    Name(const Name &o) { s = o.s; }
+    ~Name() { delete[] s; }
+};
+END
+ANSWER: 8
+EXPLAIN: The copy only copies the address, so both objects share one string, and both destructors delete it: a double delete. Copy the letters into a new char[].
