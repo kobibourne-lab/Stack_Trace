@@ -872,6 +872,28 @@ static void test_campaign()
     CHECK(topicsUsed == (int)topics.size());   // every topic is somewhere in the campaign
 }
 
+static void test_quiz_mastery_from_lives()
+{
+    // Perfect is 100, each life lost takes 20 off, out of lives is nothing
+    CHECK(quiz_mastery_points(3, 3) == 100);
+    CHECK(quiz_mastery_points(2, 3) == 80);
+    CHECK(quiz_mastery_points(1, 3) == 60);
+    CHECK(quiz_mastery_points(0, 3) == 0);
+
+    Progress p;
+    CHECK(!progress_finish_quiz(p, "basics", 0, 3));   // out of lives: no change
+    CHECK(topic_points(p, "basics") == 0);
+    CHECK(progress_finish_quiz(p, "basics", 1, 3));    // a pass clears it in the campaign
+    CHECK(topic_points(p, "basics") == 60);
+    CHECK(topic_cleared(p, "basics"));
+    progress_finish_quiz(p, "basics", 2, 3);
+    CHECK(topic_points(p, "basics") == 80);
+    progress_finish_quiz(p, "basics", 1, 3);           // a worse run never lowers it
+    CHECK(topic_points(p, "basics") == 80);
+    progress_finish_quiz(p, "basics", 3, 3);
+    CHECK(topic_mastery(p, "basics") == Mastery::Mastered);
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -888,6 +910,7 @@ int main()
     run("versus: a real connection on this computer", test_network);
     run("XP, levels and quiz combos", test_xp_and_combo);
     run("campaign: regions, clearing, bosses", test_campaign);
+    run("quiz mastery from lives left", test_quiz_mastery_from_lives);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

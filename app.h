@@ -139,6 +139,9 @@ void record_answer(App &app, const std::string &topic, bool correct);
 // gives XP.
 void check_level_up(App &app);
 
+// Save progress.txt now (record_answer does this after every answer).
+void save_progress(App &app);
+
 // One function per screen: handles its input and draws it, once per frame.
 void screen_title(App &app);
 void screen_map(App &app);

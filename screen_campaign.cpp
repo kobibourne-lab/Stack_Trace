@@ -2,11 +2,17 @@
 // memory (The Stack, Address Space, The Heap, Object Land), a path that snakes
 // through every topic, and a boss at the end of each region. Mal stands on the
 // next thing to play. The rules (what's cleared, what's open) are in campaign.cpp.
+//
+// Each region is drawn as its own themed world (worlds.cpp): hills, a cave, a
+// sea of islands, a castle city. Topics are raised platforms, and Mal hops
+// from stop to stop. Clearing a topic or opening a boss gets a burst.
 
 #include "app.h"
 #include "theme.h"
 #include "ui.h"
 #include "sfx.h"
+#include "fx.h"
+#include "worlds.h"
 #include <cmath>
 
 const float MAP_TOP = HEADER_H;
@@ -112,45 +118,51 @@ static void dotted_line(Vector2 a, Vector2 b, Color color)
     for (float d = 0; d <= len; d += 12) DrawCircleV({ a.x + dx * d / len, a.y + dy * d / len }, 2, color);
 }
 
-static void dotted_ring(Vector2 c, float radius, Color color)
-{
-    for (int i = 0; i < 16; i++) {
-        float a = i * 2 * PI / 16;
-        DrawCircleV({ c.x + cosf(a) * radius, c.y + sinf(a) * radius }, 1.6f, color);
-    }
-}
-
 static void tick(Vector2 c, float s, Color color)
 {
     DrawLineEx({ c.x - s, c.y }, { c.x - s * 0.3f, c.y + s * 0.7f }, 3, color);
     DrawLineEx({ c.x - s * 0.3f, c.y + s * 0.7f }, { c.x + s, c.y - s * 0.6f }, 3, color);
 }
 
+// A topic: a raised platform in its world's colours. Green with a tick once
+// cleared, amber and pulsing for the one to play next, grey while locked.
 static void draw_topic_node(const MapNode &n, bool selected, bool hover)
 {
     Vector2 c = n.pos;
-    float r = n.state == NodeState::Current ? 22 : 18;
-    if (selected || hover) DrawCircleV(c, r + 7, Fade(COL_TEXT, selected ? 0.16f : 0.08f));
-    switch (n.state) {
-        case NodeState::Done:
-            DrawCircleV(c, r, COL_GREEN);
-            tick(c, 6, COL_BG);
-            break;
-        case NodeState::Current:
-            DrawCircleV(c, r + 8, Fade(COL_AMBER, 0.18f + 0.06f * sinf((float)GetTime() * 3)));
-            DrawCircleV(c, r, COL_BG);
-            DrawRing(c, r - 3, r, 0, 360, 40, COL_AMBER);
-            ui_triangle({ c.x - 5, c.y - 7 }, { c.x - 5, c.y + 7 }, { c.x + 7, c.y }, COL_AMBER);
-            break;
-        case NodeState::Todo:
-            DrawCircleV(c, r, COL_SURFACE);
-            DrawRing(c, r - 2, r, 0, 360, 40, { 110, 118, 129, 255 });
-            break;
-        case NodeState::Locked:
-            DrawCircleV(c, r, COL_BG);
-            dotted_ring(c, r - 1, COL_LINE);
-            break;
+    float t = (float)GetTime();
+    float rx = n.state == NodeState::Current ? 27 : 23;
+    if (selected || hover) {
+        float lift = selected ? 2 + 1.5f * sinf(t * 3) : 1.5f;
+        c.y -= lift;
+        DrawEllipse((int)c.x, (int)(c.y + rx * 0.25f), rx + 10, rx * 0.38f + 6, Fade(COL_TEXT, selected ? 0.22f : 0.12f));
     }
+    if (n.state == NodeState::Current)
+        DrawEllipse((int)c.x, (int)(c.y + rx * 0.2f), rx + 14 + 3 * sinf(t * 3), rx * 0.38f + 8, Fade(COL_AMBER, 0.2f + 0.08f * sinf(t * 3)));
+
+    Color top = n.state == NodeState::Done ? COL_GREEN
+              : n.state == NodeState::Current ? COL_AMBER
+              : n.state == NodeState::Todo ? world_accent(n.region)
+              : Color{ 58, 64, 72, 255 };
+    world_platform(c, rx, top);
+    switch (n.state) {
+        case NodeState::Done: tick({ c.x, c.y - 1 }, 6, COL_BG); break;
+        case NodeState::Current: ui_triangle({ c.x - 4, c.y - 6 }, { c.x - 4, c.y + 5 }, { c.x + 6, c.y - 0.5f }, COL_BG); break;
+        case NodeState::Locked: {   // a tiny padlock
+            Color lc = { 128, 136, 146, 255 };
+            DrawRing({ c.x, c.y - 4 }, 2.5f, 4.2f, 180, 360, 12, lc);
+            DrawRectangleRounded({ c.x - 5, c.y - 4, 10, 8 }, 0.3f, 4, lc);
+            break;
+        }
+        default: break;
+    }
+}
+
+// Text on a dark tag, so it reads over any world.
+static void tag_text(const std::string &text, float x, float y, float size, Color colour, FontKind font)
+{
+    float w = ui_text_width(text, size, font);
+    ui_panel({ x - 5, y - 2, w + 10, size * 1.25f + 4 }, Fade(COL_BG, 0.78f), Fade(COL_BG, 0.0f), 0);
+    ui_text(text, x, y, size, colour, font);
 }
 
 static void draw_boss_node(const App &app, const MapNode &n, bool selected, bool hover)
@@ -196,9 +208,9 @@ static void draw_boss_node(const App &app, const MapNode &n, bool selected, bool
     }
     bool top = c.y < (NODE_TOP + NODE_BOTTOM) / 2;
     float y = top ? c.y - r - 46 : c.y + r + 8;
-    ui_text(kicker, c.x - ui_text_width(kicker, 11, FontKind::Mono) / 2, y, 11, kc, FontKind::Mono);
-    ui_text(reg.bossName, c.x - ui_text_width(reg.bossName, 13, FontKind::UiBold) / 2, y + 16, 13,
-            (open || waiting) ? COL_TEXT : COL_MUTED, FontKind::UiBold);
+    tag_text(kicker, c.x - ui_text_width(kicker, 11, FontKind::Mono) / 2, y, 11, kc, FontKind::Mono);
+    tag_text(reg.bossName, c.x - ui_text_width(reg.bossName, 13, FontKind::UiBold) / 2, y + 18, 13,
+             (open || waiting) ? COL_TEXT : COL_MUTED, FontKind::UiBold);
 }
 
 static void draw_topic_label(const App &app, const MapNode &n)
@@ -213,12 +225,12 @@ static void draw_topic_label(const App &app, const MapNode &n)
     if (n.state == NodeState::Current) {
         const char *k = "YOU ARE HERE";
         float kx = right ? cx + 64 : cx - 62 - ui_text_width(k, 10, FontKind::Mono);
-        ui_text(k, kx, y - 14, 10, COL_AMBER, FontKind::Mono);
+        tag_text(k, kx, y - 17, 10, COL_AMBER, FontKind::Mono);
     }
     for (size_t i = 0; i < lines.size(); i++) {
         float w = ui_text_width(lines[i], 12, font);
         float x = right ? cx + 64 : cx - 62 - w;
-        ui_text(lines[i], x, y + i * 15, 12, c, font);
+        tag_text(lines[i], x, y + i * 17, 12, c, font);
     }
 }
 
@@ -231,11 +243,11 @@ static void draw_bands(const App &app)
         const Region &reg = app.campaign[r];
         bool open = region_open(app.campaign, p, r), beaten = region_beaten(app.campaign, p, r);
         Rectangle band = { column_centre(app, r) - cw / 2 + 4, MAP_TOP + 8, cw - 8, 504 };
-        Color fill = beaten ? ColorAlphaBlend(COL_BG, Fade(COL_GREEN, 0.05f), WHITE)
-                   : (open && r == playing) ? ColorAlphaBlend(COL_BG, Fade(COL_AMBER, 0.06f), WHITE) : Color{ 15, 20, 26, 255 };
-        Color edge = beaten ? Fade(COL_GREEN, 0.4f) : (open && r == playing) ? COL_AMBER : COL_LINE_SOFT;
-        DrawRectangleRounded(band, 0.04f, 8, fill);
-        DrawRectangleRoundedLinesEx(band, 0.04f, 8, 1, edge);
+        // The region's world; locked ones sit behind a dark haze until they open
+        world_scene(r, band, (float)GetTime());
+        if (!open) DrawRectangleRec(band, Fade(COL_BG, 0.62f));
+        Color edge = beaten ? COL_GREEN : (open && r == playing) ? COL_AMBER : open ? Fade(world_accent(r), 0.5f) : COL_LINE_SOFT;
+        DrawRectangleRoundedLinesEx(band, 0.04f, 8, (open && r == playing) ? 2.5f : 1.5f, edge);
 
         std::string covers = reg.covers;
         for (char &ch : covers) ch = (char)toupper((unsigned char)ch);
@@ -318,7 +330,8 @@ static void draw_card(App &app, Rectangle box)
     std::string status = std::string(mastery_name(m)) + "  |  " + std::to_string(topic_points(app.progress, id)) + " / 100 points";
     ui_text(status, x, y, 13, m == Mastery::NotStarted ? COL_MUTED : mastery_color(m), FontKind::Mono);
     y += 18;
-    ui_text(topic_cleared(app.progress, id) ? "Cleared. Keep going to master it." : "Clears at Familiar (50 points).", x, y, 12, COL_MUTED);
+    ui_text(topic_cleared(app.progress, id) ? "Cleared. Pass the quiz with all 3 lives for 100." : "Pass its quiz to clear it. All 3 lives = 100.",
+            x, y, 12, COL_MUTED);
 
     float half = (w - 10) / 2;
     if (ui_button("Lesson", { x, button.y, half, button.height }, ButtonStyle::Primary, COL_AMBER) && ti >= 0) {
@@ -329,6 +342,65 @@ static void draw_card(App &app, Rectangle box)
         app.selected = ti;
         open_quiz(app);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Mal hopping between stops, and bursts when something is cleared or opens
+// ---------------------------------------------------------------------------
+
+static Vector2 malFrom, malTo;
+static float hopT = 1;
+static bool malPlaced = false;
+
+// Where Mal is this frame, hopping in an arc towards `target`.
+static Vector2 mal_hop(App &app, Vector2 target)
+{
+    if (!malPlaced) { malFrom = malTo = target; hopT = 1; malPlaced = true; }
+    if (target.x != malTo.x || target.y != malTo.y) {   // a new stop: jump from wherever Mal is now
+        float u = fminf(1.0f, hopT);
+        malFrom = { malFrom.x + (malTo.x - malFrom.x) * u, malFrom.y + (malTo.y - malFrom.y) * u };
+        malTo = target;
+        hopT = 0;
+    }
+    if (hopT < 1) {
+        float dist = sqrtf((malTo.x - malFrom.x) * (malTo.x - malFrom.x) + (malTo.y - malFrom.y) * (malTo.y - malFrom.y));
+        hopT += GetFrameTime() / fminf(0.7f, 0.25f + dist / 1200.0f);   // longer hops take a little longer
+        if (hopT >= 1) { hopT = 1; app.mal.squash = 0.72f; }          // land with a squash
+    }
+    float u = fminf(1.0f, hopT), e = u * u * (3 - 2 * u);
+    float arc = sinf(u * PI) * (40 + 0.1f * fabsf(malTo.x - malFrom.x));
+    return { malFrom.x + (malTo.x - malFrom.x) * e, malFrom.y + (malTo.y - malFrom.y) * e - arc };
+}
+
+// Compare every stop with how it looked last time: a topic just cleared gets
+// a burst and "CLEARED!", and a region or boss that just opened gets "UNLOCKED!".
+static void celebrate_changes(App &app, const std::vector<MapNode> &nodes)
+{
+    static std::vector<NodeState> last;
+    if (last.size() != nodes.size()) { last.clear(); for (const MapNode &n : nodes) last.push_back(n.state); return; }
+    bool movedOn = false;   // the selected stop was just cleared: Mal hops to the next one
+    for (size_t i = 0; i < nodes.size(); i++) {
+        NodeState was = last[i], now = nodes[i].state;
+        Vector2 at = nodes[i].pos;
+        if (now == NodeState::Done && was != NodeState::Done) {
+            fx_burst(at, 34, COL_GREEN, COL_AMBER);
+            fx_float_text(nodes[i].topic < 0 ? "BEATEN!" : "CLEARED!", { at.x, at.y - 60 }, 22, COL_GREEN);
+            sfx_play(Sfx::Combo);
+            mal_react(app.mal, MalMood::Cheer, 1.8f);
+            if (is_selected(app, nodes[i])) movedOn = true;
+        } else if (was == NodeState::Locked && now != NodeState::Locked) {
+            fx_burst(at, 24, world_accent(nodes[i].region), COL_AMBER);
+            fx_float_text("UNLOCKED!", { at.x, at.y - 60 }, 20, COL_AMBER);
+        } else if (nodes[i].topic < 0 && was == NodeState::Todo && now == NodeState::Current) {
+            fx_burst(at, 30, COL_CORAL, COL_AMBER);
+            fx_float_text("BOSS READY!", { at.x, at.y - 70 }, 20, COL_CORAL);
+            fx_shake(0.3f);
+        }
+        last[i] = now;
+    }
+    if (movedOn)
+        for (const MapNode &n : nodes)
+            if (n.state == NodeState::Current) { app.campaignRegion = n.region; app.campaignTopic = n.topic; break; }
 }
 
 // ---------------------------------------------------------------------------
@@ -411,8 +483,12 @@ void screen_campaign(App &app)
     for (int i = 0; i + 1 < (int)nodes.size(); i++) {
         bool done = nodes[i].state == NodeState::Done &&
                     (nodes[i + 1].state == NodeState::Done || nodes[i + 1].state == NodeState::Current);
-        if (done) DrawLineEx(nodes[i].pos, nodes[i + 1].pos, 4, COL_GREEN);
-        else dotted_line(nodes[i].pos, nodes[i + 1].pos, COL_LINE);
+        Vector2 a = { nodes[i].pos.x, nodes[i].pos.y + 6 }, b = { nodes[i + 1].pos.x, nodes[i + 1].pos.y + 6 };
+        bool chains = nodes[i].region == nodes[i + 1].region && world_has_chains(nodes[i].region);
+        DrawLineEx(a, b, 10, Fade(COL_BG, 0.55f));   // the road
+        if (chains) world_chain(a, b, done ? COL_GREEN : Color{ 96, 112, 130, 255 });   // the islands: chains of links
+        else if (done) DrawLineEx(a, b, 4, COL_GREEN);
+        else dotted_line(a, b, Fade(COL_TEXT, 0.35f));
     }
 
     // The stops, and clicking them
@@ -438,14 +514,15 @@ void screen_campaign(App &app)
         }
     }
 
-    // Mal stands on the next stop to play
-    if (current >= 0) {
-        Vector2 c = nodes[current].pos;
-        float r = nodes[current].topic < 0 ? 30 : 22;
-        Mal small = app.mal;
-        small.mood = MalMood::Idle;
-        mal_draw(small, { c.x, c.y - r - 2 }, 30);
-    }
+    celebrate_changes(app, nodes);
+
+    // Mal stands on the selected stop, and hops along when it changes
+    for (const MapNode &n : nodes)
+        if (is_selected(app, n)) {
+            Vector2 feet = n.topic < 0 ? Vector2{ n.pos.x, n.pos.y - 30 } : Vector2{ n.pos.x, n.pos.y + 2 };
+            mal_draw(app.mal, mal_hop(app, feet), 40);
+        }
+    (void)current;
 
     // ----- Bottom: Mal's dialogue and the selected stop -----
     float by = MAP_TOP + 520;

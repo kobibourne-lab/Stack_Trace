@@ -88,6 +88,18 @@ int progress_streak(const Progress &p, const std::string &today);
 int progress_total_points(const Progress &p);
 
 // ---------------------------------------------------------------------------
+// Finishing a quiz: mastery from the lives left.
+// ---------------------------------------------------------------------------
+
+// Passing a quiz (at least one life left) sets its topic's mastery from the
+// lives left: all of them is 100 (Mastered), and each life lost takes 20 off
+// (2 of 3 left is 80, 1 left is 60). A pass is always 60 or more, so it always
+// clears the topic in the campaign (which clears at 50). It only ever raises
+// the points, never lowers them. Returns false if no lives were left.
+int quiz_mastery_points(int livesLeft, int maxLives);
+bool progress_finish_quiz(Progress &p, const std::string &topic, int livesLeft, int maxLives);
+
+// ---------------------------------------------------------------------------
 // XP and levels, RPG style. XP only ever goes up (unlike a topic's points,
 // which drop for wrong answers), and it's worked out from what's already in
 // progress.txt, so the file format doesn't change.
