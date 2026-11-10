@@ -1,7 +1,10 @@
 # Exam prep problems, LeetCode style. One SET line per tab on the Exam prep
 # screen, then its problem files in order.
 #
-#   SET: id | title | exam (or -)
+#   SET: id | title | exam (or -, or campaign)
+#
+# A "campaign" set holds boss problems: they're only fought in the campaign
+# (content/campaign.txt), never shown in Exam prep or Versus.
 #
 # The problem format is in README.md under "Writing problems".
 
@@ -45,6 +48,6 @@ lab1/q21_fall_down_and_replace.txt
 lab1/q21b_find_all_variables.txt
 lab1/q22_find_all_variables_in_scope.txt
 
-SET: boss | Boss fights | -
+SET: boss | Boss fights | campaign
 boss/make_array.txt
 boss/shallow_copy.txt

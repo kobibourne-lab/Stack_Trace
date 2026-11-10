@@ -39,6 +39,10 @@ bool region_open(const std::vector<Region> &regions, const Progress &p, int regi
 bool region_beaten(const std::vector<Region> &regions, const Progress &p, int region);
 int region_topics_left(const Region &r, const Progress &p);
 
+// A boss can only be fought once its region is open and every topic in it is
+// cleared (and can be fought again after it's beaten).
+bool boss_unlocked(const std::vector<Region> &regions, const Progress &p, int region);
+
 // The region being played: the first open one whose boss isn't beaten yet
 // (or the last region, once everything is beaten).
 int current_region(const std::vector<Region> &regions, const Progress &p);

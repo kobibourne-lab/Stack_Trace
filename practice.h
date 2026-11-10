@@ -38,13 +38,19 @@ struct ProblemSet {
     std::string id;      // "lab1"
     std::string title;   // "Lab 1"
     std::string exam;    // "Exam 1", "Exam 2" or ""
+    bool campaignOnly = false;   // only fought as campaign bosses: not in Exam prep or Versus
     std::vector<Problem> problems;
 };
 
 // Loads content/practice/problems.txt and every problem it lists. Problems
 // that fail to load are skipped and named in error; returns false only if
 // nothing at all could be loaded.
+// Campaign-only sets ("SET: boss | Boss fights | campaign") are put last.
 bool load_problem_sets(const std::string &dir, std::vector<ProblemSet> &sets, std::string &error);
+
+// How many sets Exam prep and Versus show: all of them except the
+// campaign-only ones, which load_problem_sets puts at the end.
+int shown_set_count(const std::vector<ProblemSet> &sets);
 bool parse_problem(const std::string &text, Problem &p, std::string &error);
 
 bool forbids_token(const Problem &p, const std::string &token);   // e.g. "[" for the "no []" tag

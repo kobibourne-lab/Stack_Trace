@@ -789,6 +789,7 @@ static void test_campaign()
     CHECK(!region_open(regions, p, 1));
     CHECK(current_region(regions, p) == 0);
     CHECK(next_topic(regions[0], p) == 0);
+    CHECK(!boss_unlocked(regions, p, 0));                                       // the boss waits for every topic
     for (int i = 0; i < 4; i++) progress_record(p, "a", true, "2026-11-10");   // 40 points: not yet
     CHECK(!topic_cleared(p, "a"));
     progress_record(p, "a", true, "2026-11-10");                                // 50: Familiar
@@ -797,6 +798,8 @@ static void test_campaign()
     CHECK(region_topics_left(regions[0], p) == 1);
     for (int i = 0; i < 5; i++) progress_record(p, "b", true, "2026-11-10");
     CHECK(next_topic(regions[0], p) == -1);                                     // only the boss left
+    CHECK(boss_unlocked(regions, p, 0));
+    CHECK(!boss_unlocked(regions, p, 1));                                       // a shut region's boss stays locked
     CHECK(!region_open(regions, p, 1));                                         // still shut until it's beaten
 
     // Beating the boss: saved, opens the next region, keeps the best, gives XP
@@ -806,6 +809,8 @@ static void test_campaign()
     CHECK(progress_xp(p) == xp + XP_BOSS + 3 * XP_STAR);
     CHECK(region_open(regions, p, 1));
     CHECK(current_region(regions, p) == 1);
+    CHECK(boss_unlocked(regions, p, 0));                                        // a beaten boss can be fought again
+    CHECK(!boss_unlocked(regions, p, 1));                                       // topic c isn't cleared yet
     CHECK(progress_boss_stars(p, "one") == 3);
     CHECK(p.bosses["one"].seconds == 300);
     CHECK(p.bosses["one"].date == "2026-11-10");
@@ -843,6 +848,11 @@ static void test_campaign()
     CHECK(load_topics("content/topics.txt", topics, error));
     std::vector<ProblemSet> sets;
     CHECK(load_problem_sets("content/practice", sets, error));
+    // The boss-only set is loaded (so the campaign can find it) but put last and
+    // not shown in Exam prep or Versus
+    CHECK(shown_set_count(sets) == (int)sets.size() - 1);
+    CHECK(sets.back().id == "boss" && sets.back().campaignOnly);
+    for (int i = 0; i < shown_set_count(sets); i++) CHECK(!sets[i].campaignOnly);
     int topicsUsed = 0;
     for (const Region &r : real) {
         CHECK(!r.taunt.empty() && !r.story.empty() && !r.win.empty());

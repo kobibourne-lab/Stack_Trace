@@ -376,7 +376,7 @@ static void draw_lobby(App &app)
 
     std::vector<std::string> setLabels;
     int setSel = 0;
-    for (int i = 0; i < (int)app.practice.size(); i++) {
+    for (int i = 0; i < shown_set_count(app.practice); i++) {   // not the campaign's bosses
         setLabels.push_back(app.practice[i].title);
         if (app.practice[i].id == m.lobbySet) setSel = i;
     }

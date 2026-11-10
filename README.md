@@ -47,7 +47,7 @@ tasks (build, run the tests, clean) are under Terminal > Run Task.
 | Screen | Keys |
 |---|---|
 | Start screen | ENTER or C campaign, T topic map, E exam prep, V versus, P profile, ESC quit |
-| Campaign | LEFT / RIGHT walk along the path, ENTER lesson (or fight, on a boss), Q quiz, click a boss twice to fight it, ESC start screen |
+| Campaign | LEFT / RIGHT walk along the path, ENTER lesson (or fight, on an unlocked boss), Q quiz, click a ready boss twice to fight it, ESC start screen |
 | Boss fight | ENTER fight on the intro; then the same keys as a problem (submit is "attack"); ESC twice retreats; on a loss, ENTER tries again |
 | Topic map | LEFT / RIGHT choose a topic, UP / DOWN change track, ENTER lesson, Q quiz, E exam prep, P profile |
 | Lesson | RIGHT or SPACE next line, LEFT back a line, Q quiz, ESC topic map |
@@ -227,6 +227,8 @@ Land** (C++ classes). Play each topic's lesson and quiz; a topic is cleared at
 Familiar (50 points).
 
 Each region ends in a **boss**: one Exam prep problem under exam conditions.
+The boss is locked until every topic in its region is cleared, so it can only
+be reached through the campaign.
 
 - The boss's HP is the problem's tests. Every test you pass is a hit.
 - Runs are free. A **submit** that isn't right costs one of your 3 lives.
@@ -241,9 +243,14 @@ Each region ends in a **boss**: one Exam prep problem under exam conditions.
 | The Heap | The Leaker | Exam 2 lab, insert into a doubly linked list at a position |
 | Object Land | The Shallow Copy | a deep copy constructor for a class that owns a heap array (`content/practice/boss/`) |
 
-You can fight a boss before its region's topics are cleared. For a demo, a
-beaten boss can be added to `progress.txt` by hand, e.g.
-`BOSS: stack | 2026-11-10 | 300 | 3` opens Address Space.
+The two problems written for bosses are in a `campaign` set in
+`content/practice/problems.txt`, so they don't show up in Exam prep or Versus.
+
+For a demo, progress can be set up in `progress.txt` by hand.
+`BOSS: stack | 2026-11-10 | 300 | 3` counts The Off-By-One as beaten, which
+opens Address Space; then a `POINTS:` line of 50 for each of its topics
+(`POINTS: pointers | 50`, and the same for `arith`, `passbyptr`, `dblptr`,
+`funcptr` and `dynmem`) unlocks The Dangling Pointer.
 
 ## Playing Versus
 

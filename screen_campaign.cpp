@@ -63,7 +63,7 @@ static std::vector<MapNode> build_nodes(const App &app)
             n.pos = { boss ? cx : cx + (i % 2 == 0 ? ZIG : -ZIG), y };
             if (!open) n.state = NodeState::Locked;
             else if (boss) n.state = region_beaten(app.campaign, p, r) ? NodeState::Done
-                                   : (next < 0 && r == playing ? NodeState::Current : NodeState::Todo);
+                                   : boss_unlocked(app.campaign, p, r) ? NodeState::Current : NodeState::Todo;
             else if (topic_cleared(p, reg.topics[i])) n.state = NodeState::Done;
             else n.state = (r == playing && i == next) ? NodeState::Current : NodeState::Todo;
             nodes.push_back(n);
@@ -158,8 +158,9 @@ static void draw_boss_node(const App &app, const MapNode &n, bool selected, bool
     Vector2 c = n.pos;
     float r = 30;
     bool ready = n.state == NodeState::Current;
-    bool open = n.state != NodeState::Locked;
-    Color edge = n.state == NodeState::Done ? COL_GREEN : open ? COL_CORAL : COL_LINE;
+    bool open = n.state == NodeState::Current || n.state == NodeState::Done;   // can be fought
+    bool waiting = n.state == NodeState::Todo;                                  // in an open region, topics still to clear
+    Color edge = n.state == NodeState::Done ? COL_GREEN : open ? COL_CORAL : waiting ? Color{ 150, 80, 76, 255 } : COL_LINE;
     if (selected || hover) DrawPoly(c, 4, r + 9, 0, Fade(COL_TEXT, selected ? 0.16f : 0.08f));
     if (ready) DrawPoly(c, 4, r + 10, 0, Fade(COL_CORAL, 0.16f + 0.06f * sinf((float)GetTime() * 3)));
     Color fill = n.state == NodeState::Done ? ColorAlphaBlend(COL_BG, Fade(COL_GREEN, 0.18f), WHITE)
@@ -167,9 +168,12 @@ static void draw_boss_node(const App &app, const MapNode &n, bool selected, bool
     DrawPoly(c, 4, r, 0, fill);
     DrawPolyLinesEx(c, 4, r, 0, open ? 3 : 2, edge);
     if (n.state == NodeState::Done) tick(c, 7, COL_GREEN);
+    else if (open) ui_text("!", c.x - ui_text_width("!", 20, FontKind::MonoBold) / 2, c.y - 12, 20, COL_CORAL, FontKind::MonoBold);
     else {
-        const char *g = open ? "!" : "?";
-        ui_text(g, c.x - ui_text_width(g, 20, FontKind::MonoBold) / 2, c.y - 12, 20, open ? COL_CORAL : COL_MUTED, FontKind::MonoBold);
+        // A padlock: locked until every topic in the region is cleared
+        Color lc = waiting ? Color{ 200, 110, 104, 255 } : COL_MUTED;
+        DrawRing({ c.x, c.y - 3 }, 4.5f, 7, 180, 360, 16, lc);
+        DrawRectangleRounded({ c.x - 8, c.y - 3, 16, 12 }, 0.3f, 4, lc);
     }
 
     // The boss's name, above the top bosses and below the bottom ones
@@ -181,9 +185,12 @@ static void draw_boss_node(const App &app, const MapNode &n, bool selected, bool
         kicker = "BOSS - BEATEN " + std::to_string(b.seconds / 60) + ":" + (b.seconds % 60 < 10 ? "0" : "") + std::to_string(b.seconds % 60);
         kc = COL_GREEN;
     } else if (open) {
-        int left = region_topics_left(reg, app.progress);
-        kicker = left == 0 ? "BOSS - READY" : "BOSS - " + std::to_string(left) + (left == 1 ? " TOPIC" : " TOPICS") + " TO GO";
+        kicker = "BOSS - READY";
         kc = COL_CORAL;
+    } else if (waiting) {
+        int left = region_topics_left(reg, app.progress);
+        kicker = "BOSS - LOCKED, " + std::to_string(left) + (left == 1 ? " TOPIC" : " TOPICS") + " TO GO";
+        kc = { 220, 120, 112, 255 };
     } else {
         kicker = "BOSS";
     }
@@ -191,7 +198,7 @@ static void draw_boss_node(const App &app, const MapNode &n, bool selected, bool
     float y = top ? c.y - r - 46 : c.y + r + 8;
     ui_text(kicker, c.x - ui_text_width(kicker, 11, FontKind::Mono) / 2, y, 11, kc, FontKind::Mono);
     ui_text(reg.bossName, c.x - ui_text_width(reg.bossName, 13, FontKind::UiBold) / 2, y + 16, 13,
-            open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
+            (open || waiting) ? COL_TEXT : COL_MUTED, FontKind::UiBold);
 }
 
 static void draw_topic_label(const App &app, const MapNode &n)
@@ -290,13 +297,16 @@ static void draw_card(App &app, Rectangle box)
         if (progress_boss_beaten(app.progress, reg.id)) {
             int stars = progress_boss_stars(app.progress, reg.id);
             status = "Beaten, " + std::to_string(stars) + (stars == 1 ? " star" : " stars") + ". Fight again for more.";
+        } else if (boss_unlocked(app.campaign, app.progress, app.campaignRegion)) {
+            status = "Ready. An exam problem, against the clock.";
         } else {
             int left = region_topics_left(reg, app.progress);
-            status = left == 0 ? "Ready. An exam problem, against the clock." :
-                     std::to_string(left) + (left == 1 ? " topic" : " topics") + " left first. You can fight it early.";
+            status = "Locked. Clear the " + std::to_string(left) + (left == 1 ? " topic" : " topics") + " before it to unlock the fight.";
         }
         ui_text_wrapped(status, x, y, w, 13, COL_MUTED);
-        if (ui_button("Fight", button, ButtonStyle::Primary, COL_CORAL)) open_boss(app, app.campaignRegion);
+        bool unlocked = boss_unlocked(app.campaign, app.progress, app.campaignRegion);
+        if (ui_button(unlocked ? "Fight" : "Locked", button, unlocked ? ButtonStyle::Primary : ButtonStyle::Disabled, COL_CORAL) && unlocked)
+            open_boss(app, app.campaignRegion);
         return;
     }
 
@@ -380,7 +390,7 @@ void screen_campaign(App &app)
         sfx_play(Sfx::Click);
     }
     if (IsKeyPressed(KEY_ENTER)) {
-        if (app.campaignTopic < 0) { open_boss(app, app.campaignRegion); return; }
+        if (app.campaignTopic < 0) { open_boss(app, app.campaignRegion); return; }   // does nothing while it's locked
         select_topic_for_lesson(app);
         open_lesson(app);
         return;
@@ -418,7 +428,7 @@ void screen_campaign(App &app)
                 app.campaignRegion = n.region;
                 app.campaignTopic = n.topic;
                 sfx_play(Sfx::Click);
-                if (n.topic < 0 && again) { open_boss(app, n.region); return; }   // a second click on a boss fights it
+                if (n.topic < 0 && again && boss_unlocked(app.campaign, app.progress, n.region)) { open_boss(app, n.region); return; }   // a second click on a ready boss fights it
             }
         }
         if (n.topic < 0) draw_boss_node(app, n, is_selected(app, n), hover);

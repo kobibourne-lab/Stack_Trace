@@ -131,7 +131,7 @@ static void draw_boss(const std::string &look, Vector2 c, float size, float flas
 
 void open_boss(App &app, int r)
 {
-    if (r < 0 || r >= (int)app.campaign.size() || !region_open(app.campaign, app.progress, r)) return;
+    if (r < 0 || r >= (int)app.campaign.size() || !boss_unlocked(app.campaign, app.progress, r)) return;   // reach it through the campaign
     BossState &b = app.boss;
     b = BossState();
     b.region = r;
@@ -385,9 +385,8 @@ static void intro_frame(App &app)
     for (char &c : area) c = (char)toupper((unsigned char)c);
     area += "  -  BOSS FIGHT";
     ui_text(area, SCREEN_W / 2.0f - ui_text_width(area, 13, FontKind::MonoBold) / 2, 34, 13, COL_CORAL, FontKind::MonoBold);
-    int left = region_topics_left(reg, app.progress);
-    std::string sub = left == 0 ? "Every topic in this region is cleared." :
-                      std::to_string(left) + (left == 1 ? " topic" : " topics") + " in this region still to clear. You can fight early, but it's tougher.";
+    std::string sub = progress_boss_beaten(app.progress, reg.id) ? "A rematch: beat your best for more stars."
+                                                                 : "Every topic in " + reg.name + " is cleared. Time to face its boss.";
     ui_text(sub, SCREEN_W / 2.0f - ui_text_width(sub, 14) / 2, 56, 14, COL_MUTED);
 
     // You & Mal  VS  the boss

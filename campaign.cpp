@@ -107,6 +107,12 @@ int region_topics_left(const Region &r, const Progress &p)
     return left;
 }
 
+bool boss_unlocked(const std::vector<Region> &regions, const Progress &p, int region)
+{
+    if (!region_open(regions, p, region)) return false;
+    return region_beaten(regions, p, region) || region_topics_left(regions[region], p) == 0;
+}
+
 int current_region(const std::vector<Region> &regions, const Progress &p)
 {
     for (int i = 0; i < (int)regions.size(); i++)
