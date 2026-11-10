@@ -4,8 +4,10 @@
 //   POINTS: pointers | 60
 //   ANSWER: 2026-11-03 | pointers | 1
 //   SOLVED: lab1/q01_leap_year | 2026-11-03 | 154
+//   BOSS: stack | 2026-11-10 | 401 | 2
 // For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
-// the fastest time in seconds.
+// the fastest time in seconds. For BOSS (a campaign boss beaten), the numbers
+// are the fastest win in seconds and the most stars.
 
 #include "progress.h"
 #include "content.h"   // trim, split_fields
@@ -46,6 +48,14 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             s.date = fields[1];
             s.seconds = fields.size() >= 3 ? std::atoi(fields[2].c_str()) : 0;
             p.solved[fields[0]] = s;
+        } else if (key == "BOSS" && fields.size() >= 2 && !fields[0].empty()) {
+            BossRecord b;
+            b.date = fields[1];
+            b.seconds = fields.size() >= 3 ? std::atoi(fields[2].c_str()) : 0;
+            b.stars = fields.size() >= 4 ? std::atoi(fields[3].c_str()) : 1;
+            if (b.stars < 1) b.stars = 1;
+            if (b.stars > 3) b.stars = 3;
+            p.bosses[fields[0]] = b;
         }
     }
     return true;
@@ -65,6 +75,9 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         f << "ANSWER: " << a.date << " | " << a.topic << " | " << (a.correct ? 1 : 0) << "\n";
     for (const auto &entry : p.solved)
         f << "SOLVED: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << "\n";
+    for (const auto &entry : p.bosses)
+        f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
+          << entry.second.stars << "\n";
     if (!f) {
         error = "error while writing " + path;
         return false;
@@ -103,6 +116,35 @@ bool progress_mark_solved(Progress &p, const std::string &problemId, const std::
 bool progress_is_solved(const Progress &p, const std::string &problemId)
 {
     return p.solved.find(problemId) != p.solved.end();
+}
+
+bool progress_record_boss(Progress &p, const std::string &regionId, const std::string &date, int seconds, int stars)
+{
+    if (stars < 1) stars = 1;
+    if (stars > 3) stars = 3;
+    auto it = p.bosses.find(regionId);
+    if (it == p.bosses.end()) {
+        BossRecord b;
+        b.date = date;
+        b.seconds = seconds;
+        b.stars = stars;
+        p.bosses[regionId] = b;
+        return true;
+    }
+    if (seconds > 0 && (it->second.seconds <= 0 || seconds < it->second.seconds)) it->second.seconds = seconds;
+    if (stars > it->second.stars) it->second.stars = stars;
+    return false;
+}
+
+bool progress_boss_beaten(const Progress &p, const std::string &regionId)
+{
+    return p.bosses.find(regionId) != p.bosses.end();
+}
+
+int progress_boss_stars(const Progress &p, const std::string &regionId)
+{
+    auto it = p.bosses.find(regionId);
+    return it == p.bosses.end() ? 0 : it->second.stars;
 }
 
 int topic_points(const Progress &p, const std::string &topic)
@@ -232,6 +274,7 @@ int progress_xp(const Progress &p)
     int xp = 0;
     for (const AnswerRecord &a : p.answers) xp += a.correct ? XP_CORRECT : XP_WRONG;
     xp += (int)p.solved.size() * XP_SOLVED;
+    for (const auto &entry : p.bosses) xp += XP_BOSS + entry.second.stars * XP_STAR;
     return xp;
 }
 

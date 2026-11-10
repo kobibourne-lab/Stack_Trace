@@ -44,3 +44,7 @@ lab1/q20_replace_with_minus_one.txt
 lab1/q21_fall_down_and_replace.txt
 lab1/q21b_find_all_variables.txt
 lab1/q22_find_all_variables_in_scope.txt
+
+SET: boss | Boss fights | -
+boss/make_array.txt
+boss/shallow_copy.txt

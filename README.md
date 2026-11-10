@@ -46,6 +46,9 @@ tasks (build, run the tests, clean) are under Terminal > Run Task.
 
 | Screen | Keys |
 |---|---|
+| Start screen | ENTER or C campaign, T topic map, E exam prep, V versus, P profile, ESC quit |
+| Campaign | LEFT / RIGHT walk along the path, ENTER lesson (or fight, on a boss), Q quiz, click a boss twice to fight it, ESC start screen |
+| Boss fight | ENTER fight on the intro; then the same keys as a problem (submit is "attack"); ESC twice retreats; on a loss, ENTER tries again |
 | Topic map | LEFT / RIGHT choose a topic, UP / DOWN change track, ENTER lesson, Q quiz, E exam prep, P profile |
 | Lesson | RIGHT or SPACE next line, LEFT back a line, Q quiz, ESC topic map |
 | Quiz | 1 to 4 pick an option (or click; click a line for "spot the bug"), ENTER next, ESC topic map |
@@ -215,6 +218,33 @@ END
 - The Lab 1 problems' tests come from the Lab 1 question files. The Exam 2
   problems use the lab sheet's prototypes and examples, with new tests.
 
+## Playing the campaign
+
+The campaign (`content/campaign.txt`) takes every topic on a journey through
+the machine's memory, in four regions: **The Stack** (C basics), **Address
+Space** (pointers), **The Heap** (memory bugs and linked lists) and **Object
+Land** (C++ classes). Play each topic's lesson and quiz; a topic is cleared at
+Familiar (50 points).
+
+Each region ends in a **boss**: one Exam prep problem under exam conditions.
+
+- The boss's HP is the problem's tests. Every test you pass is a hit.
+- Runs are free. A **submit** that isn't right costs one of your 3 lives.
+- Out of lives, or out of time, and Mal gets `free()`'d. Try again.
+- Win: +150 XP, +25 XP a star, and the next region opens. Stars: one for
+  winning, one for not losing a life, one for finishing in under half the time.
+
+| Region | Boss | Problem |
+|---|---|---|
+| The Stack | The Off-By-One | Lab 1 Q15, reverse an array |
+| Address Space | The Dangling Pointer | `make_array`: return an array that outlives the function (`content/practice/boss/`) |
+| The Heap | The Leaker | Exam 2 lab, insert into a doubly linked list at a position |
+| Object Land | The Shallow Copy | a deep copy constructor for a class that owns a heap array (`content/practice/boss/`) |
+
+You can fight a boss before its region's topics are cleared. For a demo, a
+beaten boss can be added to `progress.txt` by hand, e.g.
+`BOSS: stack | 2026-11-10 | 300 | 3` opens Address Space.
+
 ## Playing Versus
 
 1. Put both laptops on **one phone's hotspot**. College Wi-Fi stops laptops
@@ -254,6 +284,10 @@ it'll work.
 11. Versus: a real connection between two sockets on this computer: joining,
     swapping lines (including one bigger than a network packet), noticing when
     the other side leaves, and the errors for a wrong or unreachable address
+12. XP, levels and quiz combos
+13. the campaign: loading `campaign.txt`, clearing topics, opening regions,
+    beaten bosses in `progress.txt` (best time and stars kept), stars and HP,
+    and that every region's topics and boss problem really exist
 
 ## Files
 
@@ -279,14 +313,18 @@ it'll work.
 | `versus.cpp/.h` | Versus: the messages and match rules (no drawing) |
 | `screen_versus.cpp` | Versus: lobby, countdown, live match and result |
 | `screen_profile.cpp` | the profile: stats, badges, pinned topics, activity heatmap |
+| `campaign.cpp/.h` | the campaign: regions, what's cleared and open, boss HP and stars (no drawing) |
+| `screen_campaign.cpp` | the campaign's world map |
+| `screen_boss.cpp` | a boss fight: intro, the fight, and winning or losing |
 | `content/` | topics, lessons, quizzes, and Exam prep problems in `content/practice/` |
 | `fonts/` | IBM Plex Sans and JetBrains Mono, both under the SIL Open Font License (licences included) |
 | `tests/test_core.cpp` | the automatic tests |
 
 ## Still to build
 
-- **Exam prep**: 36 problems (the 13 from the Coding Exam 2 Preparation lab and
-  23 from Lab 1) can be solved, run, submitted and timed. Still to do: problems
+- **Exam prep**: 38 problems (the 13 from the Coding Exam 2 Preparation lab,
+  23 from Lab 1, and 2 written for campaign bosses) can be solved, run,
+  submitted and timed. Still to do: problems
   for Exam 1 once it's confirmed, and a model answer to show after solving.
 - **Profile**: stats, pinned topics, the heatmap and recent activity already
   read `progress.txt`. Still to do: choosing a name (it uses the computer's user

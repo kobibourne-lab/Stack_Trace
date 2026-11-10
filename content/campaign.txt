@@ -1,0 +1,40 @@
+# The campaign: a journey through the machine's memory, one region at a time.
+# Each region is a run of topics from topics.txt, then a boss: an Exam prep
+# problem played under exam conditions. Beat a region's boss to open the next.
+#
+#   REGION: id | name | what it covers | exam (or -)
+#   TOPICS: topic ids from topics.txt, in the order they're played
+#   BOSS:   name | problem id from content/practice | look (offbyone, dangling, leaker, shallow)
+#   TAUNT:  what the boss says before the fight
+#   STORY:  what Mal says on the map while you're in this region
+#   WIN:    what Mal says when the boss is beaten
+#
+# A topic counts as cleared once it's Familiar (50 mastery points) or better.
+
+REGION: stack | The Stack | C basics | Exam 1
+TOPICS: basics, control, arrays, strings, functions
+BOSS: The Off-By-One | lab1/q15_reverse_array | offbyone
+TAUNT: Go one step too far and you're mine. Or stop one step short. I'm not fussy.
+STORY: Welcome to the Stack, where every function gets a frame. Clear these topics, then we deal with The Off-By-One.
+WIN: The Stack is safe! Next stop, Address Space, where everything is a pointer.
+
+REGION: address | Address Space | Pointers | Exam 2
+TOPICS: pointers, arith, passbyptr, dblptr, funcptr, dynmem
+BOSS: The Dangling Pointer | boss/make_array | dangling
+TAUNT: I point at memory that isn't there any more. Return the wrong address and you're mine.
+STORY: The Dangling Pointer guards the way to the Heap. It hits hardest when you forget where things live.
+WIN: The Heap is open. Something in there is losing nodes, and I'm made of heap. Let's go.
+
+REGION: heap | The Heap | Memory bugs & linked lists | Exam 2
+TOPICS: membugs, sll, dll
+BOSS: The Leaker | exam2/13_insert_at_position | leaker
+TAUNT: Wire one next pointer wrong and the rest of your list leaks away to me.
+STORY: Down here, blocks live until someone frees them. The Leaker feeds on nodes nobody points at any more.
+WIN: Not a byte leaked! One region left: Object Land, where C++ classes live.
+
+REGION: objects | Object Land | C++ classes | -
+TOPICS: classes, ctors, copyctor, access, dtors, objarrays
+BOSS: The Shallow Copy | boss/shallow_copy | shallow
+TAUNT: Two objects, one array, and a delete too many. Copy me properly, if you can.
+STORY: Objects own their memory here. The Shallow Copy makes two of everything, except the part that matters.
+WIN: That's every region! The whole machine is leak-free. You're ready for the exams.

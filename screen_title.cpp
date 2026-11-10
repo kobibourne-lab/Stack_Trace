@@ -121,7 +121,9 @@ static void draw_mal(App &app, int streak)
 
 void screen_title(App &app)
 {
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) { open_map(app); return; }
+    app.inCampaign = false;   // back at the start, lessons and quizzes go to the topic map again
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_C)) { open_campaign(app); return; }
+    if (IsKeyPressed(KEY_T)) { app.inCampaign = false; open_map(app); return; }
     if (IsKeyPressed(KEY_E)) { open_exam_prep(app); return; }
     if (IsKeyPressed(KEY_V)) { open_versus(app); return; }
     if (IsKeyPressed(KEY_P)) { app.screen = Screen::Profile; return; }
@@ -145,7 +147,8 @@ void screen_title(App &app)
 
     // Menu
     float bw = 236, bh = 48, gap = 14;
-    if (ui_button("Start learning", { x, y, bw * 2 + gap, bh }, ButtonStyle::Primary, COL_GREEN)) { open_map(app); return; }
+    if (ui_button("Campaign", { x, y, bw, bh }, ButtonStyle::Primary, COL_AMBER)) { open_campaign(app); return; }
+    if (ui_button("Topic map", { x + bw + gap, y, bw, bh }, ButtonStyle::Primary, COL_GREEN)) { app.inCampaign = false; open_map(app); return; }
     y += bh + gap;
     if (ui_button("Exam prep", { x, y, bw, bh }, ButtonStyle::Outline, COL_PURPLE)) { open_exam_prep(app); return; }
     if (ui_button("Versus", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_CORAL)) { open_versus(app); return; }
@@ -169,7 +172,7 @@ void screen_title(App &app)
     // Along the bottom: who made it, and the keys
     float fy = SCREEN_H - FOOTER_H;
     DrawLine(0, (int)fy, SCREEN_W, (int)fy, COL_LINE_SOFT);
-    ui_text("ENTER start   E exam prep   V versus   P profile   M sound   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
+    ui_text("ENTER campaign   T topic map   E exam prep   V versus   P profile   M sound   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
             COL_MUTED, FontKind::Mono);
     const char *credit = "Advanced Programming, SETU  |  Ryan Mulcahy & Kobi Bourne";
     ui_text(credit, SCREEN_W - MARGIN - ui_text_width(credit, 13), fy + 19, 13, COL_MUTED);

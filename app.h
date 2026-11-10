@@ -12,8 +12,9 @@
 #include "net.h"
 #include "versus.h"
 #include "mascot.h"
+#include "campaign.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -62,6 +63,26 @@ struct VersusState {
     bool codeSent = false;
 };
 
+// A campaign boss fight (screen_boss.cpp). The problem itself is in App::work.
+struct BossState {
+    int region = 0;                 // index into App::campaign
+    int phase = 0;                  // 0 intro, 1 fight, 2 won, 3 lost
+    bool found = false;             // the boss's problem is in content/practice
+    int totalTests = 0;             // the boss's HP when the fight starts
+    int bestPassed = 0;             // the most tests any run has passed (the hits so far)
+    int lives = 3, livesLost = 0;
+    int lastRunCount = 0;           // the workspace's runCount when last checked
+    bool timeUp = false, timeUpSubmitted = false;
+    std::string banner;             // what the last run did ("Hit! -2 HP"), over the editor
+    bool bannerGood = false;
+    double bannerAt = -100, hitAt = -100, hurtAt = -100, escArmed = -100, phaseAt = 0;
+    int xpBefore = 0, xpGained = 0;
+    double seconds = 0;             // how long the win took
+    int stars = 0;
+    bool firstWin = false;
+    std::string lostReason;
+};
+
 struct App {
     Screen screen = Screen::Title;   // the start screen comes first
     bool quit = false;
@@ -86,6 +107,13 @@ struct App {
 
     Workspace work;              // the open problem
     VersusState vs;              // Versus mode
+
+    std::vector<Region> campaign;       // content/campaign.txt
+    std::string campaignError;
+    bool inCampaign = false;     // lessons and quizzes go back to the campaign map, not the topic map
+    int campaignRegion = 0;      // the stop picked on the campaign map: its region...
+    int campaignTopic = 0;       // ...and its topic in that region (-1 = the boss)
+    BossState boss;
 
     std::string message;         // shown on the map, e.g. a file that wouldn't load
 
@@ -131,3 +159,7 @@ void problem_draw_description(App &app, Rectangle r);
 void problem_draw_editor(App &app, Rectangle box, bool locked);
 void problem_draw_console(App &app, Rectangle r);
 void screen_profile(App &app);
+void open_campaign(App &app);
+void screen_campaign(App &app);
+void open_boss(App &app, int region);   // the boss's intro; the fight starts from there
+void screen_boss(App &app);

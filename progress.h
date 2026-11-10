@@ -26,10 +26,18 @@ struct SolvedRecord {
     int seconds = 0;     // the fastest time it was solved in
 };
 
+// A campaign boss that has been beaten.
+struct BossRecord {
+    std::string date;    // when it was first beaten
+    int seconds = 0;     // the fastest win
+    int stars = 0;       // the most stars won (1 to 3)
+};
+
 struct Progress {
     std::map<std::string, int> points;  // topic id -> 0..100
     std::vector<AnswerRecord> answers;
     std::map<std::string, SolvedRecord> solved;   // problem id ("lab1/q01_leap_year") -> record
+    std::map<std::string, BossRecord> bosses;     // campaign region id ("stack") -> record
 };
 
 // A missing file just means a new student: returns true with empty progress.
@@ -44,6 +52,12 @@ void progress_record(Progress &p, const std::string &topic, bool correct, const 
 // Returns true if it's the first time it has been solved.
 bool progress_mark_solved(Progress &p, const std::string &problemId, const std::string &date, int seconds);
 bool progress_is_solved(const Progress &p, const std::string &problemId);
+
+// Records a campaign boss beaten, keeping the fastest time and the most stars.
+// Returns true if it's the first time it has been beaten.
+bool progress_record_boss(Progress &p, const std::string &regionId, const std::string &date, int seconds, int stars);
+bool progress_boss_beaten(const Progress &p, const std::string &regionId);
+int progress_boss_stars(const Progress &p, const std::string &regionId);   // 0 if not beaten
 
 int topic_points(const Progress &p, const std::string &topic);
 Mastery topic_mastery(const Progress &p, const std::string &topic);
@@ -82,6 +96,8 @@ int progress_total_points(const Progress &p);
 const int XP_CORRECT = 10;   // a right quiz answer
 const int XP_WRONG = 2;      // a wrong one still counts for having a go
 const int XP_SOLVED = 25;    // an Exam prep problem solved
+const int XP_BOSS = 150;     // a campaign boss beaten
+const int XP_STAR = 25;      // each star won against a boss (the best run counts)
 
 int progress_xp(const Progress &p);
 
