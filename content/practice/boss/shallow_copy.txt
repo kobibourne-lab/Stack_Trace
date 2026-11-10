@@ -1,0 +1,68 @@
+# Boss fight: The Shallow Copy (Object Land). Written for the campaign.
+# The starter is the copy C++ would write for you (copy the pointer), so it
+# compiles but fails, and the second destructor frees the array twice.
+
+TITLE: Deep Copy
+FUNCTION: IntBox(const IntBox &other)
+GROUP: Boss fights
+DIFFICULTY: Hard
+TOPIC: copyctor
+MINUTES: 20
+PROTOTYPE: IntBox(const IntBox &other);
+TEXT: IntBox keeps its numbers in an array on the heap. The copy constructor in the starter copies the pointer, not the array, so the original and the copy share one array, and when both are destroyed it's deleted twice.
+TEXT: Make it a deep copy: the new box gets its own array, with the same size and the same values.
+RULE: The copy must have its own array
+HINT: Give the copy its own array first: data = new int[other.size];
+HINT: Then copy size, and every value, across from other.
+
+EXAMPLE:
+IntBox a(3);         // a.data is {0, 0, 0}
+a.data[0] = 7;
+IntBox b(a);         // b gets its own {7, 0, 0}
+b.data[0] = 1;       // a.data[0] is still 7
+END
+
+STARTER:
+#include <stdio.h>
+
+class IntBox
+{
+public:
+    int *data;
+    int size;
+
+    IntBox(int n)
+    {
+        size = n;
+        data = new int[n];
+        for (int i = 0; i < n; i++)
+            data[i] = 0;
+    }
+
+    IntBox(const IntBox &other)
+    {
+        // your code here
+        data = other.data;   // a shallow copy: the same array
+        size = other.size;
+    }
+
+    ~IntBox()
+    {
+        delete[] data;
+    }
+};
+END
+
+TESTS:
+    IntBox a(3);
+    a.data[0] = 7;  a.data[1] = 8;  a.data[2] = 9;
+    IntBox *b = new IntBox(a);
+    checkBool(b->data != a.data, true, "the copy has its own array, not the same pointer");
+    checkInt(b->size, 3, "the copy has the same size");
+    int want[] = { 7, 8, 9 };
+    checkArray(3, b->data, want, "the copy has the same values");
+    b->data[1] = 99;
+    checkInt(a.data[1], 8, "changing the copy leaves the original alone");
+    delete b;
+    checkInt(a.data[0], 7, "the original still works after the copy is deleted");
+END

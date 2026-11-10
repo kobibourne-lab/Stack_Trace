@@ -22,6 +22,9 @@
 //   versus.cpp/.h       Versus: the match rules and messages              (no drawing)
 //   screen_versus.cpp   Versus: lobby, countdown, live match and result
 //   screen_profile.cpp  the profile: stats, badges, pinned topics, activity heatmap
+//   campaign.cpp/.h     the campaign: regions, what's cleared and open, boss scoring (no drawing)
+//   screen_campaign.cpp the campaign's world map
+//   screen_boss.cpp     a boss fight: intro, the fight (an exam problem), and the result
 //
 // The files marked "no drawing" never call raylib, so tests/test_core.cpp can
 // test them without a window: make test.
@@ -42,7 +45,8 @@
 
 void open_map(App &app)
 {
-    app.screen = Screen::Map;
+    // Lessons and quizzes started from the campaign go back to the campaign map
+    app.screen = app.inCampaign ? Screen::Campaign : Screen::Map;
     if (app.mal.mood == MalMood::Freed) mal_react(app.mal, MalMood::Idle, 0);   // Mal builds itself back up
 }
 
@@ -241,6 +245,8 @@ int main()
     }
     if (!load_problem_sets("content/practice", app.practice, app.practiceError))
         TraceLog(LOG_WARNING, "PRACTICE: %s", app.practiceError.c_str());
+    if (!load_campaign("content/campaign.txt", app.campaign, app.campaignError))
+        TraceLog(LOG_WARNING, "CAMPAIGN: %s", app.campaignError.c_str());
     if (!progress_load(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
     app.levelShown = level_for_xp(progress_xp(app.progress));   // only celebrate new levels
@@ -248,7 +254,7 @@ int main()
     while (!WindowShouldClose() && !app.quit) {
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
         // M mutes, except where you type code (M is a letter you might need there)
-        if (IsKeyPressed(KEY_M) && app.screen != Screen::Problem && app.screen != Screen::Versus) sfx_toggle_mute();
+        if (IsKeyPressed(KEY_M) && app.screen != Screen::Problem && app.screen != Screen::Versus && app.screen != Screen::Boss) sfx_toggle_mute();
 
         float dt = GetFrameTime();
         fx_update(dt);
@@ -278,6 +284,8 @@ int main()
             case Screen::Problem:  screen_problem(app); break;
             case Screen::Versus:   screen_versus(app); break;
             case Screen::Profile:  screen_profile(app); break;
+            case Screen::Campaign: screen_campaign(app); break;
+            case Screen::Boss:     screen_boss(app); break;
         }
         fx_draw();
         draw_level_up(app);

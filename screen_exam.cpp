@@ -62,7 +62,7 @@ static std::string best_time(const App &app, const Problem &p)
 // The set tabs, with each one's solved count
 static void draw_tabs(App &app, float x, float y)
 {
-    for (int i = 0; i < (int)app.practice.size(); i++) {
+    for (int i = 0; i < shown_set_count(app.practice); i++) {   // not the campaign's bosses
         const ProblemSet &s = app.practice[i];
         int solved = 0;
         for (const Problem &p : s.problems) if (progress_is_solved(app.progress, p.id)) solved++;
@@ -270,13 +270,13 @@ void screen_exam(App &app)
         return;
     }
 
-    if (app.practice.empty()) {
+    if (shown_set_count(app.practice) == 0) {
         ui_text("No problems loaded", MARGIN, HEADER_H + 40, 24, COL_CORAL, FontKind::UiBold);
         ui_text_wrapped(app.practiceError, MARGIN, HEADER_H + 80, 900, 15, COL_TEXT_SOFT, FontKind::Mono);
         ui_footer_hints({ "ESC topic map" });
         return;
     }
-    if (app.examSet >= (int)app.practice.size()) app.examSet = 0;
+    if (app.examSet >= shown_set_count(app.practice)) app.examSet = 0;
     const ProblemSet &set = app.practice[app.examSet];
     int count = (int)set.problems.size();
     if (app.examSelected < 0 || app.examSelected >= count) app.examSelected = 0;
@@ -286,7 +286,7 @@ void screen_exam(App &app)
     if (IsKeyPressed(KEY_DOWN)) { app.examSelected = (app.examSelected + 1) % count; moved = true; }
     if (IsKeyPressed(KEY_UP)) { app.examSelected = (app.examSelected + count - 1) % count; moved = true; }
     if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_LEFT)) {
-        int n = (int)app.practice.size();
+        int n = shown_set_count(app.practice);
         app.examSet = (app.examSet + (IsKeyPressed(KEY_RIGHT) ? 1 : n - 1)) % n;
         app.examSelected = 0;
         app.examScroll = 0;

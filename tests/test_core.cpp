@@ -16,6 +16,9 @@
 //      and one real answer compiled and run (skipped if there's no compiler)
 //  10. Versus: the messages, a whole match from both sides, and who wins
 //  11. Versus: a real connection between two sockets on this computer
+//  12. XP, levels and quiz combos
+//  13. the campaign: loading, what's cleared and open, bosses in progress.txt,
+//      and every boss's problem and topics really existing
 //
 // Same style as the Hospital project's tests: nothing printed when a check
 // passes, a FAIL line when one doesn't, and exit code 1 if anything failed.
@@ -29,6 +32,7 @@
 #include "../editbuf.h"
 #include "../versus.h"
 #include "../net.h"
+#include "../campaign.h"
 #include <chrono>
 #include <thread>
 
@@ -493,7 +497,7 @@ static void test_real_problems()
             CHECK(!p.prototype.empty());
             if (p.id == "lab1/q01_leap_year") leap = &p;
         }
-    CHECK(count == 36);
+    CHECK(count == 38);   // 13 from the Exam 2 lab, 23 from Lab 1, 2 campaign bosses
     if (leap == nullptr) return;
 
     if (find_compiler().empty()) {
@@ -757,6 +761,117 @@ static void test_xp_and_combo()
     CHECK(s.bestCombo == 2);
 }
 
+static void test_campaign()
+{
+    // Parsing: a region needs topics and a boss, and bad regions are left out
+    std::vector<Region> regions;
+    std::string error;
+    CHECK(parse_campaign("# a comment\n"
+                         "REGION: one | First | basics | Exam 1\n"
+                         "TOPICS: a, b\n"
+                         "BOSS: The Bug | set/p1 | offbyone\n"
+                         "TAUNT: hi\n"
+                         "REGION: two | Second | more | -\n"
+                         "TOPICS: c\n"
+                         "BOSS: The Other | set/p2\n"
+                         "REGION: broken | No boss\n"
+                         "TOPICS: d\n", regions, error));
+    CHECK(regions.size() == 2);
+    CHECK(error.find("broken") != std::string::npos);
+    CHECK(regions[0].topics.size() == 2 && regions[0].topics[1] == "b");
+    CHECK(regions[0].bossName == "The Bug" && regions[0].bossProblem == "set/p1" && regions[0].bossLook == "offbyone");
+    CHECK(regions[0].exam == "Exam 1" && regions[1].exam.empty());
+    CHECK(regions[0].taunt == "hi");
+
+    // Clearing topics and opening regions
+    Progress p;
+    CHECK(region_open(regions, p, 0));
+    CHECK(!region_open(regions, p, 1));
+    CHECK(current_region(regions, p) == 0);
+    CHECK(next_topic(regions[0], p) == 0);
+    CHECK(!boss_unlocked(regions, p, 0));                                       // the boss waits for every topic
+    for (int i = 0; i < 4; i++) progress_record(p, "a", true, "2026-11-10");   // 40 points: not yet
+    CHECK(!topic_cleared(p, "a"));
+    progress_record(p, "a", true, "2026-11-10");                                // 50: Familiar
+    CHECK(topic_cleared(p, "a"));
+    CHECK(next_topic(regions[0], p) == 1);
+    CHECK(region_topics_left(regions[0], p) == 1);
+    for (int i = 0; i < 5; i++) progress_record(p, "b", true, "2026-11-10");
+    CHECK(next_topic(regions[0], p) == -1);                                     // only the boss left
+    CHECK(boss_unlocked(regions, p, 0));
+    CHECK(!boss_unlocked(regions, p, 1));                                       // a shut region's boss stays locked
+    CHECK(!region_open(regions, p, 1));                                         // still shut until it's beaten
+
+    // Beating the boss: saved, opens the next region, keeps the best, gives XP
+    int xp = progress_xp(p);
+    CHECK(progress_record_boss(p, "one", "2026-11-10", 400, 1));
+    CHECK(!progress_record_boss(p, "one", "2026-11-11", 300, 3));               // not the first time
+    CHECK(progress_xp(p) == xp + XP_BOSS + 3 * XP_STAR);
+    CHECK(region_open(regions, p, 1));
+    CHECK(current_region(regions, p) == 1);
+    CHECK(boss_unlocked(regions, p, 0));                                        // a beaten boss can be fought again
+    CHECK(!boss_unlocked(regions, p, 1));                                       // topic c isn't cleared yet
+    CHECK(progress_boss_stars(p, "one") == 3);
+    CHECK(p.bosses["one"].seconds == 300);
+    CHECK(p.bosses["one"].date == "2026-11-10");
+    std::string path = "test_progress.txt";
+    CHECK(progress_save(path, p, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    CHECK(progress_boss_beaten(back, "one") && back.bosses["one"].seconds == 300 && back.bosses["one"].stars == 3);
+    std::remove(path.c_str());
+
+    // Scoring a fight
+    CHECK(boss_hp(5, 2) == 3);
+    CHECK(boss_hp(5, 9) == 0);
+    CHECK(boss_stars(false, 0, 10, 900) == 0);
+    CHECK(boss_stars(true, 2, 800, 900) == 1);
+    CHECK(boss_stars(true, 0, 800, 900) == 2);
+    CHECK(boss_stars(true, 0, 300, 900) == 3);
+    CHECK(boss_stars(true, 1, 300, 900) == 2);
+
+    // Counting a problem's tests (its HP) from its check calls
+    Problem prob;
+    prob.tests = { "    checkInt(f(1), 2, \"one\");  checkBool(g(), true, \"two\");",
+                   "    // a comment that says check is ignored, as is mycheckInt(",
+                   "    checkOutput([]() { f(); }, \"x\", \"three\");" };
+    CHECK(count_tests(prob) == 3);
+
+    // The real campaign: every topic is in topics.txt, every boss's problem
+    // exists, and its counted tests match a real run of its model answer's count
+    std::vector<Region> real;
+    error.clear();
+    CHECK(load_campaign("content/campaign.txt", real, error));
+    CHECK(error.empty());
+    CHECK(real.size() == 4);
+    std::vector<Topic> topics;
+    CHECK(load_topics("content/topics.txt", topics, error));
+    std::vector<ProblemSet> sets;
+    CHECK(load_problem_sets("content/practice", sets, error));
+    // The boss-only set is loaded (so the campaign can find it) but put last and
+    // not shown in Exam prep or Versus
+    CHECK(shown_set_count(sets) == (int)sets.size() - 1);
+    CHECK(sets.back().id == "boss" && sets.back().campaignOnly);
+    for (int i = 0; i < shown_set_count(sets); i++) CHECK(!sets[i].campaignOnly);
+    int topicsUsed = 0;
+    for (const Region &r : real) {
+        CHECK(!r.taunt.empty() && !r.story.empty() && !r.win.empty());
+        for (const std::string &t : r.topics) {
+            bool found = false;
+            for (const Topic &tp : topics) if (tp.id == t) found = true;
+            if (!found) std::printf("  %s: topic %s isn't in topics.txt\n", r.id.c_str(), t.c_str());
+            CHECK(found);
+            topicsUsed++;
+        }
+        const Problem *boss = nullptr;
+        for (const ProblemSet &s : sets) for (const Problem &pr : s.problems) if (pr.id == r.bossProblem) boss = &pr;
+        if (!boss) std::printf("  %s: boss problem %s isn't in content/practice\n", r.id.c_str(), r.bossProblem.c_str());
+        CHECK(boss != nullptr);
+        if (boss) CHECK(count_tests(*boss) >= 3);
+    }
+    CHECK(topicsUsed == (int)topics.size());   // every topic is somewhere in the campaign
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -772,6 +887,7 @@ int main()
     run("versus: messages, a whole match, who wins", test_versus);
     run("versus: a real connection on this computer", test_network);
     run("XP, levels and quiz combos", test_xp_and_combo);
+    run("campaign: regions, clearing, bosses", test_campaign);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

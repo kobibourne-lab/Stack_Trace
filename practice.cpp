@@ -127,12 +127,13 @@ bool load_problem_sets(const std::string &dir, std::vector<ProblemSet> &sets, st
         if (line.empty() || line[0] == '#') continue;
 
         if (line.compare(0, 4, "SET:") == 0) {
-            // SET: id | title | exam
+            // SET: id | title | exam (or "campaign" for boss problems only fought in the campaign)
             std::vector<std::string> f = split_fields(line.substr(4), '|');
             ProblemSet s;
             s.id = f.size() > 0 ? f[0] : "";
             s.title = f.size() > 1 ? f[1] : s.id;
-            if (f.size() > 2 && f[2] != "-") s.exam = f[2];
+            if (f.size() > 2 && f[2] == "campaign") s.campaignOnly = true;
+            else if (f.size() > 2 && f[2] != "-") s.exam = f[2];
             sets.push_back(s);
             continue;
         }
@@ -156,12 +157,21 @@ bool load_problem_sets(const std::string &dir, std::vector<ProblemSet> &sets, st
         sets.back().problems.push_back(p);
     }
 
-    // Sets with nothing in them aren't worth showing
+    // Sets with nothing in them aren't worth showing. Campaign-only sets go last,
+    // so Exam prep and Versus can just show the first shown_set_count() sets.
     std::vector<ProblemSet> kept;
-    for (const ProblemSet &s : sets) if (!s.problems.empty()) kept.push_back(s);
+    for (const ProblemSet &s : sets) if (!s.problems.empty() && !s.campaignOnly) kept.push_back(s);
+    for (const ProblemSet &s : sets) if (!s.problems.empty() && s.campaignOnly) kept.push_back(s);
     sets = kept;
     if (sets.empty() && error.empty()) error = "no problems found";
     return !sets.empty();
+}
+
+int shown_set_count(const std::vector<ProblemSet> &sets)
+{
+    int n = 0;
+    for (const ProblemSet &s : sets) if (!s.campaignOnly) n++;
+    return n;
 }
 
 bool forbids_token(const Problem &p, const std::string &token)

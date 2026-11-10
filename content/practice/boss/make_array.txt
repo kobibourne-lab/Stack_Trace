@@ -1,0 +1,58 @@
+# Boss fight: The Dangling Pointer (Address Space). Written for the campaign.
+# The tests call clobber() between making the array and reading it: it fills
+# the stack with -1, so an array that lived in make_array's stack frame is
+# overwritten, the same way it would be by the next function call.
+
+TITLE: Make Array
+FUNCTION: make_array
+GROUP: Boss fights
+DIFFICULTY: Medium
+TOPIC: dynmem
+MINUTES: 15
+PROTOTYPE: int *make_array(int n);
+TEXT: Return a new array of n ints holding 0, 1, 2 ... n-1.
+TEXT: The array has to still be there after make_array returns: the caller reads it, then frees it with free().
+RULE: The array must outlive the function
+HINT: A local array (int arr[100]) lives in make_array's stack frame, and that frame is gone once the function returns.
+HINT: malloc(n * sizeof(int)) puts the array on the heap, where it stays until someone frees it.
+
+EXAMPLE:
+int *a = make_array(4);   // a is {0, 1, 2, 3}
+printf("%d", a[3]);       // 3
+free(a);
+END
+
+STARTER:
+#include <stdio.h>
+#include <stdlib.h>
+
+int *make_array(int n)
+{
+    // your code here
+    return NULL;
+}
+END
+
+TESTS:
+    auto clobber = []() { volatile int junk[512]; for (int i = 0; i < 512; i++) junk[i] = -1; (void)junk[0]; };
+    int bad[10] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+    int *a = make_array(4);
+    checkBool(a != NULL, true, "make_array(4) returns an array, not NULL");
+    clobber();
+    int want4[] = { 0, 1, 2, 3 };
+    checkArray(4, a ? a : bad, want4, "make_array(4) still holds {0, 1, 2, 3} after it returns");
+    int *b = make_array(1);
+    clobber();
+    int want1[] = { 0 };
+    checkArray(1, b ? b : bad, want1, "make_array(1) gives {0}");
+    int *c = make_array(10);
+    int *d = make_array(10);
+    checkBool(c != d, true, "two calls give two different arrays");
+    clobber();
+    int want10[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    checkArray(10, c ? c : bad, want10, "make_array(10) gives 0 to 9");
+    free(a);
+    free(b);
+    free(c);
+    free(d);
+END
