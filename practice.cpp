@@ -675,3 +675,74 @@ RunResult run_answer(const Problem &p, const std::string &code, const std::strin
     r.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     return r;
 }
+
+// ---------------------------------------------------------------------------
+// MAL-OS's gcc: a plain C program, compiled and run
+// ---------------------------------------------------------------------------
+
+// Compiled in alongside the student's program: stops it after 3 seconds.
+static const char *WATCHDOG_C =
+    "#include <stdio.h>\n"
+    "#ifdef _WIN32\n"
+    "#include <windows.h>\n"
+    "static DWORD WINAPI st_watch(LPVOID p) { (void)p; Sleep(3000);\n"
+    "    printf(\"\\n[MAL-OS stopped it after 3 seconds: an endless loop?]\\n\"); fflush(stdout); ExitProcess(124); return 0; }\n"
+    "__attribute__((constructor)) static void st_start(void) { CreateThread(0, 0, st_watch, 0, 0, 0); }\n"
+    "#else\n"
+    "#include <signal.h>\n"
+    "#include <unistd.h>\n"
+    "static void st_alarm(int s) { (void)s;\n"
+    "    printf(\"\\n[MAL-OS stopped it after 3 seconds: an endless loop?]\\n\"); fflush(stdout); _exit(124); }\n"
+    "__attribute__((constructor)) static void st_start(void) { signal(SIGALRM, st_alarm); alarm(3); }\n"
+    "#endif\n";
+
+static std::string c_exe_path(const std::string &workDir)
+{
+#ifdef _WIN32
+    return workDir + "/a.exe";
+#else
+    return workDir + "/a.out";
+#endif
+}
+
+bool compile_c_program(const std::string &code, const std::string &workDir, std::string &output)
+{
+    const std::string &cxx = find_compiler();
+    if (cxx.empty()) {
+        output = "gcc: no compiler found on this computer (MAL-OS uses the same one as Exam prep).";
+        return false;
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(workDir, ec);
+    { std::ofstream f(workDir + "/hello.c"); f << code; }
+    { std::ofstream f(workDir + "/watchdog.c"); f << WATCHDOG_C; }
+    std::string exe = c_exe_path(workDir);
+    std::remove(exe.c_str());
+#ifdef _WIN32
+    std::string extra = " -static";
+#else
+    std::string extra = "";
+#endif
+    // -x c: compile as C even though the compiler found is a C++ one
+    int status = run_command(cxx + " -x c -Wall -O0" + extra + " -o " + exe + " " + workDir + "/hello.c " +
+                             workDir + "/watchdog.c", output);
+    // Show the student's file name, not the work folder
+    std::string from = workDir + "/hello.c";
+    for (size_t at = output.find(from); at != std::string::npos; at = output.find(from, at))
+        output.replace(at, from.size(), "hello.c");
+    return status == 0;
+}
+
+std::string run_c_program(const std::string &workDir)
+{
+    std::string exe = c_exe_path(workDir), out;
+#ifdef _WIN32
+    std::string cmd = exe;
+    for (char &c : cmd) if (c == '/') c = '\\';
+    run_command(cmd + " < nul", out);
+#else
+    std::string cmd = (exe[0] == '/') ? exe : "./" + exe;
+    run_command(cmd + " < /dev/null", out);
+#endif
+    return out;
+}

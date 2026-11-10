@@ -33,6 +33,9 @@
 #include "../versus.h"
 #include "../net.h"
 #include "../campaign.h"
+#include "../mos.h"
+#include "../wardrobe.h"
+#include "../minigames.h"
 #include <chrono>
 #include <thread>
 
@@ -894,6 +897,112 @@ static void test_quiz_mastery_from_lives()
     CHECK(topic_mastery(p, "basics") == Mastery::Mastered);
 }
 
+// The last line MAL-OS printed, for checking what a command said.
+static std::string last_line(const Mos &m) { return m.out.empty() ? "" : m.out.back().text; }
+
+static void test_mal_os()
+{
+    Mos m;
+    MosInfo info;
+    info.user = "kobi";
+    info.level = 2;
+    mos_boot(m, info);
+
+    // Programs unlock by level: snake at 2, heaphero at 3
+    CHECK(mos_run(m, info, "run snake").action == MosAction::RunGame);
+    CHECK(mos_run(m, info, "run heaphero").action == MosAction::None);
+    CHECK(last_line(m).find("locked") != std::string::npos);
+    CHECK(mos_run(m, info, "./snake").arg == "snake");
+
+    // Files: the diary's later days need bosses, cd and paths work
+    mos_run(m, info, "cd diary");
+    CHECK(m.cwd == "/home/mal/diary");
+    mos_run(m, info, "cat day2.txt");
+    CHECK(last_line(m).find("Permission denied") != std::string::npos);
+    info.bossesBeaten = 1;
+    mos_run(m, info, "cat day2.txt");
+    CHECK(last_line(m).find("Permission denied") == std::string::npos);
+    mos_run(m, info, "cd ..");
+    CHECK(m.cwd == "/home/mal");
+    mos_run(m, info, "cd /nowhere");
+    CHECK(last_line(m).find("No such") != std::string::npos);
+
+    // Editing and compiling hand over to the screen; ./a.out needs a compile first
+    CHECK(mos_run(m, info, "nano hello.c").action == MosAction::Edit);
+    CHECK(mos_run(m, info, "gcc hello.c").action == MosAction::Compile);
+    CHECK(mos_run(m, info, "./a.out").action == MosAction::None);
+    m.compiled = true;
+    CHECK(mos_run(m, info, "./a.out").action == MosAction::RunProgram);
+
+    // sudo unlock-all opens everything; unknown commands say so
+    mos_run(m, info, "sudo unlock-all");
+    CHECK(mos_run(m, info, "run stacktower").action == MosAction::RunGame);
+    mos_run(m, info, "flibble");
+    CHECK(last_line(m).find("command not found") != std::string::npos);
+    CHECK(mos_complete(m, info, "run sta") == "run stacktower ");
+    CHECK(mos_complete(m, info, "cat dia") == "cat diary/");
+    CHECK(mos_run(m, info, "exit").action == MosAction::Exit);
+
+    // The dungeon: get the key, free the block, return to main to win
+    mos_run(m, info, "run dungeon");
+    CHECK(m.inDungeon);
+    mos_run(m, info, "follow next");
+    mos_run(m, info, "take key");
+    mos_run(m, info, "follow next");
+    mos_run(m, info, "follow other");
+    mos_run(m, info, "free block");
+    CHECK(m.dungeon.freed);
+    mos_run(m, info, "return");
+    mos_run(m, info, "return");
+    mos_run(m, info, "return");
+    CHECK(m.dungeon.room == "main");
+    mos_run(m, info, "return");
+    CHECK(m.dungeon.won);
+    CHECK(mos_run(m, info, "ok").arg == "dungeon-won");
+    CHECK(!m.inDungeon);
+}
+
+static void test_wardrobe_snake_scores()
+{
+    UnlockInfo u;
+    u.level = 3;
+    u.topicsTotal = 20;
+    CHECK(wardrobe_unlocked(*wardrobe_find("partyhat"), u));
+    CHECK(!wardrobe_unlocked(*wardrobe_find("hardhat"), u));     // level 5
+    CHECK(!wardrobe_unlocked(*wardrobe_find("bowtie"), u));      // 1 boss
+    u.bossesBeaten = 1;
+    CHECK(wardrobe_unlocked(*wardrobe_find("bowtie"), u));
+    CHECK(!wardrobe_unlocked(*wardrobe_find("crown"), u));       // every topic mastered
+    u.topicsMastered = 20;
+    CHECK(wardrobe_unlocked(*wardrobe_find("crown"), u));
+    CHECK(wardrobe_requirement(*wardrobe_find("wizard")) == "Reach level 12");
+
+    // Snake: eating grows the list, hitting the wall is a segfault
+    SnakeGame g;
+    snake_start(g, 7);
+    CHECK(g.body.size() == 3);
+    g.food = { g.body.front().x + 1, g.body.front().y };
+    CHECK(snake_step(g));
+    CHECK(g.body.size() == 4);
+    snake_turn(g, -1, 0);                  // straight back into the neck: ignored
+    snake_step(g);
+    CHECK(g.alive && g.dir.x == 1);
+    for (int i = 0; i < 40 && g.alive; i++) snake_step(g);
+    CHECK(!g.alive);
+
+    // Scores keep the best; the outfit survives a save
+    Progress p;
+    CHECK(progress_record_score(p, "snake", 50));
+    CHECK(!progress_record_score(p, "snake", 20));
+    CHECK(progress_best_score(p, "snake") == 50);
+    p.hat = "crown";
+    std::string error;
+    CHECK(progress_save("test_progress.txt", p, error));
+    Progress back;
+    CHECK(progress_load("test_progress.txt", back, error));
+    CHECK(back.hat == "crown" && back.skin == "classic" && back.scores["snake"] == 50);
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -911,6 +1020,8 @@ int main()
     run("XP, levels and quiz combos", test_xp_and_combo);
     run("campaign: regions, clearing, bosses", test_campaign);
     run("quiz mastery from lives left", test_quiz_mastery_from_lives);
+    run("MAL-OS: commands, files, unlocks, the dungeon", test_mal_os);
+    run("wardrobe, snake and minigame scores", test_wardrobe_snake_scores);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

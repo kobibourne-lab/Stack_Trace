@@ -255,11 +255,14 @@ int main()
     if (!progress_load(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
     app.levelShown = level_for_xp(progress_xp(app.progress));   // only celebrate new levels
+    app.mal.hat = app.progress.hat;                              // Mal wears what was saved
+    app.mal.skin = app.progress.skin;
 
     while (!WindowShouldClose() && !app.quit) {
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
         // M mutes, except where you type code (M is a letter you might need there)
-        if (IsKeyPressed(KEY_M) && app.screen != Screen::Problem && app.screen != Screen::Versus && app.screen != Screen::Boss) sfx_toggle_mute();
+        if (IsKeyPressed(KEY_M) && app.screen != Screen::Problem && app.screen != Screen::Versus && app.screen != Screen::Boss &&
+            app.screen != Screen::Room) sfx_toggle_mute();
 
         float dt = GetFrameTime();
         fx_update(dt);
@@ -291,6 +294,8 @@ int main()
             case Screen::Profile:  screen_profile(app); break;
             case Screen::Campaign: screen_campaign(app); break;
             case Screen::Boss:     screen_boss(app); break;
+            case Screen::Room:     screen_room(app); break;
+            case Screen::Game:     screen_games(app); break;
         }
         fx_draw();
         draw_level_up(app);

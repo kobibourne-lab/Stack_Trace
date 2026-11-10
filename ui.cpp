@@ -60,6 +60,7 @@ static float spacing_for(FontKind kind, float size)
 static Camera2D currentFit = { { 0, 0 }, { 0, 0 }, 0, 1 };
 
 void ui_set_fit(Camera2D fit) { currentFit = fit; }
+Camera2D ui_get_fit() { return currentFit; }
 
 // BeginScissorMode works in real window pixels and ignores the camera, so the
 // box is scaled and moved the same way the camera moves everything else.

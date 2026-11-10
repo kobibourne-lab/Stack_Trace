@@ -13,8 +13,10 @@
 #include "versus.h"
 #include "mascot.h"
 #include "campaign.h"
+#include "mos.h"
+#include "wardrobe.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -113,6 +115,9 @@ struct App {
     bool inCampaign = false;     // lessons and quizzes go back to the campaign map, not the topic map
     int campaignRegion = 0;      // the stop picked on the campaign map: its region...
     int campaignTopic = 0;       // ...and its topic in that region (-1 = the boss)
+
+    Mos mos;                     // MAL-OS, the computer in Mal's room (kept while you play its games)
+    std::string gameId;          // the MAL-OS minigame being played
     BossState boss;
 
     std::string message;         // shown on the map, e.g. a file that wouldn't load
@@ -163,6 +168,20 @@ void problem_draw_editor(App &app, Rectangle box, bool locked);
 void problem_draw_console(App &app, Rectangle r);
 void screen_profile(App &app);
 void open_campaign(App &app);
+
+// Mal's room (screen_room.cpp): the room, MAL-OS on its computer, the wardrobe
+// and the code tree. The minigames are in screen_games.cpp.
+void open_room(App &app);
+void screen_room(App &app);
+void start_game(App &app, const std::string &id);
+void screen_games(App &app);
+
+// What's unlocked for the wardrobe and MAL-OS, from progress.
+UnlockInfo unlock_info(const App &app);
+MosInfo mos_info(const App &app);
+
+// Put on a wardrobe item (if unlocked) and save it.
+void wear_item(App &app, const WardrobeItem &item);
 void screen_campaign(App &app);
 void open_boss(App &app, int region);   // the boss's intro; the fight starts from there
 void screen_boss(App &app);
