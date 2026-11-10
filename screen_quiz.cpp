@@ -228,6 +228,11 @@ static void draw_question(App &app, const Question &q)
     if (ui_button(label, { box.x + box.width - 20 - bw, box.y + box.height - 64, bw, 48 }, ButtonStyle::Primary, vc)
         || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_RIGHT)) {
         quiz_next(s);
+        if (quiz_finished(s) && s.lives > 0) {
+            // Passed: mastery from the lives left (this clears the topic in the campaign)
+            progress_finish_quiz(app.progress, quiz_topic(app), s.lives, START_LIVES);
+            save_progress(app);
+        }
         if (quiz_finished(s) && s.lives > 0) {   // results: celebrate a good run
             int total = (int)s.quiz.questions.size();
             if (s.score == total) {
@@ -261,6 +266,14 @@ static void draw_results(App &app)
     std::string now = app.topics[app.selected].title + " is now " + mastery_name(m) + "  ("
                       + std::to_string(topic_points(app.progress, topic)) + " / " + std::to_string(POINTS_MAX) + " pts)";
     ui_text(now, x + 280, y + 46, 16, m == Mastery::NotStarted ? COL_MUTED : mastery_color(m));
+    if (!crashed) {   // how the lives left turned into mastery
+        std::string passed = "Passed with " + std::to_string(s.lives) + " of " + std::to_string(START_LIVES) + " lives: "
+                           + std::to_string(quiz_mastery_points(s.lives, START_LIVES)) + " mastery"
+                           + (s.lives == START_LIVES ? ". Perfect!" : ". Keep every life for 100.");
+        ui_text(passed, x + 280, y + 106, 15, COL_TEXT_SOFT);
+    } else {
+        ui_text("Not passed: finish with at least one life left to clear this topic.", x + 280, y + 106, 15, COL_TEXT_SOFT);
+    }
 
     // What this quiz earned, RPG style
     int wrong = (int)s.missed.size();
@@ -270,7 +283,7 @@ static void draw_results(App &app)
     if (s.bestCombo >= 2)
         ui_text("best combo x" + std::to_string(s.bestCombo), x + 290 + ui_text_width(xp, 18, FontKind::MonoBold), y + 78, 16,
                 COL_CORAL, FontKind::Mono);
-    y += 150;
+    y += 160;
 
     ui_level_badge(x, y, progress_xp(app.progress));
     y += 60;

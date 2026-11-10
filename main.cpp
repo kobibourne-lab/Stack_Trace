@@ -133,10 +133,15 @@ void open_problem(App &app, int set, int problem, bool examMode)
 void record_answer(App &app, const std::string &topic, bool correct)
 {
     progress_record(app.progress, topic, correct, today_string());
+    save_progress(app);
+    check_level_up(app);
+}
+
+void save_progress(App &app)
+{
     std::string error;
     if (!progress_save(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
-    check_level_up(app);
 }
 
 void check_level_up(App &app)

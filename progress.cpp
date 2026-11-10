@@ -269,6 +269,21 @@ int progress_total_points(const Progress &p)
     return total;
 }
 
+int quiz_mastery_points(int livesLeft, int maxLives)
+{
+    if (livesLeft <= 0) return 0;
+    int points = POINTS_MAX - 20 * (maxLives - livesLeft);
+    return points < 0 ? 0 : points;
+}
+
+bool progress_finish_quiz(Progress &p, const std::string &topic, int livesLeft, int maxLives)
+{
+    if (livesLeft <= 0) return false;
+    int earned = quiz_mastery_points(livesLeft, maxLives);
+    if (earned > p.points[topic]) p.points[topic] = earned;
+    return true;
+}
+
 int progress_xp(const Progress &p)
 {
     int xp = 0;
