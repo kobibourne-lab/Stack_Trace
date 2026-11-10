@@ -35,6 +35,8 @@ struct BossRecord {
 
 struct Progress {
     std::map<std::string, int> points;  // topic id -> 0..100
+    std::map<std::string, int> scores;  // MAL-OS minigame -> best score
+    std::string hat = "none", skin = "classic";   // what Mal is wearing (the wardrobe)
     std::vector<AnswerRecord> answers;
     std::map<std::string, SolvedRecord> solved;   // problem id ("lab1/q01_leap_year") -> record
     std::map<std::string, BossRecord> bosses;     // campaign region id ("stack") -> record
@@ -57,6 +59,10 @@ bool progress_is_solved(const Progress &p, const std::string &problemId);
 // Returns true if it's the first time it has been beaten.
 bool progress_record_boss(Progress &p, const std::string &regionId, const std::string &date, int seconds, int stars);
 bool progress_boss_beaten(const Progress &p, const std::string &regionId);
+
+// A minigame score: keeps the best. Returns true if it's a new best.
+bool progress_record_score(Progress &p, const std::string &game, int score);
+int progress_best_score(const Progress &p, const std::string &game);
 int progress_boss_stars(const Progress &p, const std::string &regionId);   // 0 if not beaten
 
 int topic_points(const Progress &p, const std::string &topic);

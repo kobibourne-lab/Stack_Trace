@@ -30,6 +30,9 @@ struct Mal {
     float hop = 0, hopVel = 0;         // how far off the ground (negative = up)
     float blinkIn = 2, blinkLeft = 0;
     float crumble = 0;                 // 0 = whole, 1 = a pile of cells on the floor
+
+    std::string hat = "none";          // from the wardrobe (wardrobe.h has the list)
+    std::string skin = "classic";
 };
 
 // React to something: show `mood` for `seconds`, then go back to the base

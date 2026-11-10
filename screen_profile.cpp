@@ -315,6 +315,11 @@ void screen_profile(App &app)
     if (IsKeyPressed(KEY_E)) { app.screen = Screen::ExamPrep; return; }
 
     ui_header("Profile - your progress, saved on this computer");
+    if (ui_button("Mal's room", { SCREEN_W - MARGIN - 170 - 12 - 150, 12, 150, 40 }, ButtonStyle::Primary, COL_GREEN) ||
+        IsKeyPressed(KEY_R)) {
+        open_room(app);
+        return;
+    }
     if (ui_button("Back to the map", { SCREEN_W - MARGIN - 170, 12, 170, 40 }, ButtonStyle::Outline, COL_TEXT)) {
         open_map(app);
         return;
@@ -328,5 +333,5 @@ void screen_profile(App &app)
     draw_heatmap(app, MAIN_X, top + 214);
     draw_recent(app, MAIN_X, top + 440);
 
-    ui_footer_hints({ "click a pinned topic to open it on the map", "E exam prep", "ESC topic map" });
+    ui_footer_hints({ "click a pinned topic to open it on the map", "R Mal's room", "E exam prep", "ESC topic map" });
 }

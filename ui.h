@@ -19,6 +19,7 @@ void ui_unload_fonts();
 // window (see main.cpp). main.cpp tells ui.cpp the scale each frame, so
 // ui_scissor can clip in the right place.
 void ui_set_fit(Camera2D fit);
+Camera2D ui_get_fit();   // the current one (Mal's room zooms in on top of it)
 
 // Use instead of BeginScissorMode: takes the box in screen layout coordinates
 // (the same ones everything is drawn in) and clips to where it really is in

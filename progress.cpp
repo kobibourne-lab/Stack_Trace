@@ -56,6 +56,11 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             if (b.stars < 1) b.stars = 1;
             if (b.stars > 3) b.stars = 3;
             p.bosses[fields[0]] = b;
+        } else if (key == "SCORE" && fields.size() >= 2 && !fields[0].empty()) {
+            p.scores[fields[0]] = std::atoi(fields[1].c_str());
+        } else if (key == "WEAR" && fields.size() >= 2) {
+            if (!fields[0].empty()) p.hat = fields[0];
+            if (!fields[1].empty()) p.skin = fields[1];
         }
     }
     return true;
@@ -78,6 +83,10 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
     for (const auto &entry : p.bosses)
         f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
           << entry.second.stars << "\n";
+    for (const auto &entry : p.scores)
+        f << "SCORE: " << entry.first << " | " << entry.second << "\n";
+    if (p.hat != "none" || p.skin != "classic")
+        f << "WEAR: " << p.hat << " | " << p.skin << "\n";
     if (!f) {
         error = "error while writing " + path;
         return false;
@@ -282,6 +291,20 @@ bool progress_finish_quiz(Progress &p, const std::string &topic, int livesLeft, 
     int earned = quiz_mastery_points(livesLeft, maxLives);
     if (earned > p.points[topic]) p.points[topic] = earned;
     return true;
+}
+
+bool progress_record_score(Progress &p, const std::string &game, int score)
+{
+    auto it = p.scores.find(game);
+    if (it != p.scores.end() && it->second >= score) return false;
+    p.scores[game] = score;
+    return true;
+}
+
+int progress_best_score(const Progress &p, const std::string &game)
+{
+    auto it = p.scores.find(game);
+    return it == p.scores.end() ? 0 : it->second;
 }
 
 int progress_xp(const Progress &p)
