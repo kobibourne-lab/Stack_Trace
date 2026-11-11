@@ -290,10 +290,109 @@ static void dashed_rect(Rectangle r, float th, Color c)
 
 const Color GOO = { 140, 210, 90, 255 };
 
+
+// A four-pointed sparkle.
+static void star4(Vector2 c, float r, Color col)
+{
+    if (r < 0.5f) return;
+    float t = r * 0.22f;
+    DrawTriangle({ c.x, c.y - r }, { c.x - t, c.y }, { c.x + t, c.y }, col);
+    DrawTriangle({ c.x - t, c.y }, { c.x, c.y + r }, { c.x + t, c.y }, col);
+    DrawTriangle({ c.x - r, c.y }, { c.x, c.y + t }, { c.x, c.y - t }, col);
+    DrawTriangle({ c.x, c.y - t }, { c.x, c.y + t }, { c.x + r, c.y }, col);
+}
+
+// Little cut diamonds circling Mal: the ones behind are drawn first, the ones
+// in front last, so they really go round.
+static void diamond_shards(const Mal &m, Rectangle b, float size, bool front)
+{
+    Vector2 c = { b.x + b.width / 2, b.y + b.height * 0.5f };
+    for (int i = 0; i < 3; i++) {
+        float a = m.clock * 1.4f + i * (2 * PI / 3);
+        bool inFront = sinf(a) > 0;
+        if (inFront != front) continue;
+        float depth = 0.75f + 0.25f * sinf(a);
+        Vector2 p = { c.x + cosf(a) * b.width * 0.9f, c.y + sinf(a) * b.height * 0.46f };   // a tilted orbit: in front low, behind high
+        float r = size * 0.1f * depth;
+        Color top = ColorFromHSV(fmodf(190 + i * 40 + m.clock * 40, 360), 0.25f, 1.0f), side = { 120, 200, 255, 255 };
+        Vector2 L = { p.x - r, p.y }, R = { p.x + r, p.y }, T = { p.x, p.y - r * 0.8f }, B = { p.x, p.y + r * 1.3f };
+        DrawTriangle(L, R, T, Fade(top, depth));
+        DrawTriangle(L, B, R, Fade(side, depth));
+        DrawTriangle({ p.x - r * 0.3f, p.y }, B, { p.x + r * 0.3f, p.y }, Fade(WHITE, 0.5f * depth));
+    }
+}
+
+// The gem itself: a net of facets in icy shades, with a shine sweeping across.
+static void diamond_facets(const Mal &m, Rectangle b, float size)
+{
+    const int cols = 4, rows = 5;
+    float inset = b.width * 0.14f;
+    Rectangle r = { b.x + inset * 0.5f, b.y + inset * 0.4f, b.width - inset, b.height - inset * 0.8f };
+    Vector2 pts[rows + 1][cols + 1];
+    for (int y = 0; y <= rows; y++)
+        for (int x = 0; x <= cols; x++) {
+            bool edge = x == 0 || y == 0 || x == cols || y == rows;
+            float jx = edge ? 0 : (hash01(x * 31 + y * 7) - 0.5f) * r.width / cols * 0.6f;
+            float jy = edge ? 0 : (hash01(x * 13 + y * 29) - 0.5f) * r.height / rows * 0.6f;
+            pts[y][x] = { r.x + r.width * x / cols + jx, r.y + r.height * y / rows + jy };
+        }
+    float sweep = fmodf(m.clock * 0.5f, 1.6f) - 0.3f;   // where the shine is, 0..1 across
+    Color shades[4] = { { 225, 248, 255, 255 }, { 150, 215, 255, 255 }, { 200, 190, 255, 255 }, { 120, 190, 245, 255 } };
+    for (int y = 0; y < rows; y++)
+        for (int x = 0; x < cols; x++) {
+            Vector2 a = pts[y][x], bb = pts[y][x + 1], c = pts[y + 1][x + 1], d = pts[y + 1][x];
+            for (int half = 0; half < 2; half++) {
+                Vector2 p0 = a, p1 = half ? c : d, p2 = half ? bb : c;
+                if (half == 0) { p1 = d; p2 = c; }
+                Color col = shades[(int)(hash01(x * 5 + y * 11 + half * 3) * 4) % 4];
+                float cx = ((p0.x + p1.x + p2.x) / 3 - r.x) / r.width, cy = ((p0.y + p1.y + p2.y) / 3 - r.y) / r.height;
+                float shine = fmaxf(0.0f, 1.0f - fabsf((cx + cy * 0.6f) / 1.6f * 1.6f - sweep) * 5);   // a diagonal band
+                Color f = ColorLerp(col, WHITE, shine * 0.85f);
+                DrawTriangle(p0, p1, p2, Fade(f, 0.55f + 0.35f * shine));
+            }
+            DrawLineEx(a, bb, 1, Fade(WHITE, 0.35f));
+            DrawLineEx(a, d, 1, Fade(WHITE, 0.25f));
+            DrawLineEx(a, c, 1, Fade(WHITE, 0.2f));
+        }
+    (void)size;
+}
+
+// A soft glow and slowly turning beams of light behind the diamond skin.
+static void beam(Vector2 c, Vector2 p1, Vector2 p2, Color col)
+{
+    rlBegin(RL_TRIANGLES);   // bright at the centre, fading to nothing at the ends
+    for (int wind = 0; wind < 2; wind++) {
+        rlColor4ub(col.r, col.g, col.b, col.a); rlVertex2f(c.x, c.y);
+        rlColor4ub(col.r, col.g, col.b, 0);
+        if (wind) { rlVertex2f(p1.x, p1.y); rlVertex2f(p2.x, p2.y); }
+        else { rlVertex2f(p2.x, p2.y); rlVertex2f(p1.x, p1.y); }
+    }
+    rlEnd();
+}
+
+static void diamond_aura(const Mal &m, Rectangle b, float size)
+{
+    Vector2 c = { b.x + b.width / 2, b.y + b.height * 0.5f };
+    float pulse = 0.9f + 0.1f * sinf(m.clock * 2.5f);
+    BeginBlendMode(BLEND_ADDITIVE);
+    DrawCircleGradient((int)c.x, (int)c.y, size * 0.95f * pulse, Fade({ 110, 200, 255, 255 }, 0.45f), Fade({ 110, 200, 255, 255 }, 0));
+    for (int i = 0; i < 10; i++) {
+        float a = m.clock * 0.3f + i * PI / 5, spread = 0.07f;
+        float len = size * (1.05f + 0.25f * sinf(m.clock * 1.7f + i * 1.3f));
+        Vector2 p1 = { c.x + cosf(a - spread) * len, c.y + sinf(a - spread) * len };
+        Vector2 p2 = { c.x + cosf(a + spread) * len, c.y + sinf(a + spread) * len };
+        beam(c, p1, p2, Fade(ColorFromHSV(fmodf(180 + i * 18 + m.clock * 40, 360), 0.45f, 1.0f), 0.5f));
+    }
+    EndBlendMode();
+}
+
 // Skin extras drawn behind Mal's body.
 static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, Color body)
 {
-    if (m.skin == "leaker") {   // a puddle of leaked memory
+    if (m.skin == "diamond") {
+        diamond_aura(m, b, size);
+        diamond_shards(m, b, size, false);
+    } else if (m.skin == "leaker") {   // a puddle of leaked memory
         float wob = 1 + 0.04f * sinf(m.clock * 2);
         DrawEllipse((int)(feet.x + size * 0.08f), (int)(feet.y + 3), size * 0.62f * wob, size * 0.09f, Fade(GOO, 0.75f));
     } else if (m.skin == "shallow") {   // the copy: just an outline, sharing everything
@@ -371,23 +470,14 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
         DrawCircleV({ feet.x, by }, bs * 0.5f, jacket);
         DrawCircleV({ feet.x, by + h * 0.09f }, size * 0.016f, jacket);   // a shirt button
     } else if (m.skin == "diamond") {
-        // Facets catching the light, and sparkles that come and go
-        Color facet = Fade(WHITE, 0.45f), deep = Fade({ 90, 170, 230, 255 }, 0.45f);
-        float th = fmaxf(1.5f, size * 0.018f);
-        DrawLineEx({ b.x + w * 0.1f, b.y + h * 0.08f }, { b.x + w * 0.42f, b.y + h * 0.36f }, th, facet);
-        DrawLineEx({ b.x + w * 0.9f, b.y + h * 0.1f }, { b.x + w * 0.62f, b.y + h * 0.33f }, th, facet);
-        DrawLineEx({ b.x + w * 0.06f, b.y + h * 0.82f }, { b.x + w * 0.3f, b.y + h * 0.95f }, th, deep);
-        DrawLineEx({ b.x + w * 0.94f, b.y + h * 0.78f }, { b.x + w * 0.7f, b.y + h * 0.95f }, th, deep);
-        DrawTriangle({ b.x + w * 0.08f, b.y + h * 0.55f }, { b.x + w * 0.08f, b.y + h * 0.8f }, { b.x + w * 0.2f, b.y + h * 0.7f }, Fade(WHITE, 0.3f));
-        for (int i = 0; i < 3; i++) {
-            float k = fmodf(m.clock * 0.9f + i * 0.37f, 1.0f), a = sinf(k * PI);
-            Vector2 c = { b.x + w * (0.2f + 0.3f * i), b.y + h * (0.15f + 0.3f * ((i * 2) % 3) * 0.9f) };
-            float r = size * 0.06f * a;
-            DrawTriangle({ c.x, c.y - r }, { c.x - r * 0.25f, c.y }, { c.x + r * 0.25f, c.y }, WHITE);
-            DrawTriangle({ c.x - r * 0.25f, c.y }, { c.x, c.y + r }, { c.x + r * 0.25f, c.y }, WHITE);
-            DrawTriangle({ c.x - r, c.y }, { c.x, c.y + r * 0.25f }, { c.x, c.y - r * 0.25f }, WHITE);
-            DrawTriangle({ c.x, c.y - r * 0.25f }, { c.x, c.y + r * 0.25f }, { c.x + r, c.y }, WHITE);
+        // Sparkles twinkling on the gem, and shards of diamond orbiting in front
+        for (int i = 0; i < 4; i++) {
+            float k = fmodf(m.clock * 0.8f + i * 0.29f, 1.0f), a = sinf(k * PI);
+            Vector2 c = { b.x + w * (0.12f + 0.25f * i), b.y + h * (0.12f + 0.62f * hash01(i * 7 + (int)(m.clock * 0.8f + i * 0.29f))) };
+            star4(c, size * 0.08f * a, Fade(WHITE, a));
         }
+        diamond_shards(m, b, size, true);
+        DrawRectangleRoundedLinesEx(b, 0.42f, 12, fmaxf(1.5f, size * 0.02f), ColorFromHSV(fmodf(m.clock * 90, 360), 0.35f, 1.0f));   // a rainbow edge
     } else if (m.skin == "glitch") {
         int beat = (int)(m.clock * 6);
         bool burst = fmodf(m.clock, 1.7f) < 0.22f;   // every so often it glitches hard
@@ -552,20 +642,43 @@ static void draw_wear(const Mal &m, Rectangle b, float size)
         DrawCircleV({ cx, base - ch * 0.22f }, size * 0.035f, COL_CORAL);
         DrawCircleV({ cx - cw * 0.3f, base - ch * 0.22f }, size * 0.025f, COL_BLUE);
         DrawCircleV({ cx + cw * 0.3f, base - ch * 0.22f }, size * 0.025f, COL_BLUE);
-    } else if (hat == "gradcap") {
-        // A graduation cap with a swinging tassel
-        Color black = { 28, 30, 36, 255 };
-        float boardY = top - size * 0.1f;
-        DrawRectangleRounded({ cx - w * 0.34f, boardY, w * 0.68f, size * 0.17f }, 0.4f, 6, black);     // the skull cap
-        Vector2 L = { cx - w * 0.68f, boardY }, T = { cx, boardY - size * 0.13f }, R = { cx + w * 0.68f, boardY }, B = { cx, boardY + size * 0.13f };
-        DrawTriangle(L, B, R, { 44, 48, 58, 255 });
-        DrawTriangle(L, R, T, { 44, 48, 58, 255 });
-        DrawCircleV({ cx, boardY }, size * 0.03f, COL_AMBER);
-        float sw = sinf(m.clock * 2.4f) * size * 0.03f;
-        Vector2 end = { cx + w * 0.52f, boardY + size * 0.03f };
-        DrawLineEx({ cx, boardY }, end, fmaxf(1.5f, size * 0.02f), COL_AMBER);
-        DrawLineEx(end, { end.x + sw, end.y + size * 0.2f }, fmaxf(1.5f, size * 0.02f), COL_AMBER);
-        DrawRectangleRounded({ end.x + sw - size * 0.03f, end.y + size * 0.17f, size * 0.06f, size * 0.12f }, 0.5f, 6, COL_AMBER);
+    } else if (hat == "sombrero") {
+        // A huge straw brim, a tall crown and a zigzag band
+        Color straw = { 226, 186, 104, 255 }, dark = { 186, 142, 68, 255 };
+        float brimY = top + h * 0.02f;
+        DrawEllipse((int)cx, (int)(brimY + size * 0.01f), w * 0.98f, size * 0.1f, dark);
+        DrawEllipse((int)cx, (int)brimY, w * 0.95f, size * 0.085f, straw);
+        float cw0 = w * 0.62f, cw1 = w * 0.36f, ch = size * 0.36f;
+        Vector2 bl = { cx - cw0 / 2, brimY }, br = { cx + cw0 / 2, brimY }, tl = { cx - cw1 / 2, brimY - ch }, tr = { cx + cw1 / 2, brimY - ch };
+        DrawTriangle(bl, br, tr, straw);
+        DrawTriangle(bl, tr, tl, straw);
+        DrawEllipse((int)cx, (int)(brimY - ch), cw1 / 2, size * 0.05f, straw);
+        float by = brimY - ch * 0.32f, bh = size * 0.07f;   // the band, with a zigzag
+        float bw = cw0 - (cw0 - cw1) * 0.32f;
+        DrawRectangleRec({ cx - bw / 2, by - bh / 2, bw, bh }, COL_CORAL);
+        for (int i = 0; i < 6; i++) {
+            float x0 = cx - bw / 2 + i * bw / 6;
+            DrawTriangle({ x0, by + bh / 2 }, { x0 + bw / 6, by + bh / 2 }, { x0 + bw / 12, by - bh / 2 }, i % 2 ? COL_GREEN : COL_AMBER);
+        }
+        for (int i = 0; i < 7; i++) {   // little pom-poms round the brim
+            float a = PI * (0.1f + 0.8f * i / 6);
+            DrawCircleV({ cx - cosf(a) * w * 0.9f, brimY + sinf(a) * size * 0.075f }, size * 0.022f, i % 2 ? COL_CORAL : COL_GREEN);
+        }
+    } else if (hat == "explorer") {
+        // A battered brown fedora, for an adventurer
+        Color felt = { 132, 88, 52, 255 }, dark = { 92, 60, 34, 255 };
+        float brimY = top + h * 0.03f, tilt = size * 0.03f;
+        DrawEllipse((int)cx, (int)(brimY + size * 0.012f), w * 0.8f, size * 0.075f, dark);
+        DrawEllipse((int)cx, (int)brimY, w * 0.78f, size * 0.065f, felt);
+        float cw0 = w * 0.66f, cw1 = w * 0.54f, ch = size * 0.24f;
+        Vector2 bl = { cx - cw0 / 2, brimY }, br = { cx + cw0 / 2, brimY }, tl = { cx - cw1 / 2 + tilt, brimY - ch }, tr = { cx + cw1 / 2 + tilt, brimY - ch };
+        DrawTriangle(bl, br, tr, felt);
+        DrawTriangle(bl, tr, tl, felt);
+        DrawEllipse((int)(cx + tilt), (int)(brimY - ch), cw1 / 2, size * 0.04f, felt);
+        DrawTriangle({ cx + tilt - cw1 * 0.25f, brimY - ch }, { cx + tilt + cw1 * 0.25f, brimY - ch }, { cx + tilt, brimY - ch * 0.72f }, dark);   // the pinch
+        float bh = size * 0.06f, bw = cw0 - (cw0 - cw1) * 0.2f;
+        DrawRectangleRec({ cx - bw / 2 + tilt * 0.2f, brimY - size * 0.02f - bh, bw, bh }, { 40, 28, 20, 255 });
+        DrawLineEx({ cx - cw0 * 0.3f, brimY - ch * 0.45f }, { cx - cw0 * 0.15f, brimY - ch * 0.8f }, fmaxf(1.5f, size * 0.015f), Fade(WHITE, 0.25f));   // a scuff
     } else if (hat == "shades") {
         // Big sunglasses, with arms back to the sides of the head
         float ey = top + h * 0.47f, ex = w * 0.22f, gw = size * 0.3f, gh = size * 0.18f;
@@ -636,7 +749,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
 
     draw_skin_back(m, b, feet, size, body);
     if (m.hat == "afro") draw_afro_back(b, size);
-    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "gradcap" || m.hat == "wizard" || m.hat == "crown";
+    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "sombrero" || m.hat == "explorer" || m.hat == "wizard" || m.hat == "crown";
 
     // ----- Antenna: a pointer arrow on top, wobbling as Mal moves -----
     if (!hatCovers) {
@@ -660,6 +773,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
     // ----- Body: a darker base for depth, then the block itself -----
     DrawRectangleRounded({ b.x, b.y + size * 0.05f, b.width, b.height }, 0.42f, 12, darker(body, 0.72f));
     DrawRectangleRounded(b, 0.42f, 12, body);
+    if (m.skin == "diamond" && m.mood != MalMood::Freed) diamond_facets(m, b, size);
 
     // Its address, like a label on a memory block (only when big enough to read)
     if (size >= 70) {

@@ -11,8 +11,9 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "shades",     "Sunglasses",      WearKind::Hat,  3,  0, false },
         { "hardhat",    "Hard hat",        WearKind::Hat,  5,  0, false },
         { "afro",       "Brace afro",      WearKind::Hat,  6,  0, false },   // a big round afro of { }
-        { "gradcap",    "Grad cap",        WearKind::Hat,  7,  0, false },
+        { "sombrero",   "Sombrero",        WearKind::Hat,  7,  0, false },
         { "mohawk",     "Semicolon hawk",  WearKind::Hat,  9,  0, false },   // upside-down ; spikes
+        { "explorer",   "Explorer hat",    WearKind::Hat,  11, 0, false },   // an adventurer's fedora
         { "wizard",     "Wizard hat",      WearKind::Hat,  12, 0, false },
         { "bowtie",     "Bow tie",         WearKind::Hat,  0,  1, false },
         { "helicopter", "Helicopter hat",  WearKind::Hat,  0,  2, false },   // a propeller beanie
@@ -45,7 +46,7 @@ std::string wardrobe_rename(const std::string &id)
     // Items that were renamed, so older saves keep what Mal was wearing
     if (id == "partyhat") return "drinkhat";
     if (id == "tophat") return "helicopter";
-    if (id == "headphones") return "gradcap";
+    if (id == "headphones" || id == "gradcap") return "sombrero";
     if (id == "coral") return "slayer";
     if (id == "gold") return "diamond";
     return id;
