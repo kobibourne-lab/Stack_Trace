@@ -6,6 +6,11 @@
 // Each region is drawn as its own themed world (worlds.cpp): hills, a cave, a
 // sea of islands, a castle city. Topics are raised platforms, and Mal hops
 // from stop to stop. Clearing a topic or opening a boss gets a burst.
+//
+// Zoom out (scroll down, M, or the 3D city button) and the camera pulls back
+// to Memory City (memcity.cpp): the same campaign as floating 3D islands.
+// Click an island to dive back into its world. Beating a boss zooms out on
+// its own, lights the bridge to the next island, and dives into it.
 
 #include "app.h"
 #include "theme.h"
@@ -13,6 +18,7 @@
 #include "sfx.h"
 #include "fx.h"
 #include "worlds.h"
+#include "memcity.h"
 #include <cmath>
 
 const float MAP_TOP = HEADER_H;
@@ -372,6 +378,8 @@ static Vector2 mal_hop(App &app, Vector2 target)
     return { malFrom.x + (malTo.x - malFrom.x) * e, malFrom.y + (malTo.y - malFrom.y) * e - arc };
 }
 
+static void boss_fell(int region);
+
 // Compare every stop with how it looked last time: a topic just cleared gets
 // a burst and "CLEARED!", and a region or boss that just opened gets "UNLOCKED!".
 static void celebrate_changes(App &app, const std::vector<MapNode> &nodes)
@@ -388,6 +396,7 @@ static void celebrate_changes(App &app, const std::vector<MapNode> &nodes)
             sfx_play(Sfx::Combo);
             mal_react(app.mal, MalMood::Cheer, 1.8f);
             if (is_selected(app, nodes[i])) movedOn = true;
+            if (nodes[i].topic < 0) boss_fell(nodes[i].region);   // fly out to the city and over to the next island
         } else if (was == NodeState::Locked && now != NodeState::Locked) {
             fx_burst(at, 24, world_accent(nodes[i].region), COL_AMBER);
             fx_float_text("UNLOCKED!", { at.x, at.y - 60 }, 20, COL_AMBER);
@@ -425,28 +434,13 @@ static void select_topic_for_lesson(App &app)
     if (ti >= 0) app.selected = ti;
 }
 
-void screen_campaign(App &app)
+// ---------------------------------------------------------------------------
+// The 2D world map (the campaign as it always was)
+// ---------------------------------------------------------------------------
+
+// Keys on the 2D map. Returns true if the screen changed.
+static bool world_keys(App &app, const std::vector<MapNode> &nodes)
 {
-    if (IsKeyPressed(KEY_ESCAPE)) { app.inCampaign = false; app.screen = Screen::Title; return; }
-
-    ui_header("Campaign  >  a journey through memory");
-    if (ui_button("Topic map", { SCREEN_W - MARGIN - 120, 12, 120, 40 }, ButtonStyle::Outline, COL_GREEN)) {
-        app.inCampaign = false;
-        app.screen = Screen::Map;
-        return;
-    }
-    int xp = progress_xp(app.progress);
-    ui_level_badge(SCREEN_W - MARGIN - 120 - 24 - ui_level_badge_width(xp), 15, xp);
-
-    if (app.campaign.empty()) {
-        ui_text("The campaign didn't load.", MARGIN, HEADER_H + 40, 22, COL_CORAL, FontKind::UiBold);
-        ui_text_wrapped(app.campaignError, MARGIN, HEADER_H + 80, SCREEN_W - 2 * MARGIN, 15, COL_TEXT_SOFT, FontKind::Mono);
-        return;
-    }
-
-    std::vector<MapNode> nodes = build_nodes(app);
-
-    // Keys: left and right walk along the path (open stops only), ENTER plays
     std::vector<int> open;
     int at = -1;
     for (int i = 0; i < (int)nodes.size(); i++) {
@@ -462,24 +456,27 @@ void screen_campaign(App &app)
         sfx_play(Sfx::Click);
     }
     if (IsKeyPressed(KEY_ENTER)) {
-        if (app.campaignTopic < 0) { open_boss(app, app.campaignRegion); return; }   // does nothing while it's locked
+        if (app.campaignTopic < 0) { open_boss(app, app.campaignRegion); return app.screen != Screen::Campaign; }   // does nothing while it's locked
         select_topic_for_lesson(app);
         open_lesson(app);
-        return;
+        return true;
     }
     if (IsKeyPressed(KEY_Q) && app.campaignTopic >= 0) {
         select_topic_for_lesson(app);
         open_quiz(app);
-        return;
+        return true;
     }
+    return false;
+}
 
-    // ----- The map -----
+// Draw the 2D map. live = it takes clicks (not while zooming in or out).
+// Returns true if a click left the screen.
+static bool draw_world(App &app, const std::vector<MapNode> &nodes, bool live)
+{
     draw_bands(app);
 
     // The path: green between stops that are done (and on to the one being
     // played), dotted everywhere else
-    int current = -1;
-    for (int i = 0; i < (int)nodes.size(); i++) if (nodes[i].state == NodeState::Current) current = i;
     for (int i = 0; i + 1 < (int)nodes.size(); i++) {
         bool done = nodes[i].state == NodeState::Done &&
                     (nodes[i + 1].state == NodeState::Done || nodes[i + 1].state == NodeState::Current);
@@ -495,7 +492,7 @@ void screen_campaign(App &app)
     Vector2 mouse = GetMousePosition();
     for (const MapNode &n : nodes) {
         float hitR = n.topic < 0 ? 32 : 24;
-        bool hover = n.state != NodeState::Locked &&
+        bool hover = live && n.state != NodeState::Locked &&
                      (fabsf(mouse.x - n.pos.x) < hitR && fabsf(mouse.y - n.pos.y) < hitR);
         if (hover) {
             ui_want_hand();
@@ -504,7 +501,7 @@ void screen_campaign(App &app)
                 app.campaignRegion = n.region;
                 app.campaignTopic = n.topic;
                 sfx_play(Sfx::Click);
-                if (n.topic < 0 && again && boss_unlocked(app.campaign, app.progress, n.region)) { open_boss(app, n.region); return; }   // a second click on a ready boss fights it
+                if (n.topic < 0 && again && boss_unlocked(app.campaign, app.progress, n.region)) { open_boss(app, n.region); return true; }   // a second click on a ready boss fights it
             }
         }
         if (n.topic < 0) draw_boss_node(app, n, is_selected(app, n), hover);
@@ -514,7 +511,7 @@ void screen_campaign(App &app)
         }
     }
 
-    celebrate_changes(app, nodes);
+    if (live) celebrate_changes(app, nodes);
 
     // Mal stands on the selected stop, and hops along when it changes
     for (const MapNode &n : nodes)
@@ -522,10 +519,322 @@ void screen_campaign(App &app)
             Vector2 feet = n.topic < 0 ? Vector2{ n.pos.x, n.pos.y - 30 } : Vector2{ n.pos.x, n.pos.y + 2 };
             mal_draw_with_pet(app.mal, mal_hop(app, feet), 40);
         }
-    (void)current;
 
     // ----- Bottom: Mal's dialogue and the selected stop -----
     float by = MAP_TOP + 520;
     draw_dialogue(app, { MARGIN - 8, by, SCREEN_W - 2 * MARGIN - 330, SCREEN_H - by - 14 });
-    draw_card(app, { SCREEN_W - MARGIN - 314, by, 322, SCREEN_H - by - 14 });
+    if (live) draw_card(app, { SCREEN_W - MARGIN - 314, by, 322, SCREEN_H - by - 14 });
+    else ui_panel({ SCREEN_W - MARGIN - 314, by, 322, SCREEN_H - by - 14 }, COL_SURFACE, COL_LINE, 1);
+    return app.screen != Screen::Campaign;
+}
+
+// ---------------------------------------------------------------------------
+// Memory City, and zooming between it and the 2D map
+// ---------------------------------------------------------------------------
+
+enum class View { World, ToCity, City, ToWorld };
+static View view = View::World;
+static float viewT = 0;           // 0..1 through a zoom
+static int diveRegion = 0;        // the island being zoomed out of, or into
+static CityCam ccam;
+static int celebrateRegion = -1;  // a boss just fell here...
+static float celebrateIn = 0;     // ...and in this long, fly out to show the next island open up
+static float cityHold = 0;        // the fly-by: how long to look before diving into the next island
+static int glowBridge = -1;
+static Vector2 pressAt;
+static bool dragging = false;
+
+static void boss_fell(int region) { celebrateRegion = region; celebrateIn = 1.8f; }
+
+static void zoom_out(App &app)
+{
+    view = View::ToCity;
+    viewT = 0;
+    diveRegion = app.campaignRegion;
+    ccam.fovy = 26;
+    ccam.target = city_centre((int)app.campaign.size());
+    sfx_play(Sfx::Click);
+}
+
+// Dive into a region; topic = the stop to select there (-2 = whatever's next).
+static void dive_in(App &app, int region, int topic)
+{
+    view = View::ToWorld;
+    viewT = 0;
+    diveRegion = region;
+    app.campaignRegion = region;
+    if (topic == -2) {
+        int next = next_topic(app.campaign[region], app.progress);
+        topic = next;   // -1 (the boss) once every topic is cleared
+    }
+    app.campaignTopic = topic;
+    sfx_play(Sfx::Click);
+}
+
+static std::vector<CityRegion> city_regions(const App &app) { return city_regions_for(app.campaign, app.progress); }
+
+static std::vector<CityNode> city_nodes(const std::vector<MapNode> &nodes)
+{
+    std::vector<CityNode> out;
+    for (const MapNode &n : nodes) out.push_back({ n.region, n.topic, (int)n.state });
+    return out;
+}
+
+static float ease(float u) { u = fmaxf(0, fminf(1, u)); return u * u * (3 - 2 * u); }
+
+// The 2D map, zoomed in `scale` times around a region's column.
+static void draw_world_zoomed(App &app, const std::vector<MapNode> &nodes, int region, float scale)
+{
+    Camera2D fit = ui_get_fit();
+    Vector2 anchor = { column_centre(app, region), MAP_TOP + 260 };
+    Camera2D z = fit;
+    z.target = anchor;
+    z.offset = { fit.offset.x + fit.zoom * anchor.x, fit.offset.y + fit.zoom * anchor.y };
+    z.zoom = fit.zoom * scale;
+    EndMode2D();
+    ui_set_fit(z);
+    BeginMode2D(z);
+    draw_world(app, nodes, false);
+    EndMode2D();
+    ui_set_fit(fit);
+    BeginMode2D(fit);
+}
+
+static void dark(float a) { DrawRectangle(0, 0, SCREEN_W, SCREEN_H, Fade({ 6, 8, 14, 255 }, fmaxf(0, fminf(1, a)))); }
+
+// A tag over the city: a name and a line under it.
+static void city_label(Vector2 at, const std::string &name, const std::string &sub, Color subColour)
+{
+    float nw = ui_text_width(name, 16, FontKind::UiBold), sw = ui_text_width(sub, 11, FontKind::Mono);
+    float w = fmaxf(nw, sw) + 20;
+    ui_panel({ at.x - w / 2, at.y - 4, w, 44 }, Fade(COL_BG, 0.82f), Fade(COL_LINE, 0.6f), 1);
+    ui_text(name, at.x - nw / 2, at.y + 2, 16, COL_TEXT, FontKind::UiBold);
+    ui_text(sub, at.x - sw / 2, at.y + 23, 11, subColour, FontKind::Mono);
+}
+
+// The city when it's settled: turning, zooming, hovering, clicking.
+static void city_frame(App &app, const std::vector<MapNode> &nodes, float t)
+{
+    int rc = (int)app.campaign.size();
+    std::vector<CityRegion> regions = city_regions(app);
+    std::vector<CityNode> cn = city_nodes(nodes);
+    Vector2 mouse = GetMousePosition();
+    float ppu = SCREEN_H / ccam.fovy;   // pixels per world unit, at this zoom
+
+    // What's under the mouse: a pad first, then an island
+    int hoverNode = -1, hoverRegion = -1;
+    bool overUi = mouse.y < HEADER_H || mouse.y > SCREEN_H - 56;
+    if (!overUi && !dragging) {
+        float best = 1e9f;
+        for (int i = 0; i < (int)cn.size(); i++) {
+            if (cn[i].state == 3) continue;
+            Vector2 sp = city_to_screen(city_node(cn, i, rc), ccam);
+            float d = sqrtf((mouse.x - sp.x) * (mouse.x - sp.x) + (mouse.y - sp.y) * (mouse.y - sp.y));
+            float hit = (cn[i].topic < 0 ? 1.1f : 0.8f) * ppu + 4;
+            if (d < hit && d < best) { best = d; hoverNode = i; }
+        }
+        if (hoverNode >= 0) hoverRegion = cn[hoverNode].region;
+        else
+            for (int r = 0; r < rc; r++) {
+                Vector2 sp = city_to_screen(city_island(r, rc), ccam);
+                float dx = (mouse.x - sp.x) / (3.9f * ppu), dy = (mouse.y - sp.y) / (2.6f * ppu);
+                if (dx * dx + dy * dy < 1) { hoverRegion = r; break; }
+            }
+    }
+
+    // Turning (drag), zooming (scroll, towards the mouse), clicking
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { pressAt = mouse; dragging = false; }
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        Vector2 d = GetMouseDelta();
+        if (fabsf(mouse.x - pressAt.x) + fabsf(mouse.y - pressAt.y) > 6) dragging = true;
+        if (dragging) ccam.yaw += d.x * 0.008f;
+    }
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0 && !overUi) {
+        float old = ccam.fovy;
+        ccam.fovy = fmaxf(11.0f, fminf(34.0f, ccam.fovy * (1 - wheel * 0.12f)));
+        // Keep the spot under the mouse where it is: move the target towards it
+        Vector2 c = city_to_screen(ccam.target, ccam);
+        float k = 1 - ccam.fovy / old;
+        float ux = (mouse.x - c.x) / ppu, uy = (mouse.y - c.y) / ppu;   // screen offset in world units
+        // On the ground, screen-right is (sin, -cos) and screen-down is towards the camera,
+        // stretched because the ground is seen at a slant (the camera's pitch is 0.6)
+        float down = uy / sinf(0.6f);
+        ccam.target.x += (ux * sinf(ccam.yaw) + down * cosf(ccam.yaw)) * k;
+        ccam.target.z += (-ux * cosf(ccam.yaw) + down * sinf(ccam.yaw)) * k;
+        if (ccam.fovy >= 33.9f) ccam.target = city_centre(rc);
+        ccam.target.x = fmaxf(-14, fminf(14, ccam.target.x));
+        ccam.target.z = fmaxf(-8, fminf(8, ccam.target.z));
+    }
+    bool click = IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && !dragging && !overUi;
+    if (hoverNode >= 0 || hoverRegion >= 0) ui_want_hand();
+    if (cityHold > 0) {   // the fly-by after a boss: look, then dive into the next island
+        cityHold -= GetFrameTime();
+        if (cityHold <= 0 || click) {
+            glowBridge = -1;
+            dive_in(app, celebrateRegion + 1 < rc ? celebrateRegion + 1 : rc - 1, -2);
+            celebrateRegion = -1;
+            return;
+        }
+    } else if (click && hoverNode >= 0) {
+        dive_in(app, cn[hoverNode].region, cn[hoverNode].topic);
+    } else if (click && hoverRegion >= 0) {
+        if (regions[hoverRegion].open) dive_in(app, hoverRegion, hoverRegion == current_region(app.campaign, app.progress) ? -2 : 0);
+        else {
+            Vector2 sp = city_to_screen(city_island(hoverRegion, rc), ccam);
+            fx_float_text("LOCKED: beat the boss before it", { sp.x, sp.y - 40 }, 18, COL_CORAL);
+            sfx_play(Sfx::Wrong);
+            fx_shake(0.2f);
+        }
+    }
+
+    city_draw(regions, cn, ccam, t, hoverRegion, hoverNode, glowBridge);
+
+    // Mal on the selected pad (beside it, for a boss)
+    for (int i = 0; i < (int)cn.size(); i++)
+        if (cn[i].region == app.campaignRegion && cn[i].topic == app.campaignTopic) {
+            Vector3 p = city_node(cn, i, rc);
+            if (cn[i].topic < 0) { p.x += cosf(ccam.yaw) * 1.3f; p.z += sinf(ccam.yaw) * 1.3f; }
+            Vector2 sp = city_to_screen({ p.x, p.y + 0.22f, p.z }, ccam);
+            mal_set_base(app.mal, MalMood::Idle);
+            mal_draw_with_pet(app.mal, sp, fminf(70.0f, 34 * 26 / ccam.fovy));
+        }
+
+    // Island names, and what the mouse is over
+    for (int r = 0; r < rc; r++) {
+        Vector3 c = city_island(r, rc);
+        // Islands nearer the camera get their name underneath, ones further back get it above,
+        // so a name never lands on the island in front
+        Vector3 mid = city_centre(rc);
+        bool front = (c.x - mid.x) * cosf(ccam.yaw) + (c.z - mid.z) * sinf(ccam.yaw) > 0;
+        Vector2 sp = city_to_screen({ c.x, front ? c.y - 4.4f : c.y + 5.2f, c.z }, ccam);
+        const CityRegion &R = regions[r];
+        Color sc = R.beaten ? COL_GREEN : !R.open ? COL_MUTED : R.status == "BOSS READY" ? COL_CORAL : COL_AMBER;
+        city_label(sp, R.name, R.status, sc);
+    }
+    if (hoverNode >= 0) {
+        const Region &reg = app.campaign[cn[hoverNode].region];
+        std::string title = cn[hoverNode].topic < 0 ? "Boss: " + reg.bossName : topic_title(app, reg.topics[cn[hoverNode].topic]);
+        std::string sub = cn[hoverNode].topic < 0 ? (cn[hoverNode].state == 0 ? "beaten" : cn[hoverNode].state == 1 ? "ready to fight" : "locked")
+                        : mastery_name(topic_mastery(app.progress, reg.topics[cn[hoverNode].topic]));
+        float w = fmaxf(ui_text_width(title, 14, FontKind::UiBold), ui_text_width(sub, 11, FontKind::Mono)) + 20;
+        float x = fminf(mouse.x + 16, SCREEN_W - w - 8), y = mouse.y + 14;
+        ui_panel({ x, y, w, 42 }, COL_SURFACE, COL_AMBER, 1);
+        ui_text(title, x + 10, y + 5, 14, COL_TEXT, FontKind::UiBold);
+        ui_text(sub, x + 10, y + 24, 11, COL_AMBER, FontKind::Mono);
+    }
+    if (cityHold > 0 && celebrateRegion >= 0 && celebrateRegion + 1 < rc) {
+        Vector3 c = city_island(celebrateRegion + 1, rc);
+        Vector2 sp = city_to_screen({ c.x, c.y + 4.0f, c.z }, ccam);
+        float k = fmodf(t * 2, 1.0f);
+        ui_text("UNLOCKED!", sp.x - ui_text_width("UNLOCKED!", 26, FontKind::MonoBold) / 2, sp.y - 20 - k * 6, 26, COL_AMBER, FontKind::MonoBold);
+    }
+
+    // Hints along the bottom
+    DrawRectangle(0, SCREEN_H - 44, SCREEN_W, 44, Fade(COL_BG, 0.85f));
+    ui_text("MEMORY CITY", MARGIN, SCREEN_H - 30, 13, COL_AMBER, FontKind::MonoBold);
+    ui_text("drag to turn      scroll to zoom      click an island or a stop to dive in      M or ESC: back to the map",
+            MARGIN + 130, SCREEN_H - 30, 13, COL_MUTED, FontKind::Mono);
+}
+
+// ---------------------------------------------------------------------------
+
+void screen_campaign(App &app)
+{
+    float t = (float)GetTime(), dt = GetFrameTime();
+    bool settled = view == View::World || view == View::City;
+    if (IsKeyPressed(KEY_ESCAPE) && settled) {
+        if (view == View::City) dive_in(app, app.campaignRegion, app.campaignTopic);
+        else { app.inCampaign = false; app.screen = Screen::Title; return; }
+    }
+
+    if (app.campaign.empty()) {
+        ui_header("Campaign  >  a journey through memory");
+        ui_text("The campaign didn't load.", MARGIN, HEADER_H + 40, 22, COL_CORAL, FontKind::UiBold);
+        ui_text_wrapped(app.campaignError, MARGIN, HEADER_H + 80, SCREEN_W - 2 * MARGIN, 15, COL_TEXT_SOFT, FontKind::Mono);
+        return;
+    }
+    if (diveRegion >= (int)app.campaign.size()) diveRegion = 0;
+
+    std::vector<MapNode> nodes = build_nodes(app);
+    int rc = (int)app.campaign.size();
+
+    switch (view) {
+        case View::World: {
+            if (world_keys(app, nodes)) return;
+            if (IsKeyPressed(KEY_M) || GetMouseWheelMove() < 0) { zoom_out(app); break; }
+            if (celebrateIn > 0) {   // a boss just fell: fly out to watch the next island open
+                celebrateIn -= dt;
+                if (celebrateIn <= 0 && celebrateRegion >= 0 && celebrateRegion + 1 < rc) {
+                    zoom_out(app);
+                    diveRegion = celebrateRegion;
+                    glowBridge = celebrateRegion;
+                    cityHold = 2.8f;
+                }
+            }
+            if (draw_world(app, nodes, true)) return;
+            break;
+        }
+        case View::ToCity: {
+            viewT += dt / 1.0f;
+            if (viewT < 0.4f) {   // the map zooms in on the column, and darkens
+                float u = viewT / 0.4f;
+                draw_world_zoomed(app, nodes, diveRegion, 1 + 1.4f * u * u);
+                dark(u);
+            } else {              // the city pulls back from that island
+                float u = ease((viewT - 0.4f) / 0.6f);
+                Vector3 is = city_island(diveRegion, rc);
+                CityCam c = ccam;
+                c.target = { is.x + (ccam.target.x - is.x) * u, is.y + (ccam.target.y - is.y) * u, is.z + (ccam.target.z - is.z) * u };
+                c.fovy = 6 + (ccam.fovy - 6) * u;
+                city_draw(city_regions(app), city_nodes(nodes), c, t, -1, -1, glowBridge);
+                dark(1 - (viewT - 0.4f) / 0.35f);
+            }
+            if (viewT >= 1) {
+                view = View::City;
+                if (cityHold > 0) { sfx_play(Sfx::LevelUp); mal_react(app.mal, MalMood::Cheer, 2.5f); }
+            }
+            break;
+        }
+        case View::City: {
+            if (IsKeyPressed(KEY_M)) { dive_in(app, app.campaignRegion, app.campaignTopic); break; }
+            city_frame(app, nodes, t);
+            break;
+        }
+        case View::ToWorld: {
+            viewT += dt / 1.0f;
+            if (viewT < 0.6f) {   // the city flies into the island, and darkens
+                float u = ease(viewT / 0.6f);
+                Vector3 is = city_island(diveRegion, rc);
+                CityCam c = ccam;
+                c.target = { ccam.target.x + (is.x - ccam.target.x) * u, ccam.target.y + (is.y - ccam.target.y) * u, ccam.target.z + (is.z - ccam.target.z) * u };
+                c.fovy = ccam.fovy + (5 - ccam.fovy) * u;
+                city_draw(city_regions(app), city_nodes(nodes), c, t, -1, -1, glowBridge);
+                dark((viewT - 0.25f) / 0.35f);
+            } else {              // and comes out of the dark in the 2D world, zooming back to normal
+                float u = (viewT - 0.6f) / 0.4f;
+                draw_world_zoomed(app, nodes, diveRegion, 1 + 1.4f * (1 - ease(u)) * (1 - ease(u)));
+                dark(1 - u * 1.4f);
+            }
+            if (viewT >= 1) { view = View::World; malPlaced = false; }
+            break;
+        }
+    }
+
+    // The header goes on top of everything
+    ui_header(view == View::City ? "Campaign  >  Memory City" : "Campaign  >  a journey through memory");
+    if (ui_button("Topic map", { SCREEN_W - MARGIN - 120, 12, 120, 40 }, ButtonStyle::Outline, COL_GREEN)) {
+        app.inCampaign = false;
+        app.screen = Screen::Map;
+        view = View::World;
+        return;
+    }
+    Rectangle cityButton = { SCREEN_W - MARGIN - 120 - 12 - 132, 12, 132, 40 };
+    if (view == View::City) {
+        if (ui_button("Back to map", cityButton, ButtonStyle::Primary, COL_AMBER)) dive_in(app, app.campaignRegion, app.campaignTopic);
+    } else if (ui_button("3D city", cityButton, ButtonStyle::Outline, COL_BLUE) && view == View::World) {
+        zoom_out(app);
+    }
+    int xp = progress_xp(app.progress);
+    ui_level_badge(cityButton.x - 24 - ui_level_badge_width(xp), 15, xp);
 }

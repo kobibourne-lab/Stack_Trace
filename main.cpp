@@ -33,6 +33,7 @@
 #include "theme.h"
 #include "ui.h"
 #include "app.h"
+#include "memcity.h"
 #include "logo_icon.h"
 #include "fx.h"
 #include "sfx.h"
@@ -312,6 +313,7 @@ int main()
     versus_quit(app);
     net_shutdown();
     sfx_close();
+    city_unload();
     ui_unload_fonts();
     CloseWindow();
     return 0;

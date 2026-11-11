@@ -35,6 +35,8 @@
 #include "../campaign.h"
 #include "../mos.h"
 #include "../wardrobe.h"
+#include "../citymap.h"
+#include <cmath>
 #include "../minigames.h"
 #include <chrono>
 #include <thread>
@@ -1016,6 +1018,64 @@ static void test_wardrobe_snake_scores()
     CHECK(back.hat == "crown" && back.skin == "classic" && back.pet == "cat" && back.scores["snake"] == 50);
 }
 
+static float city_dist(CityPoint a, CityPoint b) { return sqrtf((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z)); }
+
+static void test_memory_city()
+{
+    // Islands never overlap, however many regions there are
+    for (int count = 1; count <= 6; count++)
+        for (int a = 0; a < count; a++)
+            for (int b = a + 1; b < count; b++)
+                CHECK(city_dist(city_island_at(a, count), city_island_at(b, count)) >= CITY_ISLAND_SIZE);
+
+    // Four regions like the real campaign: 5, 6, 3 and 6 topics, each with a boss
+    const int sizes[4] = { 5, 6, 3, 6 };
+    std::vector<CityNode> nodes;
+    for (int r = 0; r < 4; r++) {
+        for (int t = 0; t < sizes[r]; t++) nodes.push_back({ r, t, 2 });
+        nodes.push_back({ r, -1, 2 });
+    }
+    std::vector<int> first(4, -1), last(4, -1);
+    for (int i = 0; i < (int)nodes.size(); i++) {
+        int r = nodes[i].region;
+        if (first[r] < 0) first[r] = i;
+        last[r] = i;
+        CityPoint p = city_node_at(nodes, i, 4), home = city_island_at(r, 4);
+        CHECK(city_dist(p, home) < CITY_ISLAND_SIZE / 2 - 0.6f);                 // on its island, not hanging off the edge
+        for (int o = 0; o < 4; o++)
+            if (o != r) CHECK(city_dist(p, city_island_at(o, 4)) > city_dist(p, home));   // nearer its own island than any other
+        for (int j = 0; j < i; j++)
+            if (nodes[j].region == r) CHECK(city_dist(p, city_node_at(nodes, j, 4)) > 1.2f);   // stops don't overlap
+    }
+    // Each island's path starts on the side facing the island before, and ends
+    // (at the boss) on the side facing the next one, so the bridges are short
+    for (int r = 1; r < 4; r++) {
+        CityPoint prev = city_island_at(r - 1, 4);
+        CHECK(city_dist(city_node_at(nodes, first[r], 4), prev) < city_dist(city_node_at(nodes, last[r], 4), prev));
+    }
+    for (int r = 0; r < 3; r++) {
+        CityPoint next = city_island_at(r + 1, 4);
+        CHECK(city_dist(city_node_at(nodes, last[r], 4), next) < city_dist(city_node_at(nodes, first[r], 4), next));
+    }
+
+    // The labels: what each island says as you play
+    std::vector<Region> regions;
+    std::string error;
+    CHECK(parse_campaign("REGION: one | First | basics | -\nTOPICS: a, b\nBOSS: The Bug | set/p1\n"
+                         "REGION: two | Second | more | -\nTOPICS: c\nBOSS: The Other | set/p2\n", regions, error));
+    Progress p;
+    std::vector<CityRegion> c = city_regions_for(regions, p);
+    CHECK(c.size() == 2 && c[0].name == "First");
+    CHECK(c[0].status == "0 / 2 topics" && c[0].open && c[0].playing);
+    CHECK(c[1].status == "LOCKED" && !c[1].open && !c[1].playing);
+    for (int i = 0; i < 5; i++) { progress_record(p, "a", true, "2026-11-11"); progress_record(p, "b", true, "2026-11-11"); }
+    CHECK(city_regions_for(regions, p)[0].status == "BOSS READY");
+    p.bosses["one"] = BossRecord{ "2026-11-11", 300, 2 };
+    c = city_regions_for(regions, p);
+    CHECK(c[0].status == "CLEARED" && c[0].beaten && !c[0].playing);
+    CHECK(c[1].open && c[1].playing && c[1].status == "0 / 1 topics");
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -1035,6 +1095,7 @@ int main()
     run("quiz mastery from lives left", test_quiz_mastery_from_lives);
     run("MAL-OS: commands, files, unlocks, the dungeon", test_mal_os);
     run("wardrobe, snake and minigame scores", test_wardrobe_snake_scores);
+    run("memory city: islands, stops and labels", test_memory_city);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;
