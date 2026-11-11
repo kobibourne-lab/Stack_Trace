@@ -414,10 +414,15 @@ static void celebrate_changes(App &app, const std::vector<MapNode> &nodes)
 
 // ---------------------------------------------------------------------------
 
+// Which view the campaign is showing: the 2D map, the 3D city, or zooming between them
+enum class View { World, ToCity, City, ToWorld };
+static View view = View::World;
+
 void open_campaign(App &app)
 {
     app.inCampaign = true;
     app.screen = Screen::Campaign;
+    view = View::World;   // the campaign always opens on the 2D map
     if (app.campaign.empty()) return;
     // Start on whatever is next to play
     int r = current_region(app.campaign, app.progress);
@@ -532,8 +537,6 @@ static bool draw_world(App &app, const std::vector<MapNode> &nodes, bool live)
 // Memory City, and zooming between it and the 2D map
 // ---------------------------------------------------------------------------
 
-enum class View { World, ToCity, City, ToWorld };
-static View view = View::World;
 static float viewT = 0;           // 0..1 through a zoom
 static int diveRegion = 0;        // the island being zoomed out of, or into
 static CityCam ccam;
@@ -543,6 +546,11 @@ static float cityHold = 0;        // the fly-by: how long to look before diving 
 static int glowBridge = -1;
 static Vector2 pressAt;
 static bool dragging = false;
+static Vector3 malCityFrom, malCityTo;
+static float malCityT = 1;
+static bool malCityPlaced = false;
+static bool gliding = false;      // the camera gliding to a new spot (R, F)
+static CityCam glideTo;
 
 static void boss_fell(int region) { celebrateRegion = region; celebrateIn = 1.8f; }
 
@@ -553,6 +561,8 @@ static void zoom_out(App &app)
     diveRegion = app.campaignRegion;
     ccam.fovy = 26;
     ccam.target = city_centre((int)app.campaign.size());
+    gliding = false;
+    malCityPlaced = false;
     sfx_play(Sfx::Click);
 }
 
@@ -612,7 +622,67 @@ static void city_label(Vector2 at, const std::string &name, const std::string &s
     ui_text(sub, at.x - sw / 2, at.y + 23, 11, subColour, FontKind::Mono);
 }
 
-// The city when it's settled: turning, zooming, hovering, clicking.
+// Move the camera so the ground slides by (dx, dy) pixels on screen: right
+// and down on the screen are worked out for whichever way the city is turned.
+static void city_pan(float dx, float dy)
+{
+    float ppu = SCREEN_H / ccam.fovy;
+    float ux = dx / ppu, down = dy / ppu / sinf(0.6f);   // the ground is seen at a slant (pitch 0.6)
+    ccam.target.x -= ux * sinf(ccam.yaw) + down * cosf(ccam.yaw);
+    ccam.target.z -= -ux * cosf(ccam.yaw) + down * sinf(ccam.yaw);
+    ccam.target.x = fmaxf(-16, fminf(16, ccam.target.x));
+    ccam.target.z = fmaxf(-10, fminf(10, ccam.target.z));
+}
+
+// A smooth glide of the camera to a new spot (R to reset the view, F to find Mal).
+
+static void glide(float dt)
+{
+    if (!gliding) return;
+    float k = 1 - expf(-dt * 7);
+    ccam.target.x += (glideTo.target.x - ccam.target.x) * k;
+    ccam.target.y += (glideTo.target.y - ccam.target.y) * k;
+    ccam.target.z += (glideTo.target.z - ccam.target.z) * k;
+    ccam.fovy += (glideTo.fovy - ccam.fovy) * k;
+    float dyaw = remainderf(glideTo.yaw - ccam.yaw, 2 * PI);
+    ccam.yaw += dyaw * k;
+    if (fabsf(glideTo.target.x - ccam.target.x) + fabsf(glideTo.target.z - ccam.target.z) + fabsf(glideTo.fovy - ccam.fovy) + fabsf(dyaw) < 0.01f)
+        gliding = false;
+}
+
+// Mal in the city: hops from pad to pad (the arrow keys walk along the path).
+
+static Vector3 mal_city_spot(const std::vector<CityNode> &cn, int i, int rc)
+{
+    Vector3 p = city_node(cn, i, rc);
+    if (cn[i].topic < 0) { p.x += cosf(ccam.yaw) * 1.3f; p.z += sinf(ccam.yaw) * 1.3f; }   // beside the boss, not inside it
+    return { p.x, p.y + 0.22f, p.z };
+}
+
+// Where Mal is this frame, hopping in an arc towards `to` (a long hop over a
+// bridge to the next island goes higher).
+static Vector3 mal_city_hop(App &app, Vector3 to, float dt)
+{
+    if (!malCityPlaced) { malCityFrom = malCityTo = to; malCityT = 1; malCityPlaced = true; }
+    if (to.x != malCityTo.x || to.z != malCityTo.z) {
+        float u = fminf(1.0f, malCityT);
+        malCityFrom = { malCityFrom.x + (malCityTo.x - malCityFrom.x) * u, malCityFrom.y + (malCityTo.y - malCityFrom.y) * u,
+                        malCityFrom.z + (malCityTo.z - malCityFrom.z) * u };
+        malCityTo = to;
+        malCityT = 0;
+    }
+    float dist = sqrtf((malCityTo.x - malCityFrom.x) * (malCityTo.x - malCityFrom.x) + (malCityTo.z - malCityFrom.z) * (malCityTo.z - malCityFrom.z));
+    if (malCityT < 1) {
+        malCityT += dt / fminf(0.9f, 0.3f + dist * 0.05f);
+        if (malCityT >= 1) { malCityT = 1; app.mal.squash = 0.72f; }   // land with a squash
+    }
+    float u = fminf(1.0f, malCityT), e = u * u * (3 - 2 * u);
+    float arc = sinf(u * PI) * (0.8f + dist * 0.18f);
+    return { malCityFrom.x + (malCityTo.x - malCityFrom.x) * e, malCityFrom.y + (malCityTo.y - malCityFrom.y) * e + arc,
+             malCityFrom.z + (malCityTo.z - malCityFrom.z) * e };
+}
+
+// The city when it's settled: turning, zooming, moving, hovering, clicking.
 static void city_frame(App &app, const std::vector<MapNode> &nodes, float t)
 {
     int rc = (int)app.campaign.size();
@@ -642,15 +712,90 @@ static void city_frame(App &app, const std::vector<MapNode> &nodes, float t)
             }
     }
 
-    // Turning (drag), zooming (scroll, towards the mouse), clicking
+    // Turning (left drag, Q and E), moving (right drag, WASD or the arrows),
+    // zooming (scroll, towards the mouse), clicking
+    float dt = GetFrameTime();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { pressAt = mouse; dragging = false; }
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         Vector2 d = GetMouseDelta();
         if (fabsf(mouse.x - pressAt.x) + fabsf(mouse.y - pressAt.y) > 6) dragging = true;
-        if (dragging) ccam.yaw += d.x * 0.008f;
+        if (dragging) { ccam.yaw += d.x * 0.008f; gliding = false; }
+    }
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {   // grab the ground and slide it
+        Vector2 d = GetMouseDelta();
+        if (d.x != 0 || d.y != 0) { city_pan(d.x, d.y); gliding = false; }
+    }
+    float speed = 520 * dt;   // pixels a second, so it feels the same at any zoom
+    float kx = (IsKeyDown(KEY_D) ? 1.0f : 0.0f) - (IsKeyDown(KEY_A) ? 1.0f : 0.0f);
+    float ky = (IsKeyDown(KEY_S) ? 1.0f : 0.0f) - (IsKeyDown(KEY_W) ? 1.0f : 0.0f);
+    if (kx != 0 || ky != 0) { city_pan(-kx * speed, -ky * speed); gliding = false; }   // the camera moves, so the ground slides the other way
+    float turn = (IsKeyDown(KEY_E) ? 1.0f : 0.0f) - (IsKeyDown(KEY_C) ? 1.0f : 0.0f);
+    if (turn != 0) { ccam.yaw += turn * 1.8f * dt; gliding = false; }
+    if (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_HOME)) {   // back to the whole city
+        glideTo = CityCam();
+        glideTo.target = city_centre(rc);
+        gliding = true;
+    }
+    if (IsKeyPressed(KEY_F)) {   // find Mal: glide over to the stop Mal is on, a bit closer
+        glideTo = ccam;
+        for (int i = 0; i < (int)cn.size(); i++)
+            if (cn[i].region == app.campaignRegion && cn[i].topic == app.campaignTopic) glideTo.target = city_node(cn, i, rc);
+        glideTo.fovy = fminf(ccam.fovy, 16);
+        gliding = true;
+    }
+    glide(dt);
+
+    // The arrow keys walk Mal along the path, over the bridges, skipping locked stops
+    std::vector<int> open;
+    int at = -1;
+    for (int i = 0; i < (int)cn.size(); i++) {
+        if (cn[i].state == 3) continue;
+        if (cn[i].region == app.campaignRegion && cn[i].topic == app.campaignTopic) at = (int)open.size();
+        open.push_back(i);
+    }
+    int step = (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_UP) ? 1 : 0) - (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_DOWN) ? 1 : 0);
+    if (step != 0 && !open.empty() && cityHold <= 0) {
+        int next = at < 0 ? 0 : at + step;
+        if (next < 0 || next >= (int)open.size()) {
+            sfx_play(Sfx::Wrong);   // the start of the path, or the last open stop
+        } else {
+            app.campaignRegion = cn[open[next]].region;
+            app.campaignTopic = cn[open[next]].topic;
+            sfx_play(Sfx::Click);
+            // Keep Mal in view: if the new stop is near the edge, glide the camera over
+            Vector2 sp = city_to_screen(mal_city_spot(cn, open[next], rc), ccam);
+            if (sp.x < 160 || sp.x > SCREEN_W - 160 || sp.y < HEADER_H + 90 || sp.y > SCREEN_H - 130) {
+                glideTo = ccam;
+                glideTo.target = city_node(cn, open[next], rc);
+                gliding = true;
+            }
+        }
+    }
+    // ENTER plays the stop Mal is on (a lesson, or the boss fight), Q its quiz.
+    // Afterwards you come back to that world's 2D map, where clearing it is celebrated.
+    if (IsKeyPressed(KEY_ENTER) && cityHold <= 0) {
+        view = View::World;
+        malPlaced = false;
+        if (app.campaignTopic < 0) {
+            if (boss_unlocked(app.campaign, app.progress, app.campaignRegion)) { open_boss(app, app.campaignRegion); return; }
+            view = View::City;
+            sfx_play(Sfx::Wrong);
+        } else {
+            select_topic_for_lesson(app);
+            open_lesson(app);
+            return;
+        }
+    }
+    if (IsKeyPressed(KEY_Q) && app.campaignTopic >= 0 && cityHold <= 0) {
+        view = View::World;
+        malPlaced = false;
+        select_topic_for_lesson(app);
+        open_quiz(app);
+        return;
     }
     float wheel = GetMouseWheelMove();
     if (wheel != 0 && !overUi) {
+        gliding = false;
         float old = ccam.fovy;
         ccam.fovy = fmaxf(11.0f, fminf(34.0f, ccam.fovy * (1 - wheel * 0.12f)));
         // Keep the spot under the mouse where it is: move the target towards it
@@ -690,12 +835,10 @@ static void city_frame(App &app, const std::vector<MapNode> &nodes, float t)
 
     city_draw(regions, cn, ccam, t, hoverRegion, hoverNode, glowBridge);
 
-    // Mal on the selected pad (beside it, for a boss)
+    // Mal on the selected pad (beside it, for a boss), hopping when it changes
     for (int i = 0; i < (int)cn.size(); i++)
         if (cn[i].region == app.campaignRegion && cn[i].topic == app.campaignTopic) {
-            Vector3 p = city_node(cn, i, rc);
-            if (cn[i].topic < 0) { p.x += cosf(ccam.yaw) * 1.3f; p.z += sinf(ccam.yaw) * 1.3f; }
-            Vector2 sp = city_to_screen({ p.x, p.y + 0.22f, p.z }, ccam);
+            Vector2 sp = city_to_screen(mal_city_hop(app, mal_city_spot(cn, i, rc), dt), ccam);
             mal_set_base(app.mal, MalMood::Idle);
             mal_draw_with_pet(app.mal, sp, fminf(70.0f, 34 * 26 / ccam.fovy));
         }
@@ -733,8 +876,8 @@ static void city_frame(App &app, const std::vector<MapNode> &nodes, float t)
     // Hints along the bottom
     DrawRectangle(0, SCREEN_H - 44, SCREEN_W, 44, Fade(COL_BG, 0.85f));
     ui_text("MEMORY CITY", MARGIN, SCREEN_H - 30, 13, COL_AMBER, FontKind::MonoBold);
-    ui_text("drag to turn      scroll to zoom      click an island or a stop to dive in      M or ESC: back to the map",
-            MARGIN + 130, SCREEN_H - 30, 13, COL_MUTED, FontKind::Mono);
+    ui_text("arrows walk Mal   ENTER play   Q quiz   WASD / right-drag move   C E / drag turn   scroll zoom   F find Mal   R reset   M back",
+            MARGIN + 120, SCREEN_H - 30, 12, COL_MUTED, FontKind::Mono);
 }
 
 // ---------------------------------------------------------------------------
