@@ -49,6 +49,8 @@ UnlockInfo unlock_info(const App &app)
     u.topicsTotal = (int)app.topics.size();
     for (const Topic &t : app.topics)
         if (topic_mastery(app.progress, t.id) == Mastery::Mastered) u.topicsMastered++;
+    auto crashes = app.progress.scores.find("crashes");   // game overs in MAL-OS games
+    u.crashes = crashes == app.progress.scores.end() ? 0 : crashes->second;
     u.unlockAll = app.mos.unlockAll;
     return u;
 }
@@ -76,7 +78,8 @@ void wear_item(App &app, const WardrobeItem &item)
 {
     if (!wardrobe_unlocked(item, unlock_info(app))) return;
     if (item.kind == WearKind::Hat) app.progress.hat = app.mal.hat = item.id;
-    else app.progress.skin = app.mal.skin = item.id;
+    else if (item.kind == WearKind::Skin) app.progress.skin = app.mal.skin = item.id;
+    else app.progress.pet = app.mal.pet = item.id;
     save_progress(app);
     sfx_play(Sfx::Correct);
     mal_react(app.mal, MalMood::Happy, 1.2f);
@@ -296,7 +299,7 @@ static void draw_room(App &app, float t, Thing hover)
     Vector2 feet = { 680, 640 };
     if (hover == Thing::Mal) DrawEllipse((int)feet.x, (int)feet.y, 60, 14, Fade(COL_AMBER, 0.25f));
     mal_set_base(app.mal, MalMood::Idle);
-    mal_draw(app.mal, feet, 110);
+    mal_draw_with_pet(app.mal, feet, 110);
 }
 
 static Thing thing_at(Vector2 m)
@@ -503,40 +506,54 @@ static void draw_wardrobe(App &app, float t)
     ui_text("WARDROBE", p.x + 28, p.y + 22, 13, COL_AMBER, FontKind::MonoBold);
     ui_text("Dress Mal up. New things unlock as you level up, beat bosses and master topics.", p.x + 28, p.y + 42, 15, COL_TEXT_SOFT);
 
-    // Mal, big, wearing the current outfit
-    DrawEllipse((int)(p.x + 160), (int)(p.y + p.height - 70), 90, 20, COL_SURFACE_2);
-    mal_draw(app.mal, { p.x + 160, p.y + p.height - 70 }, 170);
+    // Mal, big, wearing the current outfit (and the pet beside them)
+    Vector2 big = { p.x + 120, p.y + p.height - 70 };
+    DrawEllipse((int)big.x, (int)big.y, 80, 18, COL_SURFACE_2);
+    mal_draw_with_pet(app.mal, big, 150);
+
+    // Tabs: hats, skins, pets
+    static int tab = 0;
+    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS" };
+    const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet };
+    float gx = p.x + 300, gy = p.y + 86;
+    Vector2 mouse = GetMousePosition();
+    for (int i = 0; i < 3; i++) {
+        Rectangle tr = { gx + i * 150.0f, gy, 140, 34 };
+        bool on = tab == i, hov = CheckCollisionPointRec(mouse, tr);
+        ui_panel(tr, on ? COL_AMBER : (hov ? COL_SURFACE_2 : COL_BG), on ? COL_AMBER : COL_LINE, 1);
+        float tw = ui_text_width(tabs[i], 12, FontKind::MonoBold);
+        ui_text(tabs[i], tr.x + (tr.width - tw) / 2, tr.y + 10, 12, on ? COL_BG : COL_TEXT_SOFT, FontKind::MonoBold);
+        if (hov) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { tab = i; sfx_play(Sfx::Click); } }
+    }
+    if (IsKeyPressed(KEY_TAB)) tab = (tab + 1) % 3;
+    if (tab == 1) ui_text("Beat a boss and you can wear its look.", gx + 470, gy + 10, 13, COL_MUTED);
+    if (tab == 2) ui_text("Pets follow Mal around.", gx + 470, gy + 10, 13, COL_MUTED);
+    gy += 54;
 
     UnlockInfo u = unlock_info(app);
-    float gx = p.x + 300, gy = p.y + 96;
-    const float cw = 112, ch = 100, gap = 10;
+    const float cw = 116, ch = 124, gap = 10;
     int col = 0;
-    bool hatsDone = false;
-    ui_text("HATS AND THINGS", gx, gy, 12, COL_MUTED, FontKind::MonoBold);
-    gy += 22;
-    Vector2 mouse = GetMousePosition();
     for (const WardrobeItem &item : wardrobe_items()) {
-        if (item.kind == WearKind::Skin && !hatsDone) {
-            hatsDone = true;
-            gy += ch + gap + (col == 0 ? -ch - gap : 0) + 14;
-            col = 0;
-            ui_text("COLOURS", gx, gy, 12, COL_MUTED, FontKind::MonoBold);
-            gy += 22;
-        }
+        if (item.kind != kinds[tab]) continue;
         if (col == 6) { col = 0; gy += ch + gap; }
         Rectangle c = { gx + col * (cw + gap), gy, cw, ch };
         col++;
         bool open = wardrobe_unlocked(item, u);
-        bool worn = item.kind == WearKind::Hat ? app.mal.hat == item.id : app.mal.skin == item.id;
+        bool worn = item.kind == WearKind::Hat ? app.mal.hat == item.id
+                  : item.kind == WearKind::Skin ? app.mal.skin == item.id : app.mal.pet == item.id;
         bool hover = open && CheckCollisionPointRec(mouse, c);
         ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, worn ? COL_GREEN : (hover ? COL_TEXT_SOFT : COL_LINE), worn ? 2 : 1);
 
-        Mal preview;   // a little Mal showing the item
-        preview.hat = item.kind == WearKind::Hat ? item.id : "none";
-        preview.skin = item.kind == WearKind::Skin ? item.id : "classic";
-        preview.clock = t;
-        preview.blinkIn = 99;
-        mal_draw(preview, { c.x + cw / 2, c.y + 64 }, 36);
+        if (item.kind == WearKind::Pet && item.id != "nopet") {
+            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 86 }, 66, t, false);
+        } else {
+            Mal preview;   // a little Mal showing the item
+            preview.hat = item.kind == WearKind::Hat ? item.id : "none";
+            preview.skin = item.kind == WearKind::Skin ? item.id : "classic";
+            preview.clock = t;
+            preview.blinkIn = 99;
+            mal_draw(preview, { c.x + cw / 2 - (item.id == "shallow" ? 8 : 0), c.y + 86 }, 42);
+        }
         if (!open) {   // dimmed, with what unlocks it
             DrawRectangleRec(c, Fade(COL_BG, 0.72f));
             std::string req = wardrobe_requirement(item);

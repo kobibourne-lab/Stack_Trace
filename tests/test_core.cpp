@@ -967,7 +967,7 @@ static void test_wardrobe_snake_scores()
     UnlockInfo u;
     u.level = 3;
     u.topicsTotal = 20;
-    CHECK(wardrobe_unlocked(*wardrobe_find("partyhat"), u));
+    CHECK(wardrobe_unlocked(*wardrobe_find("drinkhat"), u));
     CHECK(!wardrobe_unlocked(*wardrobe_find("hardhat"), u));     // level 5
     CHECK(!wardrobe_unlocked(*wardrobe_find("bowtie"), u));      // 1 boss
     u.bossesBeaten = 1;
@@ -976,6 +976,18 @@ static void test_wardrobe_snake_scores()
     u.topicsMastered = 20;
     CHECK(wardrobe_unlocked(*wardrobe_find("crown"), u));
     CHECK(wardrobe_requirement(*wardrobe_find("wizard")) == "Reach level 12");
+
+    // Boss skins follow the bosses; the glitch skin needs a crash; pets are their own kind
+    CHECK(wardrobe_unlocked(*wardrobe_find("offbyone"), u));     // 1 boss beaten
+    CHECK(!wardrobe_unlocked(*wardrobe_find("dangling"), u));    // needs 2
+    CHECK(!wardrobe_unlocked(*wardrobe_find("glitch"), u));
+    u.crashes = 1;
+    CHECK(wardrobe_unlocked(*wardrobe_find("glitch"), u));
+    CHECK(wardrobe_requirement(*wardrobe_find("glitch")) == "Crash a MAL-OS game");
+    CHECK(wardrobe_find("bird") && wardrobe_find("bird")->kind == WearKind::Pet);
+    CHECK(wardrobe_find("afro") && wardrobe_find("mohawk"));
+    CHECK(wardrobe_rename("tophat") == "helicopter" && wardrobe_rename("gold") == "diamond" && wardrobe_rename("afro") == "afro");
+    CHECK(!wardrobe_unlocked(*wardrobe_find("diamond"), UnlockInfo()));
 
     // Snake: eating grows the list, hitting the wall is a segfault
     SnakeGame g;
@@ -996,11 +1008,12 @@ static void test_wardrobe_snake_scores()
     CHECK(!progress_record_score(p, "snake", 20));
     CHECK(progress_best_score(p, "snake") == 50);
     p.hat = "crown";
+    p.pet = "cat";
     std::string error;
     CHECK(progress_save("test_progress.txt", p, error));
     Progress back;
     CHECK(progress_load("test_progress.txt", back, error));
-    CHECK(back.hat == "crown" && back.skin == "classic" && back.scores["snake"] == 50);
+    CHECK(back.hat == "crown" && back.skin == "classic" && back.pet == "cat" && back.scores["snake"] == 50);
 }
 
 int main()

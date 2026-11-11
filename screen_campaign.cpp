@@ -520,7 +520,7 @@ void screen_campaign(App &app)
     for (const MapNode &n : nodes)
         if (is_selected(app, n)) {
             Vector2 feet = n.topic < 0 ? Vector2{ n.pos.x, n.pos.y - 30 } : Vector2{ n.pos.x, n.pos.y + 2 };
-            mal_draw(app.mal, mal_hop(app, feet), 40);
+            mal_draw_with_pet(app.mal, mal_hop(app, feet), 40);
         }
     (void)current;
 

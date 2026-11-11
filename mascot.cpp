@@ -3,6 +3,7 @@
 #include "mascot.h"
 #include "theme.h"
 #include "ui.h"
+#include "rlgl.h"
 #include <cmath>
 
 void mal_react(Mal &m, MalMood mood, float seconds)
@@ -81,9 +82,12 @@ static Color skin_color(const std::string &skin)
     if (skin == "amber")  return COL_AMBER;
     if (skin == "purple") return COL_PURPLE;
     if (skin == "blue")   return COL_BLUE;
-    if (skin == "coral")  return COL_CORAL;
-    if (skin == "gold")   return { 255, 205, 90, 255 };
-    return COL_GREEN;
+    if (skin == "slayer")  return { 255, 205, 90, 255 };    // boss slayer gold
+    if (skin == "diamond") return { 175, 232, 255, 255 };
+    if (skin == "tux")     return { 236, 239, 243, 255 };   // a white shirt; the jacket is drawn on
+    if (skin == "offbyone") return COL_CORAL;
+    if (skin == "shallow")  return COL_PURPLE;
+    return COL_GREEN;   // classic, glitch and leaker
 }
 
 static Color blend(Color a, Color b, float t)
@@ -95,6 +99,8 @@ static Color blend(Color a, Color b, float t)
 static Color body_color(const Mal &m)
 {
     Color base = skin_color(m.skin);
+    if (m.skin == "dangling")   // half freed: a faded blue that flickers
+        base = blend(COL_BLUE, COL_BG, 0.5f + 0.12f * sinf(m.clock * 9) + (fmodf(m.clock, 2.3f) < 0.08f ? 0.25f : 0));
     switch (m.mood) {
         case MalMood::Worried: return m.skin == "amber" ? Color{ 255, 140, 60, 255 } : blend(base, COL_AMBER, 0.7f);
         case MalMood::Sad:     return blend(base, { 120, 130, 140, 255 }, 0.3f);   // a duller shade
@@ -184,30 +190,350 @@ static void draw_mouth(const Mal &m, Vector2 c, float w, Color body)
 
 // The wardrobe: hats and accessories, drawn on the body rectangle b so they
 // squash and stretch with Mal.
+// ---------------------------------------------------------------------------
+// The new hair, boss skins, glitch skin and pets
+// ---------------------------------------------------------------------------
+
+static Color mixc(Color a, Color b, float t)
+{
+    return { (unsigned char)(a.r + (b.r - a.r) * t), (unsigned char)(a.g + (b.g - a.g) * t),
+             (unsigned char)(a.b + (b.b - a.b) * t), a.a };
+}
+
+// The address on Mal's label: the skins change it.
+static std::string mal_address(const Mal &m)
+{
+    if (m.skin == "offbyone") return "0x9001";                   // one byte off
+    if (m.skin == "dangling") return "freed";
+    if (m.skin == "glitch") {
+        static const char *junk[] = { "0x9?0#", "0x9000", "0x#00?", "0x9000", "0xDEAD" };
+        return junk[(int)(m.clock * 5) % 5];
+    }
+    return "0x9000";
+}
+
+static void brace(const char *ch, float x, float y, float fs, Color c)
+{
+    ui_text(ch, x, y, fs, c, FontKind::MonoBold);
+    ui_text(ch, x + fs * 0.05f, y, fs, c, FontKind::MonoBold);   // thicker strokes
+}
+
+const Color AFRO = { 150, 105, 255, 255 };
+
+// The afro: the big round part goes behind Mal...
+static void draw_afro_back(Rectangle b, float size)
+{
+    Color back = darker(AFRO, 0.7f);
+    Vector2 c = { b.x + b.width / 2, b.y + size * 0.06f };
+    DrawCircleV(c, size * 0.54f, back);
+    for (int i = 0; i < 12; i++) {
+        float a = PI * 0.92f + (PI * 1.16f) * i / 11;
+        Vector2 p = { c.x + cosf(a) * size * 0.47f, c.y + sinf(a) * size * 0.47f };
+        float fs = size * 0.30f;
+        brace(i % 2 ? "}" : "{", p.x - fs * 0.3f, p.y - fs * 0.5f, fs, AFRO);
+    }
+}
+
+// ...and a fringe of curls comes down over the top of the head, so there's
+// no big bare forehead.
+static void draw_afro_front(Rectangle b, float size)
+{
+    Color light = mixc(AFRO, WHITE, 0.15f);
+    float w = b.width;
+    DrawRectangleRounded({ b.x - size * 0.03f, b.y - size * 0.1f, w + size * 0.06f, size * 0.19f }, 0.9f, 10, AFRO);
+    for (int i = 0; i < 7; i++) {
+        float t = i / 6.0f, fs = size * 0.27f;
+        float x = b.x - size * 0.06f + t * (w + size * 0.02f);
+        float y = b.y - size * 0.13f + sinf(t * PI) * -size * 0.05f;
+        brace(i % 2 ? "}" : "{", x, y, fs, light);
+    }
+    // curls down the sides, over the corners of the head
+    brace("{", b.x - size * 0.1f, b.y + size * 0.02f, size * 0.30f, AFRO);
+    brace("}", b.x + w - size * 0.08f, b.y + size * 0.02f, size * 0.30f, AFRO);
+}
+
+// One upside-down semicolon: the dot sits on the head, the comma's tail is a spike.
+static void spike_semicolon(float cx, float bottom, float H, float r, Color c, float lean)
+{
+    DrawCircleV({ cx, bottom - r }, r, c);
+    Vector2 head = { cx, bottom - r * 3.4f };
+    DrawCircleV(head, r * 1.15f, c);
+    Vector2 tip = { cx + lean, bottom - H };
+    Vector2 l = { head.x - r * 1.1f, head.y + r * 0.2f }, rr = { head.x + r * 1.1f, head.y + r * 0.2f };
+    DrawTriangle(l, rr, tip, c);
+    DrawTriangle(rr, l, tip, c);
+}
+
+static void draw_mohawk(Rectangle b, float size)
+{
+    float cx = b.x + b.width / 2;
+    const float hs[] = { 0.36f, 0.50f, 0.60f, 0.50f, 0.36f };
+    for (int i = 0; i < 5; i++)
+        spike_semicolon(cx + (i - 2) * size * 0.14f, b.y + size * 0.03f, size * hs[i], size * 0.042f,
+                        mixc(COL_CORAL, COL_AMBER, hs[i] / 0.6f), (i - 2) * size * 0.05f);
+}
+
+static void dashed_rect(Rectangle r, float th, Color c)
+{
+    const float d = 7, gp = 5;
+    for (float x = r.x; x < r.x + r.width; x += d + gp) {
+        float e = fminf(x + d, r.x + r.width);
+        DrawLineEx({ x, r.y }, { e, r.y }, th, c);
+        DrawLineEx({ x, r.y + r.height }, { e, r.y + r.height }, th, c);
+    }
+    for (float y = r.y; y < r.y + r.height; y += d + gp) {
+        float e = fminf(y + d, r.y + r.height);
+        DrawLineEx({ r.x, y }, { r.x, e }, th, c);
+        DrawLineEx({ r.x + r.width, y }, { r.x + r.width, e }, th, c);
+    }
+}
+
+const Color GOO = { 140, 210, 90, 255 };
+
+// Skin extras drawn behind Mal's body.
+static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, Color body)
+{
+    if (m.skin == "leaker") {   // a puddle of leaked memory
+        float wob = 1 + 0.04f * sinf(m.clock * 2);
+        DrawEllipse((int)(feet.x + size * 0.08f), (int)(feet.y + 3), size * 0.62f * wob, size * 0.09f, Fade(GOO, 0.75f));
+    } else if (m.skin == "shallow") {   // the copy: just an outline, sharing everything
+        Rectangle g = { b.x + size * 0.42f, b.y - size * 0.12f, b.width, b.height };
+        float bob = sinf(m.clock * 2.2f + 1) * size * 0.02f;
+        g.y += bob;
+        DrawRectangleRounded(g, 0.42f, 12, Fade(body, 0.22f));
+        DrawRectangleRoundedLinesEx(g, 0.42f, 12, fmaxf(1.5f, size * 0.02f), body);
+        float ey = g.y + g.height * 0.47f, ex = g.width * 0.2f, er = size * 0.05f;
+        DrawCircleLinesV({ g.x + g.width / 2 - ex + size * 0.12f, ey }, er, body);
+        DrawCircleLinesV({ g.x + g.width / 2 + ex + size * 0.12f, ey }, er, body);
+        if (size >= 60) {   // both point at the same array
+            Vector2 arr = { feet.x + size * 0.2f, b.y - size * 0.36f };
+            for (int i = 0; i < 4; i++)
+                DrawRectangleRec({ arr.x - size * 0.3f + i * size * 0.15f, arr.y, size * 0.13f, size * 0.13f }, COL_AMBER);
+            DrawLineEx({ g.x + g.width / 2, g.y }, { arr.x + size * 0.15f, arr.y + size * 0.13f }, 2, Fade(COL_AMBER, 0.6f));
+        }
+    }
+}
+
+// Skin extras drawn on top of Mal, after the face.
+static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size, Color body)
+{
+    float w = b.width, h = b.height;
+    float ex = w * 0.2f, ey = b.y + h * 0.47f, er = size * 0.07f;
+    float line = fmaxf(2.0f, size * 0.025f);
+    if (m.skin == "offbyone") {
+        // a third eye, off by one place, and angry brows
+        Vector2 e3 = { feet.x + ex * 2.1f, ey - er * 0.6f };
+        DrawCircleV(e3, er * 0.95f, WHITE);
+        DrawCircleV({ e3.x + er * 0.25f + sinf(m.clock * 1.3f) * er * 0.15f, e3.y }, er * 0.5f, COL_BG);
+        DrawLineEx({ feet.x - ex - er, ey - er * 1.7f }, { feet.x - ex + er, ey - er * 1.1f }, line, COL_BG);
+        DrawLineEx({ feet.x + ex + er, ey - er * 1.7f }, { feet.x + ex - er, ey - er * 1.1f }, line, COL_BG);
+        if (size >= 60) ui_text("+1", b.x + w - size * 0.05f, b.y - size * 0.22f, size * 0.18f, COL_CORAL, FontKind::MonoBold);
+    } else if (m.skin == "dangling") {
+        dashed_rect({ b.x - size * 0.05f, b.y - size * 0.05f, w + size * 0.1f, h + size * 0.1f }, line, COL_CORAL);
+        if (size >= 60) {   // a pointer still aimed at Mal, who isn't really there
+            Vector2 a = { b.x - size * 0.38f, b.y + h * 0.55f }, t = { b.x - size * 0.1f, a.y };
+            float bs = size * 0.18f;
+            DrawRectangleRounded({ a.x - bs, a.y - bs / 2, bs, bs }, 0.3f, 6, COL_SURFACE);
+            DrawRectangleRoundedLinesEx({ a.x - bs, a.y - bs / 2, bs, bs }, 0.3f, 6, line, COL_CORAL);
+            ui_text("p", a.x - bs * 0.68f, a.y - bs * 0.42f, bs * 0.7f, COL_CORAL, FontKind::MonoBold);
+            DrawLineEx(a, t, line, COL_CORAL);
+            DrawTriangle({ t.x + size * 0.06f, t.y }, { t.x, t.y - size * 0.05f }, { t.x, t.y + size * 0.05f }, COL_CORAL);
+        }
+        for (int i = 0; i < 3; i++) {   // cells drifting away
+            float k = fmodf(m.clock * 0.4f + i / 3.0f, 1.0f);
+            float cs = size * (0.07f - i * 0.015f);
+            DrawRectangleRec({ b.x + w + size * 0.08f + k * size * 0.2f, b.y + size * 0.25f - k * size * 0.35f, cs, cs }, Fade(COL_BLUE, 0.6f * (1 - k)));
+        }
+    } else if (m.skin == "leaker") {
+        // slime over the top and drips running down
+        DrawRectangleRounded({ b.x + 2, b.y, w - 4, size * 0.1f }, 1, 6, GOO);
+        const float xs[] = { 0.12f, 0.38f, 0.7f, 0.9f }, ls[] = { 0.30f, 0.18f, 0.42f, 0.22f };
+        for (int i = 0; i < 4; i++) {
+            float x = b.x + w * xs[i], len = h * ls[i] * (1 + 0.08f * sinf(m.clock * 2 + i));
+            DrawRectangleRounded({ x - size * 0.04f, b.y + 2, size * 0.08f, len }, 1, 6, GOO);
+            DrawCircleV({ x, b.y + 2 + len }, size * 0.055f, GOO);
+        }
+        float k = fmodf(m.clock * 0.7f, 1.0f);   // a drop falling off
+        DrawCircleV({ b.x + w * 0.7f, b.y + h * 0.5f + k * h * 0.5f }, size * 0.035f, Fade(GOO, 1 - k * 0.5f));
+    } else if (m.skin == "tux") {
+        // A black jacket over the white shirt: the shirt shows in a V, with a bow tie
+        Color jacket = { 30, 33, 40, 255 };
+        float y0 = b.y + h * 0.76f, bottom = b.y + h;
+        DrawRectangleRounded({ b.x, y0, w, bottom - y0 }, 0.6f, 10, jacket);
+        DrawRectangleRec({ b.x, y0, w, (bottom - y0) * 0.4f }, jacket);   // square shoulders
+        DrawTriangle({ feet.x - w * 0.2f, y0 - 1 }, { feet.x, bottom - h * 0.02f }, { feet.x + w * 0.2f, y0 - 1 }, body);
+        float lt = fmaxf(1.5f, size * 0.018f);
+        DrawLineEx({ feet.x - w * 0.2f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });   // lapel edges
+        DrawLineEx({ feet.x + w * 0.2f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });
+        float by = y0 + h * 0.035f, bs = size * 0.055f;
+        DrawTriangle({ feet.x, by }, { feet.x - bs * 1.6f, by - bs }, { feet.x - bs * 1.6f, by + bs }, jacket);
+        DrawTriangle({ feet.x, by }, { feet.x + bs * 1.6f, by + bs }, { feet.x + bs * 1.6f, by - bs }, jacket);
+        DrawCircleV({ feet.x, by }, bs * 0.5f, jacket);
+        DrawCircleV({ feet.x, by + h * 0.09f }, size * 0.016f, jacket);   // a shirt button
+    } else if (m.skin == "diamond") {
+        // Facets catching the light, and sparkles that come and go
+        Color facet = Fade(WHITE, 0.45f), deep = Fade({ 90, 170, 230, 255 }, 0.45f);
+        float th = fmaxf(1.5f, size * 0.018f);
+        DrawLineEx({ b.x + w * 0.1f, b.y + h * 0.08f }, { b.x + w * 0.42f, b.y + h * 0.36f }, th, facet);
+        DrawLineEx({ b.x + w * 0.9f, b.y + h * 0.1f }, { b.x + w * 0.62f, b.y + h * 0.33f }, th, facet);
+        DrawLineEx({ b.x + w * 0.06f, b.y + h * 0.82f }, { b.x + w * 0.3f, b.y + h * 0.95f }, th, deep);
+        DrawLineEx({ b.x + w * 0.94f, b.y + h * 0.78f }, { b.x + w * 0.7f, b.y + h * 0.95f }, th, deep);
+        DrawTriangle({ b.x + w * 0.08f, b.y + h * 0.55f }, { b.x + w * 0.08f, b.y + h * 0.8f }, { b.x + w * 0.2f, b.y + h * 0.7f }, Fade(WHITE, 0.3f));
+        for (int i = 0; i < 3; i++) {
+            float k = fmodf(m.clock * 0.9f + i * 0.37f, 1.0f), a = sinf(k * PI);
+            Vector2 c = { b.x + w * (0.2f + 0.3f * i), b.y + h * (0.15f + 0.3f * ((i * 2) % 3) * 0.9f) };
+            float r = size * 0.06f * a;
+            DrawTriangle({ c.x, c.y - r }, { c.x - r * 0.25f, c.y }, { c.x + r * 0.25f, c.y }, WHITE);
+            DrawTriangle({ c.x - r * 0.25f, c.y }, { c.x, c.y + r }, { c.x + r * 0.25f, c.y }, WHITE);
+            DrawTriangle({ c.x - r, c.y }, { c.x, c.y + r * 0.25f }, { c.x, c.y - r * 0.25f }, WHITE);
+            DrawTriangle({ c.x, c.y - r * 0.25f }, { c.x, c.y + r * 0.25f }, { c.x + r, c.y }, WHITE);
+        }
+    } else if (m.skin == "glitch") {
+        int beat = (int)(m.clock * 6);
+        bool burst = fmodf(m.clock, 1.7f) < 0.22f;   // every so often it glitches hard
+        float off = size * (burst ? 0.07f : 0.035f);
+        DrawRectangleRoundedLinesEx({ b.x - off, b.y, w, h }, 0.42f, 12, line, Fade({ 255, 40, 80, 255 }, 0.7f));
+        DrawRectangleRoundedLinesEx({ b.x + off, b.y, w, h }, 0.42f, 12, line, Fade({ 40, 230, 255, 255 }, 0.7f));
+        // slices of the body shifted sideways
+        const float ys[] = { 0.04f, 0.86f, 0.33f };
+        int bands = burst ? 3 : 2;
+        for (int i = 0; i < bands; i++) {
+            float shift = (hash01(beat * 7 + i) - 0.5f) * size * (burst ? 0.3f : 0.14f);
+            DrawRectangleRec({ b.x + size * 0.04f + shift, b.y + h * ys[i], w - size * 0.08f, h * 0.07f }, body);
+        }
+        for (int i = 0; i < 8; i++) {   // dead pixels
+            float px = b.x - size * 0.15f + hash01(beat * 13 + i) * (w + size * 0.3f);
+            float py = b.y - size * 0.1f + hash01(beat * 17 + i) * (h + size * 0.15f);
+            DrawRectangleRec({ px, py, size * (0.03f + 0.03f * (i % 3)), size * 0.03f },
+                             i % 2 ? Color{ 40, 230, 255, 220 } : Color{ 255, 40, 120, 220 });
+        }
+    }
+}
+
+// Pets: drawn about 60 units tall at the origin, then scaled into place.
+static void pet_tag(const char *s, Color c)
+{
+    float w = ui_text_width(s, 11, FontKind::MonoBold);
+    DrawRectangleRounded({ -w / 2 - 5, 6, w + 10, 16 }, 0.5f, 6, Fade(c, 0.18f));
+    ui_text(s, -w / 2, 8, 11, c, FontKind::MonoBold);
+}
+
+static void draw_cat(bool tag)
+{
+    Color c = { 255, 205, 90, 255 }, d = darker(c, 0.75f);
+    DrawLineEx({ 16, -8 }, { 30, -26 }, 5, d);
+    DrawRectangleRounded({ -20, -34, 40, 34 }, 0.45f, 8, c);
+    DrawTriangle({ -18, -30 }, { -4, -34 }, { -15, -46 }, c);
+    DrawTriangle({ 4, -34 }, { 18, -30 }, { 15, -46 }, c);
+    DrawLineEx({ -11, -20 }, { -4, -20 }, 2.5f, COL_BG);   // calm closed eyes: it never changes
+    DrawLineEx({ 4, -20 }, { 11, -20 }, 2.5f, COL_BG);
+    DrawCircleV({ 0, -14 }, 2, COL_CORAL);
+    DrawRectangle(-4, -8, 8, 6, COL_BG);                  // padlock collar
+    if (tag) pet_tag("const", c);
+}
+
+static void draw_dog(float clock, bool tag)
+{
+    Color c = { 200, 150, 110, 255 }, d = darker(c, 0.7f);
+    float wag = sinf(clock * 12) * 6;
+    DrawLineEx({ 22, -14 }, { 34, -24 + wag }, 5, d);
+    DrawRectangleRounded({ -24, -32, 48, 32 }, 0.45f, 8, c);
+    DrawRectangleRounded({ -30, -34, 12, 24 }, 0.8f, 6, d);   // floppy ears
+    DrawRectangleRounded({ 18, -34, 12, 24 }, 0.8f, 6, d);
+    DrawCircleV({ -9, -20 }, 3.5f, COL_BG);
+    DrawCircleV({ 9, -20 }, 3.5f, COL_BG);
+    DrawCircleV({ 0, -12 }, 4, COL_BG);
+    DrawRectangleRounded({ -3, -9, 6, 8 }, 1, 6, COL_CORAL);
+    if (tag) pet_tag("static", c);
+}
+
+static void draw_bird(float clock, bool tag)
+{
+    bool twitch = fmodf(clock, 1.3f) < 0.45f;   // it changes when you're not looking
+    float jx = twitch ? sinf(clock * 37) * 3 : 0, jy = twitch ? cosf(clock * 29) * 3 : 0;
+    Vector2 c = { jx, -26 + jy };
+    Color col = COL_BLUE;
+    DrawCircleV(c, 15, col);
+    DrawTriangle({ c.x + 13, c.y - 3 }, { c.x + 13, c.y + 5 }, { c.x + 22, c.y + 1 }, COL_AMBER);
+    DrawTriangle({ c.x - 6, c.y }, { c.x - 20, c.y - 12 }, { c.x - 10, c.y + 8 }, darker(col, 0.75f));
+    DrawCircleV({ c.x + 5, c.y - 4 }, 3, COL_BG);
+    if (twitch)
+        for (int i = 0; i < 3; i++) DrawLineEx({ c.x - 30, c.y - 10 + i * 9.0f }, { c.x - 22, c.y - 10 + i * 9.0f }, 2, Fade(col, 0.6f));
+    DrawLineEx({ -4, -11 }, { -4, 0 }, 2, COL_AMBER);
+    DrawLineEx({ 4, -11 }, { 4, 0 }, 2, COL_AMBER);
+    if (tag) pet_tag("volatile", col);
+}
+
+void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag)
+{
+    if (pet != "cat" && pet != "dog" && pet != "bird") return;
+    float k = size / 60.0f;
+    rlPushMatrix();
+    rlTranslatef(at.x, at.y, 0);
+    rlScalef(k, k, 1);
+    if (pet == "cat") draw_cat(tag);
+    else if (pet == "dog") draw_dog(clock, tag);
+    else draw_bird(clock, tag);
+    rlPopMatrix();
+}
+
+void mal_draw_with_pet(const Mal &m, Vector2 feet, float size)
+{
+    // the pet sits on the ground beside Mal, a step behind
+    mal_draw_pet(m.pet, { feet.x + size * 0.9f, feet.y }, size * 0.6f, m.clock, false);
+    mal_draw(m, feet, size);
+}
+
 static void draw_wear(const Mal &m, Rectangle b, float size)
 {
     float cx = b.x + b.width / 2, top = b.y, w = b.width, h = b.height;
     float wob = sinf(m.clock * 3.0f) * 0.04f;
     const std::string &hat = m.hat;
-    if (hat == "partyhat") {
-        Vector2 tip = { cx - w * 0.06f + wob * size, top - size * 0.48f };
-        Vector2 l = { cx - w * 0.3f, top + h * 0.05f }, r = { cx + w * 0.22f, top + h * 0.05f };
-        DrawTriangle(r, tip, l, COL_CORAL);
-        for (int i = 1; i <= 2; i++) {   // stripes
-            float t = i / 3.0f;
-            Vector2 a = { l.x + (tip.x - l.x) * t, l.y + (tip.y - l.y) * t }, c = { r.x + (tip.x - r.x) * t, r.y + (tip.y - r.y) * t };
-            DrawLineEx(a, c, fmaxf(2.0f, size * 0.035f), COL_AMBER);
+    if (hat == "afro") draw_afro_front(b, size);
+    else if (hat == "mohawk") draw_mohawk(b, size);
+    else if (hat == "drinkhat") {
+        // A helmet with a can on each side and straws down to the mouth
+        Color helmet = COL_CORAL;
+        DrawCircleSector({ cx, top + h * 0.04f }, w * 0.5f, 180, 360, 24, helmet);
+        DrawRectangleRounded({ cx - w * 0.55f, top - h * 0.01f, w * 1.1f, h * 0.07f }, 0.8f, 6, darker(helmet, 0.8f));
+        Color cans[2] = { COL_BLUE, COL_AMBER };
+        for (int i = 0; i < 2; i++) {
+            float dir = i ? 1.0f : -1.0f;
+            Rectangle can = { cx + dir * w * 0.5f - (i ? 0 : w * 0.22f), top - size * 0.26f, w * 0.22f, size * 0.3f };
+            DrawLineEx({ cx + dir * w * 0.3f, top - size * 0.02f }, { can.x + can.width / 2, can.y + can.height * 0.6f }, fmaxf(2.0f, size * 0.03f), darker(helmet, 0.8f));
+            DrawRectangleRounded(can, 0.3f, 6, cans[i]);
+            DrawRectangleRec({ can.x, can.y + can.height * 0.4f, can.width, can.height * 0.18f }, Fade(WHITE, 0.55f));
+            DrawRectangleRounded({ can.x + can.width * 0.1f, can.y - size * 0.02f, can.width * 0.8f, size * 0.04f }, 0.8f, 6, { 200, 205, 212, 255 });
+            // the straw: out of the can and down to the corner of the mouth
+            Vector2 s0 = { can.x + can.width / 2, can.y + can.height };
+            Vector2 s3 = { cx + dir * w * 0.13f, top + h * 0.66f };
+            float st = fmaxf(2.0f, size * 0.035f);
+            DrawSplineSegmentBezierCubic(s0, { s0.x + dir * size * 0.08f, s0.y + h * 0.3f }, { s3.x + dir * size * 0.12f, s3.y - h * 0.02f }, s3, st, WHITE);
+            DrawSplineSegmentBezierCubic(s0, { s0.x + dir * size * 0.08f, s0.y + h * 0.3f }, { s3.x + dir * size * 0.12f, s3.y - h * 0.02f }, s3, st * 0.4f, COL_CORAL);
         }
-        DrawCircleV(tip, size * 0.06f, COL_AMBER);
     } else if (hat == "hardhat") {
-        DrawCircleSector({ cx, top + h * 0.12f }, w * 0.46f, 180, 360, 20, COL_AMBER);
-        DrawRectangleRounded({ cx - w * 0.6f, top + h * 0.08f, w * 1.2f, h * 0.08f }, 0.6f, 6, { 230, 150, 50, 255 });
-        DrawRectangle((int)(cx - w * 0.04f), (int)(top - w * 0.3f), (int)(w * 0.08f), (int)(w * 0.36f), { 230, 150, 50, 255 });
-    } else if (hat == "tophat") {
-        Color black = { 24, 26, 30, 255 };
-        DrawRectangleRounded({ cx - w * 0.55f, top - h * 0.02f, w * 1.1f, h * 0.08f }, 0.6f, 6, black);
-        DrawRectangle((int)(cx - w * 0.3f), (int)(top - size * 0.42f), (int)(w * 0.6f), (int)(size * 0.42f), black);
-        DrawRectangle((int)(cx - w * 0.3f), (int)(top - size * 0.12f), (int)(w * 0.6f), (int)(size * 0.07f), COL_CORAL);
+        // A proper safety helmet: dome, raised ridge down the middle, wide brim
+        Color yel = { 255, 196, 40, 255 }, shade = { 222, 160, 20, 255 };
+        float domeY = top + h * 0.035f, r = w * 0.52f;
+        DrawRectangleRounded({ cx - w * 0.68f, domeY - h * 0.02f, w * 1.36f, h * 0.075f }, 0.9f, 8, shade);   // the brim
+        DrawCircleSector({ cx, domeY }, r, 180, 360, 28, yel);
+        DrawRectangleRec({ cx - r, domeY - h * 0.05f, r * 2, h * 0.05f }, shade);                             // band at the bottom of the dome
+        DrawRectangleRounded({ cx - w * 0.07f, domeY - r - size * 0.02f, w * 0.14f, r + size * 0.01f }, 0.8f, 6, { 255, 222, 110, 255 });   // ridge
+        DrawLineEx({ cx - r * 0.55f, domeY - r * 0.75f }, { cx - r * 0.62f, domeY - h * 0.06f }, fmaxf(1.5f, size * 0.02f), shade);
+        DrawLineEx({ cx + r * 0.55f, domeY - r * 0.75f }, { cx + r * 0.62f, domeY - h * 0.06f }, fmaxf(1.5f, size * 0.02f), shade);
+        DrawRing({ cx, domeY }, r * 0.72f, r * 0.8f, 205, 240, 10, Fade(WHITE, 0.55f));                      // shine
+    } else if (hat == "helicopter") {
+        // A propeller beanie, and the propeller really spins
+        float capY = top + h * 0.1f, r = w * 0.46f;
+        Color segs[4] = { COL_CORAL, COL_AMBER, COL_BLUE, COL_GREEN };
+        for (int i = 0; i < 4; i++) DrawCircleSector({ cx, capY }, r, 180 + i * 45.0f, 225 + i * 45.0f, 8, segs[i]);
+        DrawRectangleRounded({ cx - w * 0.5f, capY - h * 0.04f, w * 1.0f, h * 0.06f }, 0.9f, 6, { 60, 70, 90, 255 });
+        float stalkTop = capY - r - size * 0.1f;
+        DrawRectangleRec({ cx - size * 0.015f, stalkTop, size * 0.03f, size * 0.12f }, { 60, 70, 90, 255 });
+        float spin = cosf(m.clock * 16), bl = w * 0.5f * fabsf(spin) + size * 0.02f;
+        DrawEllipse((int)(cx - bl / 2), (int)stalkTop, bl / 2, size * 0.035f, spin > 0 ? COL_BLUE : COL_CORAL);
+        DrawEllipse((int)(cx + bl / 2), (int)stalkTop, bl / 2, size * 0.035f, spin > 0 ? COL_CORAL : COL_BLUE);
+        DrawCircleV({ cx, stalkTop }, size * 0.03f, COL_AMBER);
     } else if (hat == "wizard") {
         Color robe = { 90, 60, 170, 255 };
         Vector2 tip = { cx + w * 0.18f + wob * size * 2, top - size * 0.6f };
@@ -226,25 +552,39 @@ static void draw_wear(const Mal &m, Rectangle b, float size)
         DrawCircleV({ cx, base - ch * 0.22f }, size * 0.035f, COL_CORAL);
         DrawCircleV({ cx - cw * 0.3f, base - ch * 0.22f }, size * 0.025f, COL_BLUE);
         DrawCircleV({ cx + cw * 0.3f, base - ch * 0.22f }, size * 0.025f, COL_BLUE);
-    } else if (hat == "headphones") {
-        Color band = { 40, 44, 52, 255 };
-        DrawRing({ cx, top + h * 0.42f }, w * 0.5f, w * 0.58f, 180, 360, 24, band);
-        DrawRectangleRounded({ b.x - w * 0.1f, top + h * 0.32f, w * 0.18f, h * 0.3f }, 0.5f, 6, COL_CORAL);
-        DrawRectangleRounded({ b.x + w * 0.92f, top + h * 0.32f, w * 0.18f, h * 0.3f }, 0.5f, 6, COL_CORAL);
+    } else if (hat == "gradcap") {
+        // A graduation cap with a swinging tassel
+        Color black = { 28, 30, 36, 255 };
+        float boardY = top - size * 0.1f;
+        DrawRectangleRounded({ cx - w * 0.34f, boardY, w * 0.68f, size * 0.17f }, 0.4f, 6, black);     // the skull cap
+        Vector2 L = { cx - w * 0.68f, boardY }, T = { cx, boardY - size * 0.13f }, R = { cx + w * 0.68f, boardY }, B = { cx, boardY + size * 0.13f };
+        DrawTriangle(L, B, R, { 44, 48, 58, 255 });
+        DrawTriangle(L, R, T, { 44, 48, 58, 255 });
+        DrawCircleV({ cx, boardY }, size * 0.03f, COL_AMBER);
+        float sw = sinf(m.clock * 2.4f) * size * 0.03f;
+        Vector2 end = { cx + w * 0.52f, boardY + size * 0.03f };
+        DrawLineEx({ cx, boardY }, end, fmaxf(1.5f, size * 0.02f), COL_AMBER);
+        DrawLineEx(end, { end.x + sw, end.y + size * 0.2f }, fmaxf(1.5f, size * 0.02f), COL_AMBER);
+        DrawRectangleRounded({ end.x + sw - size * 0.03f, end.y + size * 0.17f, size * 0.06f, size * 0.12f }, 0.5f, 6, COL_AMBER);
     } else if (hat == "shades") {
-        float ey = top + h * 0.47f, ex = w * 0.2f, gw = size * 0.2f, gh = size * 0.12f;
+        // Big sunglasses, with arms back to the sides of the head
+        float ey = top + h * 0.47f, ex = w * 0.22f, gw = size * 0.3f, gh = size * 0.18f;
         Color black = { 18, 20, 24, 255 };
-        DrawRectangleRounded({ cx - ex - gw / 2, ey - gh / 2, gw, gh }, 0.5f, 6, black);
-        DrawRectangleRounded({ cx + ex - gw / 2, ey - gh / 2, gw, gh }, 0.5f, 6, black);
-        DrawLineEx({ cx - ex + gw / 2, ey - gh * 0.2f }, { cx + ex - gw / 2, ey - gh * 0.2f }, fmaxf(2.0f, size * 0.03f), black);
-        DrawLineEx({ cx - ex - gw * 0.3f, ey - gh * 0.25f }, { cx - ex - gw * 0.05f, ey - gh * 0.25f }, 2, Fade(WHITE, 0.6f));
+        float th = fmaxf(2.0f, size * 0.035f);
+        DrawLineEx({ b.x, ey - gh * 0.25f }, { cx - ex - gw / 2, ey - gh * 0.25f }, th, black);
+        DrawLineEx({ b.x + w, ey - gh * 0.25f }, { cx + ex + gw / 2, ey - gh * 0.25f }, th, black);
+        DrawRectangleRounded({ cx - ex - gw / 2, ey - gh / 2, gw, gh }, 0.55f, 8, black);
+        DrawRectangleRounded({ cx + ex - gw / 2, ey - gh / 2, gw, gh }, 0.55f, 8, black);
+        DrawLineEx({ cx - ex + gw / 2, ey - gh * 0.3f }, { cx + ex - gw / 2, ey - gh * 0.3f }, th, black);
+        DrawLineEx({ cx - ex - gw * 0.35f, ey - gh * 0.22f }, { cx - ex - gw * 0.05f, ey - gh * 0.22f }, fmaxf(1.5f, size * 0.025f), Fade(WHITE, 0.6f));
+        DrawLineEx({ cx + ex - gw * 0.35f, ey - gh * 0.22f }, { cx + ex - gw * 0.15f, ey - gh * 0.22f }, fmaxf(1.5f, size * 0.025f), Fade(WHITE, 0.6f));
     } else if (hat == "bowtie") {
         float y = top + h * 0.9f, s = size * 0.11f;
         DrawTriangle({ cx, y }, { cx - s * 1.6f, y - s }, { cx - s * 1.6f, y + s }, COL_CORAL);
         DrawTriangle({ cx, y }, { cx + s * 1.6f, y + s }, { cx + s * 1.6f, y - s }, COL_CORAL);
         DrawCircleV({ cx, y }, s * 0.45f, { 200, 80, 74, 255 });
     }
-    if (m.skin == "gold" && m.mood != MalMood::Freed) {   // a little sparkle for solid gold
+    if (m.skin == "slayer" && m.mood != MalMood::Freed) {   // a little sparkle for boss slayer gold
         float t = fmodf(m.clock * 0.8f, 1.0f);
         DrawCircleV({ b.x + w * 0.85f, top + h * (0.2f + 0.1f * t) }, size * 0.025f * (1 - t), WHITE);
     }
@@ -294,7 +634,9 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
         return;
     }
 
-    bool hatCovers = m.hat == "partyhat" || m.hat == "hardhat" || m.hat == "tophat" || m.hat == "wizard" || m.hat == "crown";
+    draw_skin_back(m, b, feet, size, body);
+    if (m.hat == "afro") draw_afro_back(b, size);
+    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "gradcap" || m.hat == "wizard" || m.hat == "crown";
 
     // ----- Antenna: a pointer arrow on top, wobbling as Mal moves -----
     if (!hatCovers) {
@@ -324,9 +666,9 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
         Rectangle plate = { b.x + w * 0.16f, b.y + h * 0.1f, w * 0.68f, h * 0.17f };
         DrawRectangleRounded(plate, 0.4f, 6, darker(body, 0.82f));
         float fs = plate.height * 0.72f;
-        const char *addr = "0x9000";
+        std::string addr = mal_address(m);
         ui_text(addr, plate.x + (plate.width - ui_text_width(addr, fs, FontKind::MonoBold)) / 2, plate.y + plate.height * 0.1f,
-                fs, COL_BG, FontKind::MonoBold);
+                fs, m.skin == "dangling" ? COL_CORAL : COL_BG, FontKind::MonoBold);
     }
 
     // ----- Face -----
@@ -349,6 +691,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
         DrawCircleV(d, size * 0.045f, COL_BLUE);
         DrawTriangle({ d.x, d.y - size * 0.09f }, { d.x - size * 0.04f, d.y - size * 0.01f }, { d.x + size * 0.04f, d.y - size * 0.01f }, COL_BLUE);
     }
+    draw_skin_front(m, b, feet, size, body);
     draw_wear(m, b, size);
 
     if (m.mood == MalMood::Sleep) {   // zzz drifting up
