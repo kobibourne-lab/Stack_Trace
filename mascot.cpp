@@ -375,7 +375,13 @@ static void diamond_aura(const Mal &m, Rectangle b, float size)
     Vector2 c = { b.x + b.width / 2, b.y + b.height * 0.5f };
     float pulse = 0.9f + 0.1f * sinf(m.clock * 2.5f);
     BeginBlendMode(BLEND_ADDITIVE);
-    DrawCircleGradient((int)c.x, (int)c.y, size * 0.95f * pulse, Fade({ 110, 200, 255, 255 }, 0.45f), Fade({ 110, 200, 255, 255 }, 0));
+    // The glow: a fan of triangles, bright in the middle and clear at the edge.
+    // (Drawn by hand, because DrawCircleGradient takes different arguments in different raylib versions.)
+    float gr = size * 0.95f * pulse;
+    for (int i = 0; i < 32; i++) {
+        float a0 = i * 2 * PI / 32, a1 = (i + 1) * 2 * PI / 32;
+        beam(c, { c.x + cosf(a0) * gr, c.y + sinf(a0) * gr }, { c.x + cosf(a1) * gr, c.y + sinf(a1) * gr }, Fade({ 110, 200, 255, 255 }, 0.45f));
+    }
     for (int i = 0; i < 10; i++) {
         float a = m.clock * 0.3f + i * PI / 5, spread = 0.07f;
         float len = size * (1.05f + 0.25f * sinf(m.clock * 1.7f + i * 1.3f));
@@ -574,6 +580,97 @@ void mal_draw_with_pet(const Mal &m, Vector2 feet, float size)
     mal_draw(m, feet, size);
 }
 
+
+// The crown, for mastering every topic: five gold points tipped with pearls,
+// a band of gems with a cut diamond in the middle, a shine that sweeps across,
+// twinkling tips, and a golden glow behind (draw_crown_glow).
+static void crown_shape(const Mal &m, Rectangle b, float size, float &cx, float &base, float &cw, float &bh, float &ph)
+{
+    cx = b.x + b.width / 2;
+    base = b.y + b.height * 0.06f + sinf(m.clock * 2.0f) * size * 0.012f;   // it floats a little
+    cw = b.width * 0.92f;
+    bh = size * 0.12f;
+    ph = size * 0.24f;
+}
+
+static void draw_crown_glow(const Mal &m, Rectangle b, float size)
+{
+    float cx, base, cw, bh, ph;
+    crown_shape(m, b, size, cx, base, cw, bh, ph);
+    Vector2 c = { cx, base - bh - ph * 0.3f };
+    float pulse = 0.85f + 0.15f * sinf(m.clock * 3);
+    BeginBlendMode(BLEND_ADDITIVE);
+    float gr = size * 0.55f * pulse;
+    for (int i = 0; i < 24; i++) {
+        float a0 = i * 2 * PI / 24, a1 = (i + 1) * 2 * PI / 24;
+        beam(c, { c.x + cosf(a0) * gr, c.y + sinf(a0) * gr * 0.75f }, { c.x + cosf(a1) * gr, c.y + sinf(a1) * gr * 0.75f }, Fade({ 255, 190, 60, 255 }, 0.5f));
+    }
+    for (int i = 0; i < 7; i++) {   // rays fanning up from the crown
+        float a = PI + PI * (i + 0.5f) / 7 + sinf(m.clock * 0.8f + i) * 0.06f, spread = 0.06f;
+        float len = size * (0.6f + 0.18f * sinf(m.clock * 2.1f + i * 1.7f));
+        beam(c, { c.x + cosf(a - spread) * len, c.y + sinf(a - spread) * len }, { c.x + cosf(a + spread) * len, c.y + sinf(a + spread) * len },
+             Fade({ 255, 215, 110, 255 }, 0.55f));
+    }
+    EndBlendMode();
+}
+
+static void gem_diamond(Vector2 c, float r, float clock)
+{
+    Vector2 L = { c.x - r, c.y }, R = { c.x + r, c.y }, T = { c.x, c.y - r * 0.85f }, B = { c.x, c.y + r * 1.1f };
+    DrawTriangle(L, R, T, { 205, 245, 255, 255 });
+    DrawTriangle(L, B, R, { 110, 195, 245, 255 });
+    DrawTriangle({ c.x - r * 0.35f, c.y }, B, { c.x + r * 0.35f, c.y }, { 160, 225, 255, 255 });
+    DrawTriangle({ c.x - r * 0.4f, c.y }, { c.x + r * 0.4f, c.y }, { c.x, c.y - r * 0.85f }, { 240, 252, 255, 255 });
+    float k = fmodf(clock * 0.9f, 1.0f);
+    star4({ c.x + r * 0.35f, c.y - r * 0.35f }, r * 1.1f * sinf(k * PI), WHITE);
+}
+
+static void draw_crown(const Mal &m, Rectangle b, float size)
+{
+    float cx, base, cw, bh, ph;
+    crown_shape(m, b, size, cx, base, cw, bh, ph);
+    Color gold = { 255, 200, 60, 255 }, deep = { 205, 140, 30, 255 }, light = { 255, 236, 150, 255 };
+    float left = cx - cw / 2, bandTop = base - bh;
+    float sweep = fmodf(m.clock * 0.45f, 1.8f) - 0.4f;   // the shine's position, 0..1 across
+    auto shine = [&](float x) { return fmaxf(0.0f, 1.0f - fabsf((x - left) / cw - sweep) * 4.5f); };
+
+    // Five points, the middle one tallest, each with a pearl on top
+    const float hs[5] = { 0.72f, 0.88f, 1.0f, 0.88f, 0.72f };
+    for (int i = 0; i < 5; i++) {
+        float x0 = left + i * cw / 5, x1 = x0 + cw / 5, xm = (x0 + x1) / 2;
+        Vector2 tip = { xm, bandTop - ph * hs[i] };
+        DrawTriangle({ x0, bandTop + 1 }, { x1, bandTop + 1 }, tip, gold);
+        DrawTriangle({ xm, bandTop + 1 }, { x1, bandTop + 1 }, tip, deep);   // the shaded side
+        float sh = shine(xm);
+        if (sh > 0) DrawTriangle({ x0, bandTop + 1 }, { x1, bandTop + 1 }, tip, Fade(WHITE, sh * 0.55f));
+        float pr = size * 0.038f;
+        DrawCircleV(tip, pr, { 250, 246, 236, 255 });
+        DrawCircleV({ tip.x - pr * 0.3f, tip.y - pr * 0.3f }, pr * 0.35f, WHITE);
+        float k = fmodf(m.clock * 0.7f + i * 0.21f, 1.0f);   // tips twinkle one after another
+        star4({ tip.x, tip.y - pr * 1.6f }, size * 0.06f * fmaxf(0.0f, sinf(k * PI * 2)), WHITE);
+    }
+
+    // The band, with a lighter rim, slices of shine, and gems
+    DrawRectangleRounded({ left - size * 0.02f, bandTop, cw + size * 0.04f, bh }, 0.35f, 6, deep);
+    DrawRectangleRounded({ left, bandTop + bh * 0.12f, cw, bh * 0.76f }, 0.3f, 6, gold);
+    DrawRectangleRec({ left, bandTop + bh * 0.12f, cw, bh * 0.16f }, light);
+    for (int i = 0; i < 12; i++) {
+        float x = left + i * cw / 12, sh = shine(x + cw / 24);
+        if (sh > 0) DrawRectangleRec({ x, bandTop + bh * 0.12f, cw / 12, bh * 0.76f }, Fade(WHITE, sh * 0.6f));
+    }
+    float gy = bandTop + bh * 0.52f;
+    for (int i = 0; i < 2; i++) {   // rubies and sapphires either side
+        float d = (i + 1) * cw * 0.2f;
+        Color gem = i == 0 ? COL_CORAL : Color{ 80, 140, 255, 255 };
+        float gr = size * (i == 0 ? 0.035f : 0.03f);
+        DrawCircleV({ cx - d, gy }, gr, gem);
+        DrawCircleV({ cx + d, gy }, gr, gem);
+        DrawCircleV({ cx - d - gr * 0.3f, gy - gr * 0.3f }, gr * 0.35f, Fade(WHITE, 0.9f));
+        DrawCircleV({ cx + d - gr * 0.3f, gy - gr * 0.3f }, gr * 0.35f, Fade(WHITE, 0.9f));
+    }
+    gem_diamond({ cx, gy - size * 0.01f }, size * 0.065f, m.clock);
+}
+
 static void draw_wear(const Mal &m, Rectangle b, float size)
 {
     float cx = b.x + b.width / 2, top = b.y, w = b.width, h = b.height;
@@ -632,16 +729,7 @@ static void draw_wear(const Mal &m, Rectangle b, float size)
         DrawCircleV({ cx - w * 0.05f, top - size * 0.18f }, size * 0.03f, COL_AMBER);
         DrawCircleV({ cx + w * 0.12f, top - size * 0.34f }, size * 0.022f, COL_AMBER);
     } else if (hat == "crown") {
-        Color gold = { 255, 205, 90, 255 };
-        float base = top + h * 0.04f, cw = w * 0.7f, ch = size * 0.22f;
-        DrawRectangle((int)(cx - cw / 2), (int)(base - ch * 0.45f), (int)cw, (int)(ch * 0.45f), gold);
-        for (int i = 0; i < 3; i++) {
-            float x0 = cx - cw / 2 + i * cw / 3;
-            DrawTriangle({ x0 + cw / 3, base - ch * 0.45f }, { x0 + cw / 6, base - ch }, { x0, base - ch * 0.45f }, gold);
-        }
-        DrawCircleV({ cx, base - ch * 0.22f }, size * 0.035f, COL_CORAL);
-        DrawCircleV({ cx - cw * 0.3f, base - ch * 0.22f }, size * 0.025f, COL_BLUE);
-        DrawCircleV({ cx + cw * 0.3f, base - ch * 0.22f }, size * 0.025f, COL_BLUE);
+        draw_crown(m, b, size);
     } else if (hat == "sombrero") {
         // A huge straw brim, a tall crown and a zigzag band
         Color straw = { 226, 186, 104, 255 }, dark = { 186, 142, 68, 255 };
@@ -749,6 +837,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
 
     draw_skin_back(m, b, feet, size, body);
     if (m.hat == "afro") draw_afro_back(b, size);
+    if (m.hat == "crown" && m.mood != MalMood::Freed) draw_crown_glow(m, b, size);
     bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "sombrero" || m.hat == "explorer" || m.hat == "wizard" || m.hat == "crown";
 
     // ----- Antenna: a pointer arrow on top, wobbling as Mal moves -----
