@@ -133,11 +133,15 @@ static void prepare(Sock s)
 #endif
 }
 
+// The connection is over. Lines already received stay in the inbox, so the
+// last thing the other side said can still be read.
 static void fail(NetConn &c, const std::string &why)
 {
+    std::vector<std::string> received = c.inbox;
     net_close(c);
     c.state = NetState::Failed;
     c.error = why;
+    c.inbox = received;
 }
 
 void net_close(NetConn &c)
@@ -183,6 +187,57 @@ bool net_host(NetConn &c, int port)
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Hosting for spectators
+// ---------------------------------------------------------------------------
+
+bool net_server_open(NetServer &srv, int port)
+{
+    net_server_close(srv);
+    Sock s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == BAD_SOCK) { srv.error = "Couldn't open a network socket."; return false; }
+#ifndef _WIN32
+    int on = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char *)&on, sizeof on);
+#endif
+    sockaddr_in addr;
+    std::memset(&addr, 0, sizeof addr);
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons((unsigned short)port);
+    if (bind(s, (sockaddr *)&addr, sizeof addr) != 0 || listen(s, 8) != 0 || !set_nonblocking(s)) {
+        close_sock(s);
+        srv.error = "Port " + std::to_string(port) + " is already in use, so nobody can watch.";
+        return false;
+    }
+    srv.sock = from_sock(s);
+    srv.error.clear();
+    return true;
+}
+
+bool net_server_accept(NetServer &srv, NetConn &out)
+{
+    if (srv.sock == -1) return false;
+    sockaddr_in peer;
+    socklen_type len = sizeof peer;
+    Sock s = accept(to_sock(srv.sock), (sockaddr *)&peer, &len);
+    if (s == BAD_SOCK) return false;
+    prepare(s);
+    net_close(out);
+    out.sock = from_sock(s);
+    out.peerAddress = format_ipv4(peer.sin_addr);
+    out.state = NetState::Connected;
+    return true;
+}
+
+void net_server_close(NetServer &srv)
+{
+    if (srv.sock != -1) close_sock(to_sock(srv.sock));
+    srv.sock = -1;
+}
+
+bool net_server_open_now(const NetServer &srv) { return srv.sock != -1; }
+
 bool net_join(NetConn &c, const std::string &address, int port, double now)
 {
     net_close(c);
@@ -211,6 +266,18 @@ bool net_join(NetConn &c, const std::string &address, int port, double now)
     }
     c.state = NetState::Connecting;
     return true;
+}
+
+// Moves every whole line in inBuffer into the inbox.
+static void split_lines(NetConn &c)
+{
+    size_t nl;
+    while ((nl = c.inBuffer.find('\n')) != std::string::npos) {
+        std::string line = c.inBuffer.substr(0, nl);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        c.inbox.push_back(line);
+        c.inBuffer.erase(0, nl + 1);
+    }
 }
 
 // Sends what's waiting in outBuffer, as much as the network takes right now.
@@ -283,6 +350,9 @@ void net_update(NetConn &c, double now)
             c.inBuffer.append(buf, (size_t)n);
             if (c.inBuffer.size() > MAX_BUFFER) { fail(c, "The other player sent something too big."); return; }
         } else if (n == 0) {
+            // They closed the connection. Keep the lines that arrived before
+            // they went (their last words, like LEFT or FULL), then fail.
+            split_lines(c);
             fail(c, "The other player left.");
             return;
         } else {
@@ -291,13 +361,7 @@ void net_update(NetConn &c, double now)
             return;
         }
     }
-    size_t nl;
-    while ((nl = c.inBuffer.find('\n')) != std::string::npos) {
-        std::string line = c.inBuffer.substr(0, nl);
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        c.inbox.push_back(line);
-        c.inBuffer.erase(0, nl + 1);
-    }
+    split_lines(c);
 }
 
 bool net_send(NetConn &c, const std::string &line)

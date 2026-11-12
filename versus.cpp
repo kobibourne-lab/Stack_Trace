@@ -252,3 +252,135 @@ std::string vs_default_name()
     clean[0] = (char)toupper((unsigned char)clean[0]);
     return clean;
 }
+
+// ---------------------------------------------------------------------------
+// Spectators and predictions
+// ---------------------------------------------------------------------------
+
+void vs_pool(const std::vector<VsWatcher> &room, int pool[2])
+{
+    pool[0] = pool[1] = 0;
+    for (const VsWatcher &w : room)
+        if ((w.side == 0 || w.side == 1) && w.bytes > 0) pool[w.side] += w.bytes;
+}
+
+int vs_payout(int bytes, int side, int winner, const int pool[2])
+{
+    if (bytes <= 0 || (side != 0 && side != 1)) return 0;
+    if (winner != 0 && winner != 1) return bytes;             // a draw: everyone gets their bytes back
+    if (pool[winner] <= 0) return bytes;                      // nobody picked the winner: back to everyone
+    if (side != winner) return 0;
+    long total = (long)pool[0] + pool[1];
+    return (int)((long)bytes * total / pool[winner]);
+}
+
+std::string vs_clean_name(const std::string &name)
+{
+    std::string out;
+    for (char c : name) if (isalnum((unsigned char)c) && out.size() < 16) out += c;
+    return out.empty() ? "Watcher" : out;
+}
+
+std::string vs_room_line(const std::vector<VsWatcher> &room)
+{
+    std::string line = "ROOM";
+    for (const VsWatcher &w : room)
+        line += " " + vs_clean_name(w.name) + ":" + std::to_string(w.side) + ":" + std::to_string(w.bytes);
+    return line;
+}
+
+std::vector<VsWatcher> vs_parse_room(const std::string &rest)
+{
+    std::vector<VsWatcher> room;
+    std::stringstream ss(rest);
+    std::string item;
+    while (ss >> item) {
+        size_t a = item.find(':'), b = item.rfind(':');
+        if (a == std::string::npos || a == b) continue;
+        VsWatcher w;
+        w.name = item.substr(0, a);
+        w.side = to_int(item.substr(a + 1, b - a - 1));
+        w.bytes = to_int(item.substr(b + 1));
+        room.push_back(w);
+    }
+    return room;
+}
+
+void vs_spectate_apply(VsSpectate &s, const std::string &line, double now)
+{
+    VsMessage msg = vs_parse(line);
+    if (msg.kind == "P" && msg.args.size() >= 2) {
+        int side = to_int(msg.args[0]);
+        if (side != 0 && side != 1) return;
+        size_t space = msg.rest.find(' ');
+        std::string inner = space == std::string::npos ? "" : msg.rest.substr(space + 1);
+        VsMessage im = vs_parse(inner);
+        if (im.kind == "LIVE") { s.live[side] = vs_unescape(im.rest); return; }
+        if (im.kind == "STATS" && im.args.size() >= 2) { s.level[side] = to_int(im.args[0]); s.solved[side] = to_int(im.args[1]); return; }
+        if (im.kind == "START" && im.args.size() >= 3) {
+            // The host started a match: both players start together
+            for (int i = 0; i < 2; i++) {
+                s.side[i].host = false;
+                vs_begin(s.side[i], im.args[0], im.args[1], to_int(im.args[2]), now);
+                s.side[i].startRequested = false;
+                s.live[i].clear();
+            }
+            s.phase = VsPhase::Countdown;
+            s.winner = -2;
+            s.open = false;
+            return;
+        }
+        if (im.kind == "REMATCH") {
+            for (int i = 0; i < 2; i++) s.side[i].phase = VsPhase::Lobby;
+            s.phase = VsPhase::Lobby;
+            s.winner = -2;
+            return;
+        }
+        if (im.kind == "SETTINGS") { s.side[side].host = false; vs_apply(s.side[side], inner, now); return; }
+        vs_apply(s.side[side], inner, now);
+        s.side[side].notice.clear();
+        return;
+    }
+    if (msg.kind == "ROOM") s.room = vs_parse_room(msg.rest);
+    else if (msg.kind == "OPEN") s.open = true;
+    else if (msg.kind == "CLOSED") s.open = false;
+    else if (msg.kind == "CLOCK" && !msg.args.empty()) {
+        double at = now - std::atof(msg.args[0].c_str());
+        for (int i = 0; i < 2; i++) s.side[i].startAt = at;
+    } else if (msg.kind == "RESULT" && !msg.args.empty()) {
+        s.winner = to_int(msg.args[0]);
+        s.phase = VsPhase::Finished;
+        for (int i = 0; i < 2; i++) if (s.side[i].endedAt <= 0) s.side[i].endedAt = now;
+    } else if (msg.kind == "SCORE" && msg.args.size() >= 3) {
+        for (int i = 0; i < 3; i++) s.score[i] = to_int(msg.args[i]);
+    } else if (msg.kind == "FULL") {
+        s.full = true;
+    }
+    vs_spectate_tick(s, now);
+}
+
+void vs_spectate_tick(VsSpectate &s, double now)
+{
+    // The countdown runs out on the spectator's own clock
+    if (s.phase == VsPhase::Countdown && now >= s.side[0].startAt) {
+        s.phase = VsPhase::Playing;
+        for (int i = 0; i < 2; i++) if (s.side[i].phase == VsPhase::Countdown) s.side[i].phase = VsPhase::Playing;
+    }
+}
+
+std::vector<VsNamedEvent> vs_spectate_feed(const VsSpectate &s)
+{
+    std::vector<VsNamedEvent> all;
+    for (int i = 0; i < 2; i++)
+        for (const VsEvent &e : s.side[i].feed) {
+            std::string text = e.text;
+            if (text.compare(0, 5, "Ran: ") == 0) text = "ran: " + text.substr(5);
+            else if (!text.empty()) text[0] = (char)tolower((unsigned char)text[0]);
+            all.push_back({ e.seconds, i, s.side[i].them.name + " " + text, e.kind });
+        }
+    // Newest first
+    for (size_t a = 0; a < all.size(); a++)
+        for (size_t b = a + 1; b < all.size(); b++)
+            if (all[b].seconds > all[a].seconds) std::swap(all[a], all[b]);
+    return all;
+}

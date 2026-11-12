@@ -295,6 +295,7 @@ int main()
             case Screen::ExamPrep: screen_exam(app); break;
             case Screen::Problem:  screen_problem(app); break;
             case Screen::Versus:   screen_versus(app); break;
+            case Screen::Watch:    screen_watch(app); break;
             case Screen::Profile:  screen_profile(app); break;
             case Screen::Campaign: screen_campaign(app); break;
             case Screen::Boss:     screen_boss(app); break;
@@ -311,6 +312,7 @@ int main()
 
     if (app.screen == Screen::Problem) save_draft(app);
     versus_quit(app);
+    watch_quit(app);
     net_shutdown();
     sfx_close();
     city_unload();

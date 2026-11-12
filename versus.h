@@ -17,13 +17,28 @@
 //   LEFT                              I've left this match
 //   REMATCH                           back to the lobby for another
 //   BYE                               I'm closing the connection
+//   STATS <level> <solved>            my level and Exam prep problems solved (for spectators)
+//   LIVE <code>                       my code so far, every second or so (only spectators see it)
+//   WATCHERS <n>                      host: how many people are watching
+//
+// Spectators connect to the host on WATCH_PORT (net.h). The host passes on
+// everything both players say, so a spectator sees the whole match:
+//   WATCH 2 <name>                    spectator: I'm here to watch (2 = the message version)
+//   PREDICT <side> <bytes>            spectator: my prediction (side 0 = the host, 1 = the joiner)
+//   P <side> <line>                   host: a line from (or to) player <side>, e.g. "P 1 RAN 3 5 wrong"
+//   ROOM <name:side:bytes> ...        host: who's watching and what they predicted (side -1 = not yet)
+//   OPEN / CLOSED                     host: predictions open (the lobby) or closed (the match has started)
+//   CLOCK <seconds>                   host, to someone who arrives mid-match: how far in it is
+//   RESULT <side>                     host: who won (-1 = a draw)
+//   SCORE <wins0> <wins1> <draws>     host: this session's head-to-head
+//   FULL                              host: no room for another spectator
 
 #pragma once
 #include <string>
 #include <vector>
 #include "practice.h"
 
-const int VERSUS_VERSION = 1;
+const int VERSUS_VERSION = 2;     // 2: spectators, LIVE and STATS
 const double COUNTDOWN_SECONDS = 3.0;
 const double END_GRACE_SECONDS = 15.0;   // after time's up, how long to wait for the other's last result
 
@@ -115,3 +130,55 @@ double vs_remaining(const VsMatch &m, double now);   // seconds left on the cloc
 
 // The computer's user name with a capital letter, as a starting name.
 std::string vs_default_name();
+
+// ---------------------------------------------------------------------------
+// Spectators and predictions
+// ---------------------------------------------------------------------------
+
+const int MAX_WATCHERS = 4;        // a phone hotspot only takes a handful of devices
+const int START_BYTES = 100;       // what a new spectator starts with
+const int MIN_BYTES = 10;          // anyone below this is topped up, so nobody is stuck out
+
+// One spectator and their prediction (side -1 = hasn't predicted).
+struct VsWatcher {
+    std::string name;
+    int side = -1;
+    int bytes = 0;
+};
+
+// The pool: the bytes on each side.
+void vs_pool(const std::vector<VsWatcher> &room, int pool[2]);
+
+// What a prediction pays back. Winners split the whole pool in proportion to
+// what they put in; a draw, or a match nobody won, gives everyone their bytes
+// back. winner: 0 or 1, or -1 for a draw.
+int vs_payout(int bytes, int side, int winner, const int pool[2]);
+
+// The ROOM line, both ways.
+std::string vs_room_line(const std::vector<VsWatcher> &room);
+std::vector<VsWatcher> vs_parse_room(const std::string &rest);
+
+// A name that's safe to send: letters and digits, at most 16.
+std::string vs_clean_name(const std::string &name);
+
+// What a spectator knows about the match, built from what the host sends.
+// side[i] holds player i as the "them" of a VsMatch, so vs_apply does the work.
+struct VsSpectate {
+    VsMatch side[2];                 // 0 = the host, 1 = the joiner
+    std::string live[2];             // their code so far
+    int level[2] = { 0, 0 }, solved[2] = { 0, 0 };
+    VsPhase phase = VsPhase::Lobby;
+    bool open = true;                // predictions open
+    std::vector<VsWatcher> room;
+    int winner = -2;                 // -2 not known yet, -1 draw, 0 or 1
+    int score[3] = { 0, 0, 0 };      // host wins, joiner wins, draws
+    bool full = false;               // the host said there's no room
+    std::string notice;
+};
+
+void vs_spectate_apply(VsSpectate &s, const std::string &line, double now);
+void vs_spectate_tick(VsSpectate &s, double now);   // every frame: the countdown ending
+
+// Both players' events, newest first, named ("Kobi ran: 3 / 5 tests").
+struct VsNamedEvent { double seconds; int side; std::string text; int kind; };
+std::vector<VsNamedEvent> vs_spectate_feed(const VsSpectate &s);

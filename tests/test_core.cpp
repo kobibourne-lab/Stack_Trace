@@ -550,7 +550,7 @@ static void test_versus()
     VsMatch ryan;
     ryan.host = true;
     ryan.me.name = "Ryan";
-    vs_apply(ryan, "HELLO 1 Kobi", 0);
+    vs_apply(ryan, "HELLO " + std::to_string(VERSUS_VERSION) + " Kobi", 0);
     CHECK(ryan.helloReceived);
     CHECK(ryan.them.name == "Kobi");
     vs_begin(ryan, "exam2", "exam2/09_sum_array", 10, 100.0);
@@ -645,7 +645,7 @@ static void test_versus()
 
     // Different versions don't play
     VsMatch old;
-    vs_apply(old, "HELLO 2 Kobi", 0);
+    vs_apply(old, "HELLO " + std::to_string(VERSUS_VERSION + 1) + " Kobi", 0);
     CHECK(!old.helloReceived);
     CHECK(!old.notice.empty());
     vs_apply(old, "SOMETHING NEW 1 2 3", 0);          // unknown messages are ignored
@@ -1076,6 +1076,123 @@ static void test_memory_city()
     CHECK(c[1].open && c[1].playing && c[1].status == "0 / 1 topics");
 }
 
+// Spectators: the pool and payouts, following a whole match from what the
+// host passes on, and a real listening socket taking two spectators at once
+static void test_spectators()
+{
+    // The pool, and what predictions pay
+    std::vector<VsWatcher> room = { { "Aoife", 0, 40 }, { "Cian", 1, 60 }, { "Dara", -1, 0 } };
+    int pool[2];
+    vs_pool(room, pool);
+    CHECK(pool[0] == 40 && pool[1] == 60);
+    CHECK(vs_payout(40, 0, 0, pool) == 100);          // the less popular pick takes the whole pool
+    CHECK(vs_payout(60, 1, 0, pool) == 0);
+    CHECK(vs_payout(60, 1, 1, pool) == 100);
+    CHECK(vs_payout(40, 0, -1, pool) == 40);          // a draw: bytes back
+    int lopsided[2] = { 0, 50 };
+    CHECK(vs_payout(50, 1, 0, lopsided) == 50);       // nobody picked the winner: bytes back
+    CHECK(vs_payout(0, 0, 0, pool) == 0);
+    CHECK(vs_payout(10, -1, 0, pool) == 0);           // no prediction, nothing back
+
+    // The ROOM line both ways, and safe names
+    std::vector<VsWatcher> back = vs_parse_room(vs_parse(vs_room_line(room)).rest);
+    CHECK(back.size() == 3 && back[1].name == "Cian" && back[1].side == 1 && back[1].bytes == 60 && back[2].side == -1);
+    CHECK(vs_clean_name("Ao ife!:x") == "Aoifex");
+    CHECK(vs_clean_name("::") == "Watcher");
+
+    // A whole match as a spectator sees it
+    VsSpectate s;
+    double t = 100;
+    vs_spectate_apply(s, "P 0 HELLO 2 Ryan", t);
+    vs_spectate_apply(s, "P 0 STATS 7 21", t);
+    vs_spectate_apply(s, "P 1 HELLO 2 Kobi", t);
+    vs_spectate_apply(s, "P 0 SETTINGS exam2 Easy 10", t);
+    vs_spectate_apply(s, "ROOM Aoife:-1:0 Cian:1:60", t);
+    CHECK(s.side[0].them.name == "Ryan" && s.side[1].them.name == "Kobi");
+    CHECK(s.level[0] == 7 && s.solved[0] == 21);
+    CHECK(s.side[0].lobbySet == "exam2" && s.side[0].lobbyMinutes == 10);
+    CHECK(s.room.size() == 2 && s.open && s.phase == VsPhase::Lobby);
+    vs_spectate_apply(s, "CLOSED", t);
+    vs_spectate_apply(s, "P 0 START exam2 exam2/03_find_max 10", t);
+    CHECK(!s.open && s.phase == VsPhase::Countdown);
+    CHECK(s.side[0].problemId == "exam2/03_find_max" && s.side[1].minutes == 10);
+    vs_spectate_tick(s, t + 3.5);
+    CHECK(s.phase == VsPhase::Playing);
+    vs_spectate_apply(s, "P 1 RUNNING", t + 20);
+    CHECK(s.side[1].them.running);
+    vs_spectate_apply(s, "P 1 RAN 2 5 wrong", t + 23);
+    vs_spectate_apply(s, "P 1 LIVE int x;\\nint y;", t + 24);
+    vs_spectate_apply(s, "P 0 RAN 0 5 compile", t + 30);
+    CHECK(s.side[1].them.passed == 2 && s.side[1].them.bestPassed == 2 && !s.side[1].them.running);
+    CHECK(s.side[0].them.compileErrors == 1);
+    CHECK(s.live[1] == "int x;\nint y;");
+    std::vector<VsNamedEvent> feed = vs_spectate_feed(s);
+    CHECK(feed.size() == 2 && feed[0].side == 0 && feed[1].side == 1);   // newest first
+    CHECK(feed[1].text == "Kobi ran: 2 / 5 tests");
+    vs_spectate_apply(s, "P 0 DONE 95.0", t + 98);
+    vs_spectate_apply(s, "P 0 CODE int f() {}\\n", t + 98);
+    CHECK(s.side[0].them.finished && s.side[0].them.hasCode);
+    vs_spectate_apply(s, "RESULT 0", t + 99);
+    vs_spectate_apply(s, "SCORE 1 0 0", t + 99);
+    CHECK(s.phase == VsPhase::Finished && s.winner == 0 && s.score[0] == 1);
+    vs_spectate_apply(s, "P 1 REMATCH", t + 120);
+    CHECK(s.phase == VsPhase::Lobby && s.winner == -2);
+    vs_spectate_apply(s, "OPEN", t + 120);
+    CHECK(s.open);
+    // Arriving mid-match: the clock is set from how far in it is
+    VsSpectate late;
+    vs_spectate_apply(late, "P 0 START exam2 exam2/03_find_max 10", 500);
+    vs_spectate_apply(late, "CLOCK 60.00", 500);
+    CHECK(late.phase == VsPhase::Playing);
+    CHECK(vs_elapsed(late.side[0], 500) > 59.9 && vs_elapsed(late.side[0], 500) < 60.1);
+
+    // A real listening socket taking two spectators at once
+    NetServer server;
+    const int port = 5097;
+    CHECK(net_server_open(server, port));
+    NetConn a, b, inA, inB;
+    CHECK(net_join(a, "127.0.0.1", port, 0));
+    CHECK(net_join(b, "127.0.0.1", port, 0));
+    int accepted = 0;
+    for (int i = 0; i < 200 && accepted < 2; i++) {
+        net_update(a, 0);
+        net_update(b, 0);
+        if (accepted == 0 && net_server_accept(server, inA)) accepted++;
+        if (accepted == 1 && net_server_accept(server, inB)) accepted++;
+    }
+    CHECK(accepted == 2);
+    CHECK(inA.state == NetState::Connected && inB.state == NetState::Connected);
+    net_send(a, "WATCH 2 Aoife");
+    net_send(inA, "ROOM Aoife:-1:0");
+    net_send(inB, "ROOM Aoife:-1:0");
+    std::string got, gotA, gotB;
+    for (int i = 0; i < 200 && (got.empty() || gotA.empty() || gotB.empty()); i++) {
+        net_update(a, 0); net_update(b, 0); net_update(inA, 0); net_update(inB, 0);
+        if (got.empty()) net_receive(inA, got);
+        if (gotA.empty()) net_receive(a, gotA);
+        if (gotB.empty()) net_receive(b, gotB);
+    }
+    CHECK(got == "WATCH 2 Aoife");
+    CHECK(gotA == "ROOM Aoife:-1:0" && gotB == "ROOM Aoife:-1:0");
+    NetServer second;
+    CHECK(!net_server_open(second, port));             // the port is taken while hosting
+    net_close(a); net_close(b); net_close(inA); net_close(inB);
+    net_server_close(server);
+    CHECK(net_server_open(second, port));             // and free again after
+    net_server_close(second);
+
+    // Bytes are saved
+    Progress p;
+    CHECK(p.bytes == START_BYTES);
+    p.bytes = 160;
+    std::string error, path = "test_progress_bytes.txt";
+    CHECK(progress_save(path, p, error));
+    Progress loaded;
+    CHECK(progress_load(path, loaded, error));
+    CHECK(loaded.bytes == 160);
+    std::remove(path.c_str());
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -1096,6 +1213,7 @@ int main()
     run("MAL-OS: commands, files, unlocks, the dungeon", test_mal_os);
     run("wardrobe, snake and minigame scores", test_wardrobe_snake_scores);
     run("memory city: islands, stops and labels", test_memory_city);
+    run("Versus spectators: predictions, payouts, watching", test_spectators);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

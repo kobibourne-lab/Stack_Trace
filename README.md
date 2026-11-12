@@ -271,6 +271,26 @@ To check the network on its own, before playing: on the host's Mac,
 `Test-NetConnection <host address> -Port 5050`. `TcpTestSucceeded : True` means
 it'll work.
 
+### Watching, and predicting the winner
+
+Up to 4 more laptops can **watch** a match (a phone hotspot takes about 5
+devices, so 2 players and 2 spectators is comfortable).
+
+1. On the spectator's laptop, press **Versus**, type the host's address and
+   press **Watch** (not Join). Spectators connect on port 5051, so they can never
+   take the opponent's place.
+2. Before the match, each spectator **predicts** who'll win and puts **bytes** on
+   it: play money, saved in their `progress.txt`. Everyone starts with 100.
+   Predictions close when the host presses Start, and each spectator gets one.
+3. During the match, spectators see **both players' code as they type**, their
+   test results and a live feed. The players still can't see each other's code.
+4. At the end, winners split the whole pool in proportion to what they put in,
+   so the less popular pick pays more. A draw gives everyone their bytes back.
+   Anyone left with under 10 bytes is topped up to 10.
+
+The host sees who's watching and what they've predicted in the lobby. Both
+players need the same version of Stack Trace (the messages are version 2 now).
+
 ## Tests
 
 `make test` runs `tests/test_core.cpp`, with no window:
@@ -295,6 +315,9 @@ it'll work.
 13. the campaign: loading `campaign.txt`, clearing topics, opening regions,
     beaten bosses in `progress.txt` (best time and stars kept), stars and HP,
     and that every region's topics and boss problem really exist
+14. Versus spectators: the pool and payouts, following a whole match from what
+    the host passes on, arriving mid-match, a real socket taking two
+    spectators at once, and bytes saved in `progress.txt`
 
 ## Files
 
@@ -319,6 +342,7 @@ it'll work.
 | `net.cpp/.h` | Versus: the connection between two computers (no raylib: windows.h clashes with it) |
 | `versus.cpp/.h` | Versus: the messages and match rules (no drawing) |
 | `screen_versus.cpp` | Versus: lobby, countdown, live match and result |
+| `screen_watch.cpp` | watching a Versus match: predicting, both players' code live, payouts |
 | `screen_profile.cpp` | the profile: stats, badges, pinned topics, activity heatmap |
 | `campaign.cpp/.h` | the campaign: regions, what's cleared and open, boss HP and stars (no drawing) |
 | `screen_campaign.cpp` | the campaign's world map |
