@@ -36,7 +36,7 @@ struct BossRecord {
 struct Progress {
     std::map<std::string, int> points;  // topic id -> 0..100
     std::map<std::string, int> scores;  // MAL-OS minigame -> best score
-    std::string hat = "none", skin = "classic";   // what Mal is wearing (the wardrobe)
+    std::string hat = "none", skin = "classic", pet = "nopet";   // what Mal is wearing (the wardrobe)
     std::vector<AnswerRecord> answers;
     std::map<std::string, SolvedRecord> solved;   // problem id ("lab1/q01_leap_year") -> record
     std::map<std::string, BossRecord> bosses;     // campaign region id ("stack") -> record

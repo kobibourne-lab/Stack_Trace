@@ -33,6 +33,7 @@ struct Mal {
 
     std::string hat = "none";          // from the wardrobe (wardrobe.h has the list)
     std::string skin = "classic";
+    std::string pet = "nopet";         // cat, dog or bird
 };
 
 // React to something: show `mood` for `seconds`, then go back to the base
@@ -47,6 +48,13 @@ void mal_update(Mal &m, float dt);
 // Draw Mal standing with its feet at `feet`, `size` pixels tall (the body,
 // not counting the antenna).
 void mal_draw(const Mal &m, Vector2 feet, float size);
+
+// Mal with their pet (if any) sitting beside them, for screens with room.
+void mal_draw_with_pet(const Mal &m, Vector2 feet, float size);
+
+// Just a pet, `size` pixels tall, sitting at `at`. tag = show its label
+// (const, static, volatile).
+void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag);
 
 // A speech bubble whose tail points at `tail`. The bubble's top-left corner is
 // at (x, y), it's `width` wide, and as tall as the text needs.

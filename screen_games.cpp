@@ -59,9 +59,14 @@ static void game_over(App &app, const std::string &title, const std::string &lin
     finalScore = score;
     overAt = (float)GetTime();
     newBest = progress_record_score(app.progress, app.gameId, score) && score > 0;
+    int crashes = ++app.progress.scores["crashes"];   // the glitch skin unlocks on the first one
     save_progress(app);
     app.mos.out.push_back({ app.gameId + " exited: score " + std::to_string(score) + (newBest ? "  NEW BEST!" : ""),
                             newBest ? MosTone::Good : MosTone::Dim });
+    if (crashes == 1) {
+        app.mos.out.push_back({ "Memory corrupted. Glitch skin unlocked in the wardrobe!", MosTone::Accent });
+        fx_float_text("Glitch skin unlocked!", { SCREEN_W / 2.0f, 150 }, 26, COL_PURPLE);
+    }
     if (newBest) { sfx_play(Sfx::LevelUp); mal_react(app.mal, MalMood::Cheer, 2.5f); }
     else { sfx_play(Sfx::Crumble); mal_react(app.mal, MalMood::Sad, 2.0f); }
     fx_shake(0.6f);

@@ -61,6 +61,7 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
         } else if (key == "WEAR" && fields.size() >= 2) {
             if (!fields[0].empty()) p.hat = fields[0];
             if (!fields[1].empty()) p.skin = fields[1];
+            if (fields.size() >= 3 && !fields[2].empty()) p.pet = fields[2];   // older saves have no pet
         }
     }
     return true;
@@ -85,8 +86,8 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
           << entry.second.stars << "\n";
     for (const auto &entry : p.scores)
         f << "SCORE: " << entry.first << " | " << entry.second << "\n";
-    if (p.hat != "none" || p.skin != "classic")
-        f << "WEAR: " << p.hat << " | " << p.skin << "\n";
+    if (p.hat != "none" || p.skin != "classic" || p.pet != "nopet")
+        f << "WEAR: " << p.hat << " | " << p.skin << " | " << p.pet << "\n";
     if (!f) {
         error = "error while writing " + path;
         return false;

@@ -33,6 +33,7 @@
 #include "theme.h"
 #include "ui.h"
 #include "app.h"
+#include "memcity.h"
 #include "logo_icon.h"
 #include "fx.h"
 #include "sfx.h"
@@ -255,8 +256,11 @@ int main()
     if (!progress_load(app.progressPath, app.progress, error))
         TraceLog(LOG_WARNING, "PROGRESS: %s", error.c_str());
     app.levelShown = level_for_xp(progress_xp(app.progress));   // only celebrate new levels
+    app.progress.hat = wardrobe_rename(app.progress.hat);         // some items were renamed
+    app.progress.skin = wardrobe_rename(app.progress.skin);
     app.mal.hat = app.progress.hat;                              // Mal wears what was saved
     app.mal.skin = app.progress.skin;
+    app.mal.pet = app.progress.pet;
 
     while (!WindowShouldClose() && !app.quit) {
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
@@ -309,6 +313,7 @@ int main()
     versus_quit(app);
     net_shutdown();
     sfx_close();
+    city_unload();
     ui_unload_fonts();
     CloseWindow();
     return 0;

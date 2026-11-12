@@ -97,7 +97,7 @@ static void draw_mal(App &app, int streak)
             sfx_play(Sfx::Correct);
         }
     }
-    mal_draw(app.mal, feet, size);
+    mal_draw_with_pet(app.mal, feet, size);
 
     // What Mal says
     std::string line;
