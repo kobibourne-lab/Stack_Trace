@@ -5,7 +5,13 @@
 //   ANSWER: 2026-11-03 | pointers | 1
 //   SOLVED: lab1/q01_leap_year | 2026-11-03 | 154
 //   BOSS: stack | 2026-11-10 | 401 | 2
-//   BYTES: 160   (a spectator's play money for Versus predictions)
+//   BYTES: 160   (pocket money: Versus predictions, rewards, the wardrobe shop)
+//   OWNED: beanie | duck   (wardrobe items bought with bytes)
+//   DAYS: 2026-11-12 | 2026-11-13   (days something was learned: the streak)
+//   FROZEN: 2026-11-10   (missed days a const freeze covered)
+//   FREEZES: 1   (const freezes held)
+//   DAILY: 2026-11-13 | 1 | correct=4 | game=2   (today's quests: the date,
+//          the chests opened as bits, then the counters)
 // For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
 // the fastest time in seconds. For BOSS (a campaign boss beaten), the numbers
 // are the fastest win in seconds and the most stars.
@@ -49,6 +55,23 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             s.date = fields[1];
             s.seconds = fields.size() >= 3 ? std::atoi(fields[2].c_str()) : 0;
             p.solved[fields[0]] = s;
+        } else if (key == "OWNED") {
+            for (const std::string &id : fields) if (!id.empty()) p.owned.insert(id);
+        } else if (key == "DAYS") {
+            for (const std::string &d : fields) if (date_to_days(d) >= 0) p.activeDays.insert(d);
+        } else if (key == "FROZEN") {
+            for (const std::string &d : fields) if (date_to_days(d) >= 0) p.frozenDays.insert(d);
+        } else if (key == "FREEZES" && !fields.empty()) {
+            p.freezes = std::atoi(fields[0].c_str());
+            if (p.freezes < 0) p.freezes = 0;
+        } else if (key == "DAILY" && fields.size() >= 2) {
+            p.daily.date = fields[0];
+            p.daily.claimed = std::atoi(fields[1].c_str());
+            for (size_t i = 2; i < fields.size(); i++) {
+                size_t eq = fields[i].find('=');
+                if (eq == std::string::npos || eq == 0) continue;
+                p.daily.counts[fields[i].substr(0, eq)] = std::atoi(fields[i].substr(eq + 1).c_str());
+            }
         } else if (key == "BYTES" && !fields.empty()) {
             p.bytes = std::atoi(fields[0].c_str());
             if (p.bytes < 0) p.bytes = 0;
@@ -86,6 +109,27 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
     for (const auto &entry : p.solved)
         f << "SOLVED: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << "\n";
     f << "BYTES: " << p.bytes << "\n";
+    if (!p.owned.empty()) {
+        f << "OWNED: ";
+        bool first = true;
+        for (const std::string &id : p.owned) { f << (first ? "" : " | ") << id; first = false; }
+        f << "\n";
+    }
+    auto save_set = [&f](const char *key, const std::set<std::string> &items) {
+        if (items.empty()) return;
+        f << key << ": ";
+        bool first = true;
+        for (const std::string &d : items) { f << (first ? "" : " | ") << d; first = false; }
+        f << "\n";
+    };
+    save_set("DAYS", p.activeDays);
+    save_set("FROZEN", p.frozenDays);
+    if (p.freezes > 0) f << "FREEZES: " << p.freezes << "\n";
+    if (!p.daily.date.empty()) {
+        f << "DAILY: " << p.daily.date << " | " << p.daily.claimed;
+        for (const auto &c : p.daily.counts) f << " | " << c.first << "=" << c.second;
+        f << "\n";
+    }
     for (const auto &entry : p.bosses)
         f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
           << entry.second.stars << "\n";
@@ -264,14 +308,23 @@ std::map<std::string, int> answers_per_day(const Progress &p)
     return counts;
 }
 
+bool progress_day_active(const Progress &p, const std::string &date)
+{
+    if (p.activeDays.count(date)) return true;
+    for (const AnswerRecord &a : p.answers) if (a.date == date) return true;
+    return false;
+}
+
 int progress_streak(const Progress &p, const std::string &today)
 {
-    std::map<std::string, int> counts = answers_per_day(p);
+    std::set<std::string> active = p.activeDays;
+    for (const AnswerRecord &a : p.answers) active.insert(a.date);
     std::string day = today;
-    if (counts.find(day) == counts.end()) day = date_add_days(today, -1);
+    if (!active.count(day)) day = date_add_days(today, -1);
     int streak = 0;
-    while (counts.find(day) != counts.end()) {
-        streak++;
+    for (;;) {
+        if (active.count(day)) streak++;
+        else if (!p.frozenDays.count(day)) break;   // a frozen day keeps it going without adding to it
         day = date_add_days(day, -1);
     }
     return streak;

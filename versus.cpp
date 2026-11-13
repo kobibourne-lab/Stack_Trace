@@ -73,10 +73,13 @@ static int to_int(const std::string &s) { return std::atoi(s.c_str()); }
 void vs_begin(VsMatch &m, const std::string &setId, const std::string &problemId, int minutes, double now)
 {
     std::string myName = m.me.name, theirName = m.them.name;
+    VsLook myLook = m.me.look, theirLook = m.them.look;   // who they are carries over; the scores start again
     m.me = VsPlayer();
     m.them = VsPlayer();
     m.me.name = myName;
     m.them.name = theirName;
+    m.me.look = myLook;
+    m.them.look = theirLook;
     m.feed.clear();
     m.setId = setId;
     m.problemId = problemId;
@@ -161,6 +164,8 @@ void vs_apply(VsMatch &m, const std::string &line, double now)
     } else if (msg.kind == "REMATCH") {
         m.phase = VsPhase::Lobby;
         m.notice = them.name + " wants a rematch.";
+    } else if (msg.kind == "LOOK") {
+        them.look = vs_parse_look(msg.rest);
     }
     // Anything else is ignored, so a newer version's extra messages don't break this one
 }
@@ -281,11 +286,42 @@ std::string vs_clean_name(const std::string &name)
     return out.empty() ? "Watcher" : out;
 }
 
+// A wardrobe id that's safe to send: lowercase letters and digits, at most 16.
+static std::string clean_id(const std::string &id, const std::string &fallback)
+{
+    std::string out;
+    for (char c : id) {
+        if (out.size() >= 16) break;
+        if (std::isalnum((unsigned char)c)) out += (char)std::tolower((unsigned char)c);
+    }
+    return out.empty() ? fallback : out;
+}
+
+std::string vs_look_line(const VsLook &look)
+{
+    return "LOOK " + clean_id(look.hat, "none") + " " + clean_id(look.skin, "classic") + " " + clean_id(look.pet, "nopet");
+}
+
+VsLook vs_parse_look(const std::string &rest)
+{
+    std::stringstream ss(rest);
+    std::string hat, skin, pet;
+    ss >> hat >> skin >> pet;
+    VsLook look;
+    look.hat = clean_id(hat, "none");
+    look.skin = clean_id(skin, "classic");
+    look.pet = clean_id(pet, "nopet");
+    return look;
+}
+
 std::string vs_room_line(const std::vector<VsWatcher> &room)
 {
     std::string line = "ROOM";
-    for (const VsWatcher &w : room)
-        line += " " + vs_clean_name(w.name) + ":" + std::to_string(w.side) + ":" + std::to_string(w.bytes);
+    for (const VsWatcher &w : room) {
+        VsLook look = vs_parse_look(vs_look_line(w.look).substr(5));   // cleaned
+        line += " " + vs_clean_name(w.name) + ":" + std::to_string(w.side) + ":" + std::to_string(w.bytes) +
+                ":" + look.hat + ":" + look.skin + ":" + look.pet;
+    }
     return line;
 }
 
@@ -295,12 +331,16 @@ std::vector<VsWatcher> vs_parse_room(const std::string &rest)
     std::stringstream ss(rest);
     std::string item;
     while (ss >> item) {
-        size_t a = item.find(':'), b = item.rfind(':');
-        if (a == std::string::npos || a == b) continue;
+        std::vector<std::string> f;   // name, side, bytes, then (newer copies) hat, skin, pet
+        std::stringstream parts(item);
+        std::string part;
+        while (std::getline(parts, part, ':')) f.push_back(part);
+        if (f.size() < 3) continue;
         VsWatcher w;
-        w.name = item.substr(0, a);
-        w.side = to_int(item.substr(a + 1, b - a - 1));
-        w.bytes = to_int(item.substr(b + 1));
+        w.name = f[0];
+        w.side = to_int(f[1]);
+        w.bytes = to_int(f[2]);
+        if (f.size() >= 6) w.look = vs_parse_look(f[3] + " " + f[4] + " " + f[5]);
         room.push_back(w);
     }
     return room;

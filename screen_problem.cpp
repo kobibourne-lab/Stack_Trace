@@ -8,6 +8,8 @@
 #include "app.h"
 #include "theme.h"
 #include "ui.h"
+#include "fx.h"
+#include "sfx.h"
 #include <cmath>
 #include <fstream>
 #include <filesystem>
@@ -86,6 +88,7 @@ static void do_run(App &app)
     w.result = run_answer(p, eb_text(w.code), WORK_DIR);
     w.hasResult = true;
     w.runCount++;
+    if (!w.versus) quest_event(app, "run");
     w.resultWasSubmit = w.submitting;
     w.consoleScroll = 0;
     w.detailScroll = 0;
@@ -95,11 +98,28 @@ static void do_run(App &app)
     for (int i = 0; i < (int)w.result.tests.size(); i++)
         if (!w.result.tests[i].passed) { w.selectedTest = i; break; }
 
-    if (w.submitting && run_accepted(w.result)) {
+    if (w.submitting && run_accepted(w.result) && !w.accepted) {
         w.accepted = true;
         int seconds = (int)(GetTime() - w.started);
-        if (w.examMode) w.stoppedAt = GetTime();
+        w.stoppedAt = GetTime();   // the clock stops
+        auto before = app.progress.solved.find(p.id);
+        int previous = before == app.progress.solved.end() ? 0 : before->second.seconds;
         bool first = progress_mark_solved(app.progress, p.id, today_string(), seconds);
+        // The "Solved!" card: how long it took, and whether it's a first or a new best
+        // (only on the Exam prep screen: Versus and boss fights have their own endings)
+        w.finishShown = app.screen == Screen::Problem;
+        w.finishAt = GetTime();
+        w.firstSolve = first;
+        w.solveSeconds = seconds;
+        w.newBest = !first && previous > 0 && seconds < previous;
+        w.bestSeconds = app.progress.solved[p.id].seconds;
+        if (w.finishShown) {
+            mal_react(app.mal, MalMood::Cheer, 3.0f);
+            sfx_play(Sfx::LevelUp);
+            fx_burst({ SCREEN_W / 2.0f, SCREEN_H / 2.0f - 40 }, 60, COL_GREEN, COL_AMBER);
+        }
+        learned_today(app);
+        quest_event(app, "solve");
         if (first && !p.topic.empty()) {
             record_answer(app, p.topic, true);   // counts towards the topic's mastery, and saves
         } else {
@@ -108,6 +128,83 @@ static void do_run(App &app)
         }
     }
     w.runPhase = 0;
+}
+
+// ---------------------------------------------------------------------------
+// The "Solved!" card, over everything once a submit is accepted
+// ---------------------------------------------------------------------------
+
+// The next problem in this set after `from` (wrapping round), preferring ones
+// not solved yet. -1 if this is the only one.
+static int next_problem(const App &app, int set, int from)
+{
+    const std::vector<Problem> &ps = app.practice[set].problems;
+    int n = (int)ps.size();
+    for (int pass = 0; pass < 2; pass++)
+        for (int k = 1; k < n; k++) {
+            int i = (from + k) % n;
+            if (pass == 1 || !progress_is_solved(app.progress, ps[i].id)) return i;
+        }
+    return -1;
+}
+
+// Returns true if it left the screen.
+static bool draw_finish(App &app)
+{
+    Workspace &w = app.work;
+    const Problem &p = current(app);
+    float age = (float)(GetTime() - w.finishAt);
+    float in = fminf(1.0f, age * 4);
+    float pop = 1 + 0.12f * expf(-age * 6) * sinf(age * 20);   // the card bounces in
+
+    DrawRectangle(0, 0, SCREEN_W, SCREEN_H, Fade(BLACK, 0.55f * in));
+    float cw = 560 * pop, ch = 380 * pop;
+    Rectangle c = { SCREEN_W / 2.0f - cw / 2, SCREEN_H / 2.0f - ch / 2 + (1 - in) * 40, cw, ch };
+    ui_panel(c, COL_SURFACE, COL_GREEN, 2);
+
+    mal_draw_with_pet(app.mal, { c.x + 110, c.y + 200 }, 100);
+    float tx = c.x + 220;
+    ui_text("ACCEPTED", tx, c.y + 34, 13, COL_GREEN, FontKind::MonoBold);
+    ui_text("Solved!", tx, c.y + 54, 40, COL_TEXT, FontKind::UiBold);
+    ui_text_wrapped(p.title, tx, c.y + 104, c.width - 240, 15, COL_TEXT_SOFT);
+
+    // Time, and what it earned
+    std::string time = clock_text(w.solveSeconds);
+    ui_text(time, tx, c.y + 140, 30, COL_AMBER, FontKind::MonoBold);
+    std::string sub = w.examMode ? "exam mode, " + clock_text(w.endsAt - w.started) + " allowed" : "to solve it";
+    ui_text(sub, tx + ui_text_width(time, 30, FontKind::MonoBold) + 12, c.y + 152, 13, COL_MUTED);
+    float ly = c.y + 192;
+    if (w.firstSolve) {
+        ui_text("+" + std::to_string(XP_SOLVED) + " XP", tx, ly, 18, COL_GREEN, FontKind::MonoBold);
+        ui_text("first time solved", tx + 92, ly + 3, 13, COL_TEXT_SOFT);
+    } else if (w.newBest) {
+        ui_text("NEW BEST TIME!", tx, ly, 18, COL_AMBER, FontKind::MonoBold);
+    } else {
+        ui_text("Best time: " + clock_text(w.bestSeconds), tx, ly, 15, COL_TEXT_SOFT, FontKind::Mono);
+    }
+    std::string runs = std::to_string(w.runCount) + (w.runCount == 1 ? " run" : " runs") + ", " +
+                       std::to_string(w.result.passed) + " / " + std::to_string(w.result.passed + w.result.failed) + " tests";
+    ui_text(runs, tx, ly + 30, 13, COL_MUTED, FontKind::Mono);
+
+    // Where next
+    int next = next_problem(app, w.set, w.problem);
+    float by = c.y + c.height - 28 - 46;
+    float bw = (c.width - 56 - 24) / 3;
+    bool ready = age > 0.35f;   // so a held Enter from submitting doesn't skip it
+    if (next >= 0 && (ui_button("Next problem", { c.x + 28, by, bw, 46 }, ButtonStyle::Primary, COL_GREEN) || (ready && IsKeyPressed(KEY_ENTER)))) {
+        save_draft(app);
+        open_problem(app, w.set, next, w.examMode);
+        return true;
+    }
+    if (ui_button("All problems", { c.x + 28 + bw + 12, by, bw, 46 }, ButtonStyle::Outline, COL_TEXT) || (ready && IsKeyPressed(KEY_ESCAPE))) {
+        leave(app);
+        return true;
+    }
+    if (ui_button("See my code", { c.x + 28 + 2 * (bw + 12), by, bw, 46 }, ButtonStyle::Outline, COL_TEXT_SOFT))
+        w.finishShown = false;   // back to the editor, clock still stopped
+    std::string keys = next >= 0 ? "ENTER next problem     ESC all problems" : "ESC all problems";
+    ui_text(keys, c.x + c.width - 28 - ui_text_width(keys, 11, FontKind::Mono), by - 24, 11, COL_MUTED, FontKind::Mono);
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -428,8 +525,8 @@ void screen_problem(App &app)
 
     bool cmd = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-    bool locked = w.timeUp;
-    if (IsKeyPressed(KEY_ESCAPE)) { leave(app); return; }
+    bool locked = w.timeUp || w.finishShown;   // the editor doesn't type behind the "Solved!" card
+    if (IsKeyPressed(KEY_ESCAPE) && !w.finishShown) { leave(app); return; }
     if (!locked && ((cmd && IsKeyPressed(KEY_ENTER)) || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F6)))
         problem_start_run(app, shift || IsKeyPressed(KEY_F6));
 
@@ -447,9 +544,9 @@ void screen_problem(App &app)
         ui_panel({ clockX - tw, 14, tw, 36 }, COL_BG, c, 1);
         ui_text(t, clockX - tw + 14, 22, 18, c, FontKind::MonoBold);
     } else {
-        std::string t = clock_text(GetTime() - w.started);
+        std::string t = clock_text((w.stoppedAt > 0 ? w.stoppedAt : GetTime()) - w.started);   // stops when it's solved
         float tw = ui_text_width(t, 15, FontKind::Mono);
-        ui_text(t, clockX - tw, 24, 15, COL_MUTED, FontKind::Mono);
+        ui_text(t, clockX - tw, 24, 15, w.stoppedAt > 0 ? COL_GREEN : COL_MUTED, FontKind::Mono);
     }
 
     // ----- Layout -----
@@ -465,7 +562,7 @@ void screen_problem(App &app)
     problem_draw_console(app, console);
 
     // ----- Footer -----
-    ui_footer_hints({ "Ctrl/Cmd+Enter run", "Ctrl/Cmd+Shift+Enter submit", "ESC problems" });
+    if (!w.finishShown) ui_footer_hints({ "Ctrl/Cmd+Enter run", "Ctrl/Cmd+Shift+Enter submit", "ESC problems" });
     float by = SCREEN_H - FOOTER_H + 8;
     ButtonStyle runStyle = (locked || w.runPhase != 0) ? ButtonStyle::Disabled : ButtonStyle::Outline;
     ButtonStyle submitStyle = (locked || w.runPhase != 0) ? ButtonStyle::Disabled : ButtonStyle::Primary;
@@ -480,6 +577,8 @@ void screen_problem(App &app)
         float mw = ui_text_width(msg, 14);
         ui_text(msg, SCREEN_W - MARGIN - 120 - 12 - 100 - 20 - mw, by + 12, 14, COL_CORAL);
     }
+
+    if (w.finishShown && draw_finish(app)) return;
 
     // "Running" shows for one frame before the (blocking) run starts
     problem_end_frame(app);

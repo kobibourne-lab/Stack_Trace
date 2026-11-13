@@ -56,6 +56,13 @@ void mal_draw_with_pet(const Mal &m, Vector2 feet, float size);
 // (const, static, volatile).
 void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag);
 
+// Mal in a round badge (where the letter circles used to be): a coloured ring
+// with Mal standing inside, `r` its radius. The hat can poke out of the top.
+void mal_badge(const Mal &m, Vector2 centre, float r, Color ring);
+
+// Dress a Mal in wardrobe ids (a player's or spectator's LOOK).
+void mal_wear(Mal &m, const std::string &hat, const std::string &skin, const std::string &pet);
+
 // A speech bubble whose tail points at `tail`. The bubble's top-left corner is
 // at (x, y), it's `width` wide, and as tall as the text needs.
 void mal_say(const std::string &text, float x, float y, float width, Vector2 tail);

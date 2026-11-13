@@ -15,8 +15,9 @@
 #include "campaign.h"
 #include "mos.h"
 #include "wardrobe.h"
+#include "daily.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -31,7 +32,14 @@ struct Workspace {
     double started = 0;                // GetTime() when it was opened
     double endsAt = 0;                 // exam mode: when time runs out
     bool timeUp = false;
-    double stoppedAt = 0;              // exam mode: when it was accepted (the clock stops)
+    double stoppedAt = 0;              // when it was accepted (the clock stops)
+
+    // The "Solved!" card shown when a submit is accepted
+    bool finishShown = false;          // showing it now (closed with "Keep my code open")
+    double finishAt = 0;
+    bool firstSolve = false;           // the first time this problem was solved (XP!)
+    bool newBest = false;              // faster than the last time
+    int solveSeconds = 0, bestSeconds = 0;
 
     int runPhase = 0;                  // 0 idle, 1 showing "Running", 2 running now
     bool submitting = false;           // Submit (counts if accepted) rather than Run
@@ -81,6 +89,12 @@ struct VersusState {
     int theirLevel = 0, theirSolved = 0;
     int watchersShown = -1;           // the count last told to the joiner
     int watcherCount = 0;             // as the joiner: how many are watching (from WATCHERS)
+
+    // Mals: the opponent's (dressed by their LOOK), and the watchers' (the host's lobby)
+    Mal theirMal;
+    std::vector<Mal> crowd;
+    int theirRunsSeen = 0;            // so their Mal reacts once to each run
+    bool theirDoneSeen = false;
 };
 
 // Watching someone else's match (screen_watch.cpp).
@@ -96,6 +110,12 @@ struct WatchState {
     int lockedBytes = 0, lockedSide = -1;
     int payout = 0;                 // what came back
     std::string message;
+
+    // Mals: both players', and the other spectators' in the crowd
+    Mal mals[2];
+    std::vector<Mal> crowd;
+    int runsSeen[2] = { 0, 0 }, bestSeen[2] = { 0, 0 };
+    bool doneSeen[2] = { false, false };
 };
 
 // A campaign boss fight (screen_boss.cpp). The problem itself is in App::work.
@@ -159,6 +179,13 @@ struct App {
     Mal mal;                     // the mascot, shared by every screen
     int levelShown = 1;          // the level last celebrated, so each level-up shows once
     float levelUpLeft = 0;       // seconds left on the level-up banner
+
+    // The daily loop (screen_daily.cpp)
+    Screen dailyFrom = Screen::Title;   // where Back goes from the Daily screen
+    float streakLeft = 0;        // seconds left on the streak banner (waits for the level-up one)
+    int freezesUsed = 0;         // const freezes used when the app opened (the banner says so)
+    float toastLeft = 0;         // a quest just finished: the toast in the corner
+    std::string toastText;
 };
 
 // Moving between screens. open_lesson and open_quiz load the files for the
@@ -220,5 +247,22 @@ MosInfo mos_info(const App &app);
 // Put on a wardrobe item (if unlocked) and save it.
 void wear_item(App &app, const WardrobeItem &item);
 void screen_campaign(App &app);
+
+// The daily loop (screen_daily.cpp): the streak, const freezes and quests.
+void open_daily(App &app);
+void screen_daily(App &app);
+// Something was learned today (an answer, a lesson, a solve, a boss): keeps
+// the streak alive, and shows the flame banner the first time each day.
+void learned_today(App &app);
+// A quest counter went up ("correct", "game"...), or a best of the day
+// ("combo", "snake"...). Saves, and shows a toast if it finished a quest.
+void quest_event(App &app, const std::string &key, int n = 1);
+void quest_best(App &app, const std::string &key, int value);
+// The streak banner and the quest toast, over every screen (main.cpp).
+void draw_daily_overlays(App &app);
+// Drawing pieces the start screen shares.
+void draw_flame(Vector2 base, float height, float t, bool lit);
+void draw_freeze(Rectangle r, bool held, float t);
+void draw_chest(Vector2 base, float width, int state, float t, bool golden, float openAge);   // state: 0 locked, 1 ready, 2 open
 void open_boss(App &app, int region);   // the boss's intro; the fight starts from there
 void screen_boss(App &app);

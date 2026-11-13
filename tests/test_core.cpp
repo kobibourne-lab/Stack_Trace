@@ -38,6 +38,7 @@
 #include "../citymap.h"
 #include <cmath>
 #include "../minigames.h"
+#include "../daily.h"
 #include <chrono>
 #include <thread>
 
@@ -969,11 +970,16 @@ static void test_wardrobe_snake_scores()
     UnlockInfo u;
     u.level = 3;
     u.topicsTotal = 20;
+    CHECK(wardrobe_earned(*wardrobe_find("drinkhat"), u));       // level 2: earned...
+    CHECK(!wardrobe_unlocked(*wardrobe_find("drinkhat"), u));    // ...but it costs bytes to wear
+    CHECK(wardrobe_find("drinkhat")->price == 20 && wardrobe_find("wizard")->price == 120);
+    u.owned.insert("drinkhat");
     CHECK(wardrobe_unlocked(*wardrobe_find("drinkhat"), u));
-    CHECK(!wardrobe_unlocked(*wardrobe_find("hardhat"), u));     // level 5
+    CHECK(!wardrobe_earned(*wardrobe_find("hardhat"), u));       // level 5
     CHECK(!wardrobe_unlocked(*wardrobe_find("bowtie"), u));      // 1 boss
     u.bossesBeaten = 1;
-    CHECK(wardrobe_unlocked(*wardrobe_find("bowtie"), u));
+    CHECK(wardrobe_unlocked(*wardrobe_find("bowtie"), u));       // boss rewards are free
+    CHECK(wardrobe_find("bowtie")->price == 0 && wardrobe_find("slayer")->price == 0 && wardrobe_find("diamond")->price == 0);
     CHECK(!wardrobe_unlocked(*wardrobe_find("crown"), u));       // every topic mastered
     u.topicsMastered = 20;
     CHECK(wardrobe_unlocked(*wardrobe_find("crown"), u));
@@ -1081,7 +1087,7 @@ static void test_memory_city()
 static void test_spectators()
 {
     // The pool, and what predictions pay
-    std::vector<VsWatcher> room = { { "Aoife", 0, 40 }, { "Cian", 1, 60 }, { "Dara", -1, 0 } };
+    std::vector<VsWatcher> room = { { "Aoife", 0, 40, {} }, { "Cian", 1, 60, {} }, { "Dara", -1, 0, {} } };
     int pool[2];
     vs_pool(room, pool);
     CHECK(pool[0] == 40 && pool[1] == 60);
@@ -1146,7 +1152,9 @@ static void test_spectators()
     CHECK(late.phase == VsPhase::Playing);
     CHECK(vs_elapsed(late.side[0], 500) > 59.9 && vs_elapsed(late.side[0], 500) < 60.1);
 
-    // A real listening socket taking two spectators at once
+    // A real listening socket taking two spectators at once. Windows needs the
+    // network started again: the earlier Versus test shut it down when it finished.
+    CHECK(net_init());
     NetServer server;
     const int port = 5097;
     CHECK(net_server_open(server, port));
@@ -1180,6 +1188,7 @@ static void test_spectators()
     net_server_close(server);
     CHECK(net_server_open(second, port));             // and free again after
     net_server_close(second);
+    net_shutdown();
 
     // Bytes are saved
     Progress p;
@@ -1191,6 +1200,207 @@ static void test_spectators()
     CHECK(progress_load(path, loaded, error));
     CHECK(loaded.bytes == 160);
     std::remove(path.c_str());
+}
+
+static void test_versus_looks()
+{
+    // The LOOK line both ways
+    VsLook look;
+    look.hat = "crown"; look.skin = "diamond"; look.pet = "dog";
+    CHECK(vs_look_line(look) == "LOOK crown diamond dog");
+    VsLook back = vs_parse_look(vs_parse(vs_look_line(look)).rest);
+    CHECK(back.hat == "crown" && back.skin == "diamond" && back.pet == "dog");
+    // Junk is cleaned, and anything missing is the default
+    back = vs_parse_look("Cr;OWN! <script>");
+    CHECK(back.hat == "crown" && back.skin == "script" && back.pet == "nopet");
+    back = vs_parse_look("");
+    CHECK(back.hat == "none" && back.skin == "classic" && back.pet == "nopet");
+    CHECK(vs_look_line(VsLook()) == "LOOK none classic nopet");
+
+    // A player's LOOK dresses their Mal on the other screen
+    VsMatch m;
+    vs_apply(m, "LOOK afro tux cat", 0);
+    CHECK(m.them.look.hat == "afro" && m.them.look.skin == "tux" && m.them.look.pet == "cat");
+
+    // Spectators get both players' looks through the host
+    VsSpectate s;
+    vs_spectate_apply(s, "P 0 LOOK mohawk glitch bird", 0);
+    vs_spectate_apply(s, "P 1 LOOK crown slayer nopet", 0);
+    CHECK(s.side[0].them.look.hat == "mohawk" && s.side[0].them.look.pet == "bird");
+    CHECK(s.side[1].them.look.skin == "slayer");
+    // ...and still have them once the match starts (starting resets the scores, not the outfits)
+    vs_apply(m, "RAN 3 5 wrong", 0);
+    vs_begin(m, "lab1", "q15_reverse_array", 10, 0);
+    CHECK(m.them.look.hat == "afro" && m.them.runs == 0);
+    vs_spectate_apply(s, "P 0 START lab1 q15_reverse_array 10", 0);
+    CHECK(s.side[0].them.look.hat == "mohawk" && s.side[1].them.look.skin == "slayer");
+
+    // The crowd: ROOM carries each spectator's look, and still reads the old short form
+    std::vector<VsWatcher> room = { { "Aoife", 0, 40, {} }, { "Cian", -1, 0, {} } };
+    room[0].look.hat = "sombrero";
+    room[0].look.pet = "bird";
+    std::string line = vs_room_line(room);
+    CHECK(line == "ROOM Aoife:0:40:sombrero:classic:bird Cian:-1:0:none:classic:nopet");
+    std::vector<VsWatcher> got = vs_parse_room(vs_parse(line).rest);
+    CHECK(got.size() == 2 && got[0].name == "Aoife" && got[0].side == 0 && got[0].bytes == 40);
+    CHECK(got[0].look.hat == "sombrero" && got[0].look.pet == "bird" && got[1].look.hat == "none");
+    got = vs_parse_room("Aoife:1:25 Dara:-1:0");
+    CHECK(got.size() == 2 && got[0].side == 1 && got[0].bytes == 25 && got[0].look.skin == "classic");
+}
+
+static void test_wardrobe_shop()
+{
+    Progress p;   // a new student: 100 bytes
+    const WardrobeItem *duck = wardrobe_find("duck"), *neon = wardrobe_find("neon"), *crown = wardrobe_find("crown");
+    CHECK(duck && neon && crown && duck->price == 60 && duck->kind == WearKind::Pet);
+    UnlockInfo u;
+    u.level = 20;   // a high level doesn't buy anything
+    CHECK(!wardrobe_unlocked(*duck, u));
+    CHECK(wardrobe_requirement(*duck) == "60 bytes");
+
+    std::string why;
+    CHECK(!wardrobe_buy(p, *crown, u, why) && why == "That's not in the shop.");
+    u.level = 3;   // a level item: has to be reached before it can be bought
+    CHECK(!wardrobe_buy(p, *wardrobe_find("hardhat"), u, why) && why == "Reach level 5 first." && p.bytes == 100);
+    u.level = 20;
+    CHECK(!wardrobe_buy(p, *neon, u, why) && why == "You need 20 more bytes." && p.bytes == 100);
+    CHECK(wardrobe_buy(p, *duck, u, why) && p.bytes == 40 && p.owned.count("duck"));
+    CHECK(!wardrobe_buy(p, *duck, u, why) && why == "You already have it." && p.bytes == 40);
+    CHECK(wardrobe_buy(p, *wardrobe_find("drinkhat"), u, why) && p.bytes == 20);   // a level item, once reached
+    u.owned = p.owned;
+    CHECK(wardrobe_unlocked(*duck, u) && !wardrobe_unlocked(*neon, u));
+
+    // Bought things are kept in progress.txt
+    std::string path = "test_shop_progress.txt", error;
+    CHECK(progress_save(path, p, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    CHECK(back.bytes == 20 && back.owned.size() == 2 && back.owned.count("duck") && back.owned.count("drinkhat"));
+    std::remove(path.c_str());
+}
+
+// The Duolingo loop: streak days, const freezes, daily quests and chests.
+static void test_daily()
+{
+    Progress p;
+    p.bytes = 100;
+
+    // The streak counts any day something was learned, not just answers
+    CHECK(streak_mark_active(p, "2026-11-10"));
+    CHECK(!streak_mark_active(p, "2026-11-10"));      // only new the first time that day
+    CHECK(streak_mark_active(p, "2026-11-11"));
+    CHECK(progress_streak(p, "2026-11-11") == 2);
+    CHECK(progress_streak(p, "2026-11-12") == 2);     // nothing yet today: still alive
+    CHECK(progress_streak(p, "2026-11-13") == 0);     // missed a whole day: gone out
+
+    // Answers from older saves still count as learning days
+    progress_record(p, "pointers", true, "2026-11-09");
+    CHECK(progress_day_active(p, "2026-11-09"));
+    CHECK(progress_streak(p, "2026-11-11") == 3);
+
+    // Freezes: bought with bytes, at most two held
+    std::string why;
+    CHECK(streak_buy_freeze(p, why));
+    CHECK(p.freezes == 1 && p.bytes == 100 - FREEZE_PRICE);
+    p.bytes = 1000;
+    CHECK(streak_buy_freeze(p, why));
+    CHECK(!streak_buy_freeze(p, why));                // already holding the most
+    CHECK(p.freezes == FREEZE_MAX);
+    Progress poor;
+    poor.bytes = 10;
+    CHECK(!streak_buy_freeze(poor, why) && poor.freezes == 0 && poor.bytes == 10);
+
+    // Opening on the 13th: the 12th was missed, one freeze covers it
+    CHECK(streak_use_freezes(p, "2026-11-13") == 1);
+    CHECK(p.freezes == 1);
+    CHECK(p.frozenDays.count("2026-11-12") == 1);
+    CHECK(progress_streak(p, "2026-11-13") == 3);     // kept going, but the frozen day doesn't add
+    CHECK(streak_use_freezes(p, "2026-11-13") == 0);  // opening again the same day uses nothing
+    streak_mark_active(p, "2026-11-13");
+    CHECK(progress_streak(p, "2026-11-13") == 4);
+
+    // Missing 3 days with only 1 freeze: it goes out, and the freeze is kept
+    CHECK(streak_use_freezes(p, "2026-11-17") == 0);
+    CHECK(p.freezes == 1);
+    CHECK(progress_streak(p, "2026-11-17") == 0);
+
+    // The week row: learned, frozen, nothing
+    std::vector<int> week = streak_week(p, "2026-11-13");
+    CHECK(week.size() == 7);
+    CHECK(week[6] == 1 && week[5] == 2 && week[4] == 1 && week[0] == 0);
+
+    // Quests: three a day, the same for everyone that day, different days differ
+    std::vector<Quest> q = daily_quests("2026-11-13");
+    CHECK(q.size() == 3);
+    CHECK(daily_quests("2026-11-13")[2].key == q[2].key);
+    bool differs = false;
+    for (int d = 0; d < 14 && !differs; d++) {
+        std::vector<Quest> other = daily_quests(date_add_days("2026-11-13", d + 1));
+        for (int i = 0; i < 3; i++) if (other[i].text != q[i].text) differs = true;
+    }
+    CHECK(differs);
+    for (int d = 0; d < 60; d++) {   // never two "correct" quests on one day
+        std::vector<Quest> day = daily_quests(date_add_days("2026-01-01", d));
+        CHECK(!(day[0].key == "correct" && day[1].key == "correct"));
+    }
+
+    // Progress, finishing and opening chests
+    const std::string today = "2026-11-20";
+    Progress s;
+    s.bytes = 0;
+    std::vector<Quest> qs = daily_quests(today);
+    int bytes = 0;
+    std::string item;
+    CHECK(!daily_claim(s, today, 0, bytes, item, why));   // not done yet
+    for (int i = 0; i < 3; i++) {
+        if (qs[i].best) daily_best(s, today, qs[i].key, qs[i].target - 1);
+        else daily_add(s, today, qs[i].key, qs[i].target - 1);
+        CHECK(!quest_done(s, qs[i], today));
+        if (qs[i].best) { daily_best(s, today, qs[i].key, 1); CHECK(!quest_done(s, qs[i], today)); daily_best(s, today, qs[i].key, qs[i].target + 5); }
+        else daily_add(s, today, qs[i].key, 1);
+        CHECK(quest_done(s, qs[i], today));
+        CHECK(quest_progress(s, qs[i], today) == qs[i].target);   // capped
+    }
+    CHECK(quests_done(s, today) == 3);
+    int total = 0;
+    for (int i = 0; i < 3; i++) {
+        CHECK(daily_claim(s, today, i, bytes, item, why));
+        CHECK(bytes == qs[i].reward);
+        total += bytes;
+        CHECK(!daily_claim(s, today, i, bytes, item, why));   // once only
+    }
+    CHECK(s.bytes == total);
+    GoldenPrize prize = daily_golden(s, today);
+    CHECK(daily_claim(s, today, GOLDEN_CHEST, bytes, item, why));
+    CHECK(bytes == GOLDEN_BYTES && item == prize.itemId);
+    if (!item.empty()) CHECK(s.owned.count(item) == 1);
+
+    // Some day in a month gives an item, and only ones not owned yet
+    bool anyItem = false;
+    for (int d = 0; d < 30; d++) {
+        GoldenPrize g = daily_golden(s, date_add_days(today, d));
+        if (!g.itemId.empty()) { anyItem = true; CHECK(s.owned.count(g.itemId) == 0); }
+    }
+    CHECK(anyItem);
+
+    // A new day starts the counters again
+    daily_add(s, "2026-11-21", "game");
+    CHECK(s.daily.date == "2026-11-21" && s.daily.claimed == 0 && s.daily.counts["game"] == 1);
+    CHECK(quests_done(s, "2026-11-21") <= 1);
+
+    // It all saves and loads back
+    const char *path = "test_progress.txt";
+    p.daily = s.daily;
+    p.daily.claimed = 5;
+    std::string error;
+    CHECK(progress_save(path, p, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    CHECK(back.activeDays == p.activeDays);
+    CHECK(back.frozenDays == p.frozenDays);
+    CHECK(back.freezes == p.freezes);
+    CHECK(back.daily.date == "2026-11-21" && back.daily.claimed == 5 && back.daily.counts["game"] == 1);
+    CHECK(progress_streak(back, "2026-11-13") == 4);
 }
 
 int main()
@@ -1214,6 +1424,9 @@ int main()
     run("wardrobe, snake and minigame scores", test_wardrobe_snake_scores);
     run("memory city: islands, stops and labels", test_memory_city);
     run("Versus spectators: predictions, payouts, watching", test_spectators);
+    run("Versus: Mal's look for players and the crowd", test_versus_looks);
+    run("the wardrobe shop: buying with bytes", test_wardrobe_shop);
+    run("daily loop: streak, const freezes, quests, chests", test_daily);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

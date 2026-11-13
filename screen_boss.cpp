@@ -175,6 +175,7 @@ static void win(App &app)
     b.seconds = (w.stoppedAt > 0 ? w.stoppedAt : GetTime()) - w.started;
     b.stars = boss_stars(true, b.livesLost, b.seconds, limit);
     b.firstWin = progress_record_boss(app.progress, reg.id, today_string(), (int)b.seconds, b.stars);
+    learned_today(app);
     std::string error;
     progress_save(app.progressPath, app.progress, error);
     b.xpGained = progress_xp(app.progress) - b.xpBefore;

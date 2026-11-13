@@ -133,7 +133,10 @@ void open_problem(App &app, int set, int problem, bool examMode)
 
 void record_answer(App &app, const std::string &topic, bool correct)
 {
+    learned_today(app);   // before the answer is logged, so the streak banner knows it's the first today
     progress_record(app.progress, topic, correct, today_string());
+    quest_event(app, "answer");
+    if (correct) quest_event(app, "correct");
     save_progress(app);
     check_level_up(app);
 }
@@ -258,9 +261,19 @@ int main()
     app.levelShown = level_for_xp(progress_xp(app.progress));   // only celebrate new levels
     app.progress.hat = wardrobe_rename(app.progress.hat);         // some items were renamed
     app.progress.skin = wardrobe_rename(app.progress.skin);
+    // Level items cost bytes now: whatever Mal was already wearing is kept, as if bought
+    for (const std::string &id : { app.progress.hat, app.progress.skin, app.progress.pet }) {
+        const WardrobeItem *item = wardrobe_find(id);
+        if (item && item->price > 0) app.progress.owned.insert(id);
+    }
     app.mal.hat = app.progress.hat;                              // Mal wears what was saved
     app.mal.skin = app.progress.skin;
     app.mal.pet = app.progress.pet;
+    // Missed a day? A const freeze (if there's one) keeps the streak alive
+    daily_roll(app.progress, today_string());
+    app.freezesUsed = streak_use_freezes(app.progress, today_string());
+    if (app.freezesUsed > 0) app.streakLeft = 4.5f;
+    save_progress(app);
 
     while (!WindowShouldClose() && !app.quit) {
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
@@ -301,9 +314,11 @@ int main()
             case Screen::Boss:     screen_boss(app); break;
             case Screen::Room:     screen_room(app); break;
             case Screen::Game:     screen_games(app); break;
+            case Screen::Daily:    screen_daily(app); break;
         }
         fx_draw();
         draw_level_up(app);
+        draw_daily_overlays(app);
 
         ui_end_frame();
         EndMode2D();

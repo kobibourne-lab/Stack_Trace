@@ -75,14 +75,46 @@ static void draw_demo(Rectangle r)
                     step == 3 ? COL_GREEN : COL_TEXT_SOFT);
 }
 
+// Under the demo: the streak flame, the const freezes, and today's quests.
+// Click it (or press D) for the Daily quests screen.
+static void draw_today(App &app, Rectangle r, int streak)
+{
+    const Progress &p = app.progress;
+    std::string today = today_string();
+    float t = (float)GetTime();
+    bool lit = progress_day_active(p, today);
+    bool hover = CheckCollisionPointRec(GetMousePosition(), r);
+    ui_panel(r, hover ? COL_SURFACE_2 : COL_SURFACE, hover ? COL_AMBER : COL_LINE, 1);
+
+    draw_flame({ r.x + 40, r.y + r.height - 16 }, 56, t, streak > 0 && lit);
+    if (streak > 0 && !lit) draw_flame({ r.x + 40, r.y + r.height - 16 }, 32, t, true);   // burning low
+    ui_text(std::to_string(streak), r.x + 76, r.y + 14, 30, streak > 0 ? COL_TEXT : COL_MUTED, FontKind::MonoBold);
+    ui_text("day streak", r.x + 76, r.y + 50, 13, COL_TEXT_SOFT);
+    for (int i = 0; i < FREEZE_MAX; i++) draw_freeze({ r.x + 170 + i * 40.0f, r.y + 24, 34, 34 }, i < p.freezes, t);
+
+    int done = quests_done(p, today), ready = 0;
+    std::vector<Quest> quests = daily_quests(today);
+    for (int i = 0; i < QUEST_COUNT; i++) if (quest_done(p, quests[i], today) && !chest_opened(p, i, today)) ready++;
+    if (done == QUEST_COUNT && !chest_opened(p, GOLDEN_CHEST, today)) ready++;
+    ui_text("DAILY QUESTS", r.x + 268, r.y + 18, 11, COL_AMBER, FontKind::MonoBold);
+    for (int i = 0; i < QUEST_COUNT; i++)
+        DrawRectangleRounded({ r.x + 268 + i * 34.0f, r.y + 40, 28, 10 }, 1, 4, i < done ? COL_GREEN : COL_LINE);
+    ui_text(ready > 0 ? "chest to open!" : std::to_string(done) + " of 3 done", r.x + 268, r.y + 58, 12, ready > 0 ? COL_AMBER : COL_MUTED, FontKind::Mono);
+    draw_chest({ r.x + r.width - 50, r.y + r.height - 18 }, 52, ready > 0 ? 1 : (done == QUEST_COUNT ? 2 : 0), t, done == QUEST_COUNT, 99);
+
+    if (hover) {
+        ui_want_hand();
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { sfx_play(Sfx::Click); open_daily(app); }
+    }
+}
+
 // Mal sits on top of the demo panel, with something to say. Asleep if you
 // haven't practised today; click Mal to poke it.
 static void draw_mal(App &app, int streak)
 {
     static int pokes = 0;
     const Progress &p = app.progress;
-    bool practisedToday = false;
-    for (const AnswerRecord &a : p.answers) if (a.date == today_string()) { practisedToday = true; break; }
+    bool practisedToday = progress_day_active(p, today_string());
     bool asleep = !p.answers.empty() && !practisedToday && pokes == 0;
     mal_set_base(app.mal, asleep ? MalMood::Sleep : MalMood::Idle);
 
@@ -127,6 +159,7 @@ void screen_title(App &app)
     if (IsKeyPressed(KEY_E)) { open_exam_prep(app); return; }
     if (IsKeyPressed(KEY_V)) { open_versus(app); return; }
     if (IsKeyPressed(KEY_P)) { app.screen = Screen::Profile; return; }
+    if (IsKeyPressed(KEY_D)) { open_daily(app); return; }
     if (IsKeyPressed(KEY_ESCAPE)) { app.quit = true; return; }
 
     // Left: the logo, the name with a blinking cursor, and a line about it
@@ -160,19 +193,16 @@ void screen_title(App &app)
     // Your level, and the streak beside it, once there's some progress to show
     const Progress &p = app.progress;
     int streak = progress_streak(p, today_string());
-    if (!p.answers.empty()) {
-        float bw2 = ui_level_badge(x, y, progress_xp(p));
-        if (streak > 0)
-            ui_text(std::to_string(streak) + " day streak", x + bw2 + 24, y + 9, 15, COL_AMBER, FontKind::MonoBold);
-    }
+    if (!p.answers.empty()) ui_level_badge(x, y, progress_xp(p));
 
     draw_demo({ 700, 112, 484, 398 });
+    draw_today(app, { 700, 526, 484, 84 }, streak);
     draw_mal(app, streak);
 
     // Along the bottom: who made it, and the keys
     float fy = SCREEN_H - FOOTER_H;
     DrawLine(0, (int)fy, SCREEN_W, (int)fy, COL_LINE_SOFT);
-    ui_text("ENTER campaign   T topic map   E exam prep   V versus   P profile   M sound   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
+    ui_text("ENTER campaign   T topic map   E exam prep   V versus   D daily   P profile   M sound   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
             COL_MUTED, FontKind::Mono);
     const char *credit = "Advanced Programming, SETU  |  Ryan Mulcahy & Kobi Bourne";
     ui_text(credit, SCREEN_W - MARGIN - ui_text_width(credit, 13), fy + 19, 13, COL_MUTED);
