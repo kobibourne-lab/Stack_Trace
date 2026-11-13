@@ -83,6 +83,7 @@ static Color skin_color(const std::string &skin)
     if (skin == "purple") return COL_PURPLE;
     if (skin == "blue")   return COL_BLUE;
     if (skin == "slayer")  return { 255, 205, 90, 255 };    // boss slayer gold
+    if (skin == "neon")    return { 255, 72, 196, 255 };     // hot pink, with a glow (draw_skin_back/front)
     if (skin == "diamond") return { 175, 232, 255, 255 };
     if (skin == "tux")     return { 236, 239, 243, 255 };   // a white shirt; the jacket is drawn on
     if (skin == "offbyone") return COL_CORAL;
@@ -395,7 +396,15 @@ static void diamond_aura(const Mal &m, Rectangle b, float size)
 // Skin extras drawn behind Mal's body.
 static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, Color body)
 {
-    if (m.skin == "diamond") {
+    if (m.skin == "neon") {   // a soft pink glow behind
+        float k = 0.5f + 0.5f * sinf(m.clock * 3);
+        BeginBlendMode(BLEND_ADDITIVE);
+        for (int i = 3; i >= 1; i--) {
+            float g = size * (0.02f + 0.035f * i) * (0.9f + 0.2f * k);
+            DrawRectangleRounded({ b.x - g, b.y - g, b.width + 2 * g, b.height + 2 * g }, 0.6f, 16, Fade({ 255, 60, 200, 255 }, 0.09f));
+        }
+        EndBlendMode();
+    } else if (m.skin == "diamond") {
         diamond_aura(m, b, size);
         diamond_shards(m, b, size, false);
     } else if (m.skin == "leaker") {   // a puddle of leaked memory
@@ -460,6 +469,14 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
         }
         float k = fmodf(m.clock * 0.7f, 1.0f);   // a drop falling off
         DrawCircleV({ b.x + w * 0.7f, b.y + h * 0.5f + k * h * 0.5f }, size * 0.035f, Fade(GOO, 1 - k * 0.5f));
+    } else if (m.skin == "neon") {
+        // Glowing tubes round the edge, flickering between cyan and pink like a sign
+        bool flick = fmodf(m.clock, 3.1f) < 0.07f;
+        Color tube = ColorFromHSV(fmodf(180 + 140 * (0.5f + 0.5f * sinf(m.clock * 1.5f)), 360), 0.7f, 1.0f);
+        if (!flick) {
+            DrawRectangleRoundedLinesEx({ b.x + size * 0.03f, b.y + size * 0.03f, w - size * 0.06f, h - size * 0.06f }, 0.42f, 12, fmaxf(2.0f, size * 0.03f), tube);
+            DrawRectangleRoundedLinesEx({ b.x + size * 0.03f, b.y + size * 0.03f, w - size * 0.06f, h - size * 0.06f }, 0.42f, 12, fmaxf(1.0f, size * 0.012f), WHITE);
+        }
     } else if (m.skin == "tux") {
         // A black jacket over the white shirt: the shirt shows in a V, with a bow tie
         Color jacket = { 30, 33, 40, 255 };
@@ -560,17 +577,47 @@ static void draw_bird(float clock, bool tag)
     if (tag) pet_tag("volatile", col);
 }
 
+static void draw_duck(float clock, bool tag)
+{
+    // A rubber duck, bobbing as if it's in the bath: explain your code to it and you'll find the bug
+    Color yel = { 255, 214, 64, 255 }, dk = { 225, 170, 30, 255 };
+    float bob = sinf(clock * 2.5f) * 2, tilt = sinf(clock * 2.5f + 1) * 2;
+    DrawEllipse(0, (int)(-14 + bob), 22, 13, yel);                       // body
+    DrawTriangle({ -22, -18 + bob }, { -30, -26 + bob }, { -16, -14 + bob }, yel);   // tail
+    DrawEllipse(-2, (int)(-14 + bob), 10, 6, dk);                        // wing
+    DrawCircleV({ 10 + tilt * 0.3f, -34 + bob }, 11, yel);               // head
+    DrawTriangle({ 19 + tilt * 0.3f, -36 + bob }, { 19 + tilt * 0.3f, -29 + bob }, { 29 + tilt * 0.3f, -32 + bob }, { 255, 140, 40, 255 });
+    DrawCircleV({ 13 + tilt * 0.3f, -37 + bob }, 2.5f, COL_BG);
+    DrawCircleV({ 13.8f + tilt * 0.3f, -37.8f + bob }, 0.9f, WHITE);
+    if (tag) pet_tag("rubber duck", yel);
+}
+
 void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag)
 {
-    if (pet != "cat" && pet != "dog" && pet != "bird") return;
+    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck") return;
     float k = size / 60.0f;
     rlPushMatrix();
     rlTranslatef(at.x, at.y, 0);
     rlScalef(k, k, 1);
     if (pet == "cat") draw_cat(tag);
     else if (pet == "dog") draw_dog(clock, tag);
+    else if (pet == "duck") draw_duck(clock, tag);
     else draw_bird(clock, tag);
     rlPopMatrix();
+}
+
+void mal_badge(const Mal &m, Vector2 centre, float r, Color ring)
+{
+    DrawCircleV(centre, r, ring);
+    DrawCircleV(centre, r - 3, COL_BG);
+    mal_draw(m, { centre.x, centre.y + r * 0.72f }, r * 1.05f);
+}
+
+void mal_wear(Mal &m, const std::string &hat, const std::string &skin, const std::string &pet)
+{
+    m.hat = hat;
+    m.skin = skin;
+    m.pet = pet;
 }
 
 void mal_draw_with_pet(const Mal &m, Vector2 feet, float size)
@@ -730,6 +777,39 @@ static void draw_wear(const Mal &m, Rectangle b, float size)
         DrawCircleV({ cx + w * 0.12f, top - size * 0.34f }, size * 0.022f, COL_AMBER);
     } else if (hat == "crown") {
         draw_crown(m, b, size);
+    } else if (hat == "beanie") {
+        // A knitted beanie: stripes, a folded-up band and a bobble on top
+        float capY = top + h * 0.08f, r = w * 0.5f;
+        DrawCircleSector({ cx, capY }, r, 180, 360, 24, COL_CORAL);
+        for (int i = 1; i <= 2; i++) {   // white stripes round it
+            float yy = capY - r * (0.28f * i);
+            float half = sqrtf(fmaxf(0.0f, r * r - (capY - yy) * (capY - yy)));
+            DrawRectangleRec({ cx - half, yy - size * 0.025f, half * 2, size * 0.05f }, Fade(WHITE, 0.85f));
+        }
+        DrawRectangleRounded({ cx - r * 1.04f, capY - h * 0.045f, r * 2.08f, h * 0.11f }, 0.6f, 8, darker(COL_CORAL, 0.8f));
+        for (int i = 0; i < 9; i++)   // the knit ribs on the band
+            DrawLineEx({ cx - r + i * r * 0.25f, capY - h * 0.03f }, { cx - r + i * r * 0.25f, capY + h * 0.05f }, fmaxf(1.0f, size * 0.012f), Fade(BLACK, 0.18f));
+        DrawCircleV({ cx, capY - r - size * 0.04f }, size * 0.075f, WHITE);
+        DrawCircleV({ cx - size * 0.025f, capY - r - size * 0.06f }, size * 0.03f, { 235, 235, 240, 255 });
+    } else if (hat == "pirate") {
+        // A pirate's tricorn, with a skull and crossbones (arr[i]!)
+        Color felt = { 26, 26, 32, 255 }, trim = { 230, 180, 70, 255 };
+        float base = top + h * 0.06f;
+        Vector2 L = { cx - w * 0.78f, base - size * 0.06f }, R = { cx + w * 0.78f, base - size * 0.06f };
+        Vector2 T = { cx, base - size * 0.42f };
+        DrawTriangle(L, { cx, base + size * 0.03f }, R, felt);       // the brim, turned up at the sides
+        DrawTriangle(L, R, T, felt);
+        DrawTriangle({ cx - w * 0.5f, base - size * 0.04f }, { cx + w * 0.5f, base - size * 0.04f }, { cx, base - size * 0.3f }, { 40, 40, 48, 255 });
+        float th = fmaxf(1.5f, size * 0.02f);
+        DrawLineEx(L, T, th, trim);
+        DrawLineEx(T, R, th, trim);
+        Vector2 sk = { cx, base - size * 0.19f };
+        float sr = size * 0.055f;
+        DrawLineEx({ sk.x - sr * 1.6f, sk.y + sr * 1.6f }, { sk.x + sr * 1.6f, sk.y - sr * 0.2f }, fmaxf(1.5f, size * 0.022f), WHITE);   // crossbones
+        DrawLineEx({ sk.x + sr * 1.6f, sk.y + sr * 1.6f }, { sk.x - sr * 1.6f, sk.y - sr * 0.2f }, fmaxf(1.5f, size * 0.022f), WHITE);
+        DrawCircleV(sk, sr, WHITE);
+        DrawCircleV({ sk.x - sr * 0.4f, sk.y }, sr * 0.28f, felt);
+        DrawCircleV({ sk.x + sr * 0.4f, sk.y }, sr * 0.28f, felt);
     } else if (hat == "sombrero") {
         // A huge straw brim, a tall crown and a zigzag band
         Color straw = { 226, 186, 104, 255 }, dark = { 186, 142, 68, 255 };
@@ -838,7 +918,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
     draw_skin_back(m, b, feet, size, body);
     if (m.hat == "afro") draw_afro_back(b, size);
     if (m.hat == "crown" && m.mood != MalMood::Freed) draw_crown_glow(m, b, size);
-    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "sombrero" || m.hat == "explorer" || m.hat == "wizard" || m.hat == "crown";
+    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "sombrero" || m.hat == "explorer" || m.hat == "beanie" || m.hat == "pirate" || m.hat == "wizard" || m.hat == "crown";
 
     // ----- Antenna: a pointer arrow on top, wobbling as Mal moves -----
     if (!hatCovers) {

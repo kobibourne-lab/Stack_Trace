@@ -258,6 +258,11 @@ int main()
     app.levelShown = level_for_xp(progress_xp(app.progress));   // only celebrate new levels
     app.progress.hat = wardrobe_rename(app.progress.hat);         // some items were renamed
     app.progress.skin = wardrobe_rename(app.progress.skin);
+    // Level items cost bytes now: whatever Mal was already wearing is kept, as if bought
+    for (const std::string &id : { app.progress.hat, app.progress.skin, app.progress.pet }) {
+        const WardrobeItem *item = wardrobe_find(id);
+        if (item && item->price > 0) app.progress.owned.insert(id);
+    }
     app.mal.hat = app.progress.hat;                              // Mal wears what was saved
     app.mal.skin = app.progress.skin;
     app.mal.pet = app.progress.pet;

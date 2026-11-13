@@ -4,6 +4,7 @@
 
 #pragma once
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,8 @@ struct Progress {
     std::vector<AnswerRecord> answers;
     std::map<std::string, SolvedRecord> solved;   // problem id ("lab1/q01_leap_year") -> record
     std::map<std::string, BossRecord> bosses;     // campaign region id ("stack") -> record
-    int bytes = 100;                              // spectators' play money for Versus predictions
+    int bytes = 100;                              // pocket money: Versus predictions, rewards, the wardrobe shop
+    std::set<std::string> owned;                  // wardrobe shop items bought with bytes
 };
 
 // A missing file just means a new student: returns true with empty progress.

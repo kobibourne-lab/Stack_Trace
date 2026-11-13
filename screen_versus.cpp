@@ -29,13 +29,6 @@ static std::string clock_text(double seconds)
     return two_digits(s / 60) + ":" + two_digits(s % 60);
 }
 
-static std::string initials(const std::string &name)
-{
-    std::string s;
-    for (char c : name) if (isalpha((unsigned char)c) && s.size() < 2) s += (char)toupper((unsigned char)c);
-    return s.empty() ? "?" : s;
-}
-
 static Color difficulty_color(const std::string &d)
 {
     if (d == "Easy") return COL_GREEN;
@@ -76,6 +69,24 @@ static std::string my_stats(const App &app)
     return "STATS " + std::to_string(level_for_xp(progress_xp(app.progress))) + " " + std::to_string(app.progress.solved.size());
 }
 
+// What our Mal is wearing, to send as LOOK.
+static VsLook my_look(const App &app)
+{
+    VsLook look;
+    look.hat = app.mal.hat;
+    look.skin = app.mal.skin;
+    look.pet = app.mal.pet;
+    return look;
+}
+
+// A Mal reacts to a run: a hop for tests passing, a squash for a compile error or none.
+static void react_to_run(Mal &mal, const std::string &result, int passed, int total)
+{
+    if (result == "compile" || result == "crash" || result == "timeout" || passed == 0) mal_react(mal, MalMood::Sad, 1.4f);
+    else if (passed == total && total > 0) mal_react(mal, MalMood::Cheer, 1.6f);
+    else mal_react(mal, MalMood::Happy, 1.2f);
+}
+
 static void close_watchers(App &app)
 {
     VersusState &vs = app.vs;
@@ -98,9 +109,11 @@ static void catch_up(App &app, WatcherConn &w)
     auto say = [&](const std::string &line) { net_send(w.conn, line); };
     say("P 0 HELLO " + std::to_string(VERSUS_VERSION) + " " + vs.myName);
     say("P 0 " + my_stats(app));
+    say("P 0 " + vs_look_line(my_look(app)));
     if (m.helloReceived && vs.net.state == NetState::Connected) {
         say("P 1 HELLO " + std::to_string(VERSUS_VERSION) + " " + m.them.name);
         say("P 1 STATS " + std::to_string(vs.theirLevel) + " " + std::to_string(vs.theirSolved));
+        say("P 1 " + vs_look_line(m.them.look));
     }
     say("P 0 SETTINGS " + m.lobbySet + " " + m.lobbyDifficulty + " " + std::to_string(m.lobbyMinutes));
     say("SCORE " + std::to_string(m.myWins) + " " + std::to_string(m.theirWins) + " " + std::to_string(m.draws));
@@ -160,6 +173,9 @@ static void update_watchers(App &app, double now)
                 w.who.name = name;
                 w.hello = true;
                 catch_up(app, w);
+                roomChanged = true;
+            } else if (msg.kind == "LOOK" && w.hello) {   // their Mal, for the crowd
+                w.who.look = vs_parse_look(msg.rest);
                 roomChanged = true;
             } else if (msg.kind == "PREDICT" && w.hello && msg.args.size() >= 2) {
                 int side = std::atoi(msg.args[0].c_str()), bytes = std::atoi(msg.args[1].c_str());
@@ -285,6 +301,7 @@ void versus_quit(App &app)
 
 static void leave_versus(App &app)
 {
+    mal_set_base(app.mal, MalMood::Idle);
     versus_quit(app);
     disconnect(app);
     open_exam_prep(app);
@@ -358,6 +375,7 @@ static void update_network(App &app, double now)
     if (connected(app) && !vs.helloSent) {
         send(app, "HELLO " + std::to_string(VERSUS_VERSION) + " " + vs.myName);
         send(app, my_stats(app));
+        send(app, vs_look_line(my_look(app)));
         vs.helloSent = true;
         send_settings(app);
     }
@@ -458,15 +476,6 @@ static int chips(const std::vector<std::string> &labels, int selected, float x, 
         x += w + 8;
     }
     return clicked;
-}
-
-static void avatar(const std::string &name, float cx, float cy, float r, Color c)
-{
-    DrawCircleV({ cx, cy }, r, c);
-    DrawCircleV({ cx, cy }, r - 3, COL_BG);
-    std::string i = initials(name);
-    float size = r * 0.62f;
-    ui_text(i, cx - ui_text_width(i, size, FontKind::MonoBold) / 2, cy - size * 0.62f, size, c, FontKind::MonoBold);
 }
 
 // ---------------------------------------------------------------------------
@@ -609,12 +618,12 @@ static void draw_lobby(App &app)
     ui_text("PLAYERS", players.x + 20, players.y + 18, 12, COL_MUTED, FontKind::MonoBold);
     float cy = players.y + 104;
     float leftCx = players.x + rw * 0.25f, rightCx = players.x + rw * 0.75f;
-    avatar(vs.myName, leftCx, cy, 36, COL_GREEN);
+    mal_badge(app.mal, { leftCx, cy }, 36, COL_GREEN);
     ui_text_centered_wrapped(vs.myName, leftCx, cy + 48, rw / 2 - 10, 15, COL_TEXT, 1, FontKind::UiBold);
     ui_text_centered_wrapped("you", leftCx, cy + 70, rw / 2, 12, COL_GREEN, 1, FontKind::Mono);
     ui_text("VS", players.x + rw / 2 - ui_text_width("VS", 20, FontKind::MonoBold) / 2, cy - 12, 20, COL_MUTED, FontKind::MonoBold);
     if (m.helloReceived && connected(app)) {
-        avatar(m.them.name, rightCx, cy, 36, COL_BLUE);
+        mal_badge(vs.theirMal, { rightCx, cy }, 36, COL_BLUE);
         ui_text_centered_wrapped(m.them.name, rightCx, cy + 48, rw / 2 - 10, 15, COL_TEXT, 1, FontKind::UiBold);
         ui_text_centered_wrapped("ready", rightCx, cy + 70, rw / 2, 12, COL_BLUE, 1, FontKind::Mono);
     } else {
@@ -667,7 +676,8 @@ static void draw_lobby(App &app)
         for (size_t i = 0; i < room.size(); i++) {
             const VsWatcher &wt = room[i];
             float ly = box.y + 38 + i * 24.0f;
-            ui_text(wt.name, box.x + 18, ly, 14, COL_TEXT);
+            if (i < vs.crowd.size()) mal_draw(vs.crowd[i], { box.x + 26, ly + 19 }, 17);
+            ui_text(wt.name, box.x + 44, ly, 14, COL_TEXT);
             std::string pick = wt.side < 0 ? "picking..." :
                                std::to_string(wt.bytes) + " bytes on " + (wt.side == 0 ? vs.myName : m.them.name);
             ui_text(pick, box.x + rw - 18 - ui_text_width(pick, 13), ly + 1, 13, wt.side < 0 ? COL_MUTED : COL_PURPLE);
@@ -725,11 +735,11 @@ static void draw_scoreboard(App &app, float y)
     float h = 64;
     DrawLine(0, (int)(y + h), SCREEN_W, (int)(y + h), COL_LINE_SOFT);
 
-    auto side = [&](const VsPlayer &p, const std::string &name, bool left, Color c) {
+    auto side = [&](const VsPlayer &p, const Mal &mal, const std::string &name, bool left, Color c) {
         float w = (SCREEN_W - 2 * MARGIN - 80) / 2.0f;
         float x = left ? MARGIN : SCREEN_W - MARGIN - w;
         float ax = left ? x + 22 : x + w - 22;
-        avatar(name, ax, y + h / 2, 21, c);
+        mal_badge(mal, { ax, y + h / 2 }, 21, c);
         float bx = left ? x + 56 : x;
         float bw = w - 56;
         std::string tests = p.total > 0 ? std::to_string(p.passed) + " / " + std::to_string(p.total) + " tests" : "no runs yet";
@@ -761,8 +771,8 @@ static void draw_scoreboard(App &app, float y)
         float sw = ui_text_width(status, 12);
         ui_text(status, left ? bx : bx + bw - sw, y + 47, 12, sc);
     };
-    side(m.me, app.vs.myName, true, COL_GREEN);
-    side(m.them, m.them.name, false, COL_BLUE);
+    side(m.me, app.mal, app.vs.myName, true, COL_GREEN);
+    side(m.them, app.vs.theirMal, m.them.name, false, COL_BLUE);
     ui_text("VS", SCREEN_W / 2.0f - ui_text_width("VS", 16, FontKind::MonoBold) / 2, y + 24, 16, COL_MUTED, FontKind::MonoBold);
 }
 
@@ -817,6 +827,8 @@ static void play_frame(App &app)
     if (w.runCount != vs.lastRunCount) {
         vs.lastRunCount = w.runCount;
         for (const std::string &line : vs_my_run(m, w.result, w.resultWasSubmit, now)) send(app, line);
+        if (m.me.finished) mal_react(app.mal, MalMood::Cheer, 3.0f);
+        else react_to_run(app.mal, m.me.lastResult, m.me.passed, m.me.total);
         if (m.me.finished && !vs.codeSent) { send(app, "CODE " + vs_escape(eb_text(w.code))); vs.codeSent = true; }
     }
 
@@ -955,6 +967,9 @@ static void draw_result(App &app)
 
     std::string reason;
     int outcome = vs_outcome(m, reason);
+    // The winner's Mal keeps cheering; the other one's a bit flat
+    mal_set_base(app.mal, outcome > 0 ? MalMood::Cheer : outcome < 0 ? MalMood::Sad : MalMood::Idle);
+    mal_set_base(vs.theirMal, outcome < 0 ? MalMood::Cheer : outcome > 0 ? MalMood::Sad : MalMood::Idle);
     float x = MARGIN, y = HEADER_H + 24;
     std::string eyebrow = outcome > 0 ? "WINNER" : outcome < 0 ? "WINNER" : "DRAW";
     Color ec = outcome > 0 ? COL_GREEN : outcome < 0 ? COL_BLUE : COL_AMBER;
@@ -979,9 +994,9 @@ static void draw_result(App &app)
     y += 104;
     float cardW = (SCREEN_W - 2 * MARGIN - 16) / 2.0f;
     float cardH = SCREEN_H - FOOTER_H - 16 - y;
-    struct Card { const VsPlayer *p; std::string name; Color c; std::string code; bool hasCode; };
-    Card mine = { &m.me, vs.myName + " (you)", COL_GREEN, eb_text(w.code), true };
-    Card theirs = { &m.them, m.them.name, COL_BLUE, m.them.code, m.them.hasCode };
+    struct Card { const VsPlayer *p; std::string name; Color c; std::string code; bool hasCode; const Mal *mal; };
+    Card mine = { &m.me, vs.myName + " (you)", COL_GREEN, eb_text(w.code), true, &app.mal };
+    Card theirs = { &m.them, m.them.name, COL_BLUE, m.them.code, m.them.hasCode, &vs.theirMal };
     Card cards[2] = { outcome < 0 ? theirs : mine, outcome < 0 ? mine : theirs };
 
     for (int i = 0; i < 2; i++) {
@@ -990,7 +1005,7 @@ static void draw_result(App &app)
         Rectangle r = { x + i * (cardW + 16), y, cardW, cardH };
         bool winner = (i == 0 && outcome != 0);
         ui_panel(r, COL_SURFACE, winner ? cd.c : COL_LINE, 1);
-        avatar(cd.name, r.x + 38, r.y + 36, 20, cd.c);
+        mal_badge(*cd.mal, { r.x + 38, r.y + 36 }, 20, cd.c);
         ui_text(cd.name, r.x + 68, r.y + 25, 17, COL_TEXT, FontKind::UiBold);
         std::string time = pl.finished ? clock_text(pl.finishSeconds) : (pl.left ? "left" : "not solved");
         ui_text(time, r.x + r.width - 20 - ui_text_width(time, 22, FontKind::MonoBold), r.y + 22, 22, pl.finished ? cd.c : COL_MUTED, FontKind::MonoBold);
@@ -1024,6 +1039,35 @@ static void draw_result(App &app)
 
 // ---------------------------------------------------------------------------
 
+// Every frame: dress the opponent's Mal and the crowd from their LOOKs, and
+// let them react to what's happening.
+static void update_mals(App &app)
+{
+    VersusState &vs = app.vs;
+    VsPlayer &t = vs.match.them;
+    float dt = GetFrameTime();
+    mal_wear(vs.theirMal, t.look.hat, t.look.skin, t.look.pet);
+    if (t.runs < vs.theirRunsSeen) vs.theirRunsSeen = t.runs;   // a new match
+    if (t.runs > vs.theirRunsSeen) {
+        vs.theirRunsSeen = t.runs;
+        react_to_run(vs.theirMal, t.lastResult, t.passed, t.total);
+    }
+    if (t.finished && !vs.theirDoneSeen) mal_react(vs.theirMal, MalMood::Cheer, 3.0f);
+    vs.theirDoneSeen = t.finished;
+    if (vs.match.phase != VsPhase::Finished) {
+        mal_set_base(app.mal, MalMood::Idle);
+        mal_set_base(vs.theirMal, MalMood::Idle);
+    }
+    mal_update(vs.theirMal, dt);
+
+    std::vector<VsWatcher> room = room_of(app);
+    vs.crowd.resize(room.size());
+    for (size_t i = 0; i < room.size(); i++) {
+        mal_wear(vs.crowd[i], room[i].look.hat, room[i].look.skin, room[i].look.pet);
+        mal_update(vs.crowd[i], dt);
+    }
+}
+
 void screen_versus(App &app)
 {
     VersusState &vs = app.vs;
@@ -1032,6 +1076,7 @@ void screen_versus(App &app)
     if (vs.match.host) update_watchers(app, now);
     vs_check_end(vs.match, now);
     watch_phase_changes(app);
+    update_mals(app);
 
     switch (vs.match.phase) {
         case VsPhase::Lobby:     draw_lobby(app); break;

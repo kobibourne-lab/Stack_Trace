@@ -18,6 +18,7 @@
 //   REMATCH                           back to the lobby for another
 //   BYE                               I'm closing the connection
 //   STATS <level> <solved>            my level and Exam prep problems solved (for spectators)
+//   LOOK <hat> <skin> <pet>           what my Mal is wearing (the wardrobe), so the others see my Mal
 //   LIVE <code>                       my code so far, every second or so (only spectators see it)
 //   WATCHERS <n>                      host: how many people are watching
 //
@@ -25,8 +26,10 @@
 // everything both players say, so a spectator sees the whole match:
 //   WATCH 2 <name>                    spectator: I'm here to watch (2 = the message version)
 //   PREDICT <side> <bytes>            spectator: my prediction (side 0 = the host, 1 = the joiner)
+//   LOOK <hat> <skin> <pet>           spectator: what my Mal is wearing (they sit in the crowd)
 //   P <side> <line>                   host: a line from (or to) player <side>, e.g. "P 1 RAN 3 5 wrong"
-//   ROOM <name:side:bytes> ...        host: who's watching and what they predicted (side -1 = not yet)
+//   ROOM <name:side:bytes:hat:skin:pet> ...   host: who's watching, what they predicted (side -1 = not yet)
+//                                     and what their Mal wears (older copies sent just name:side:bytes)
 //   OPEN / CLOSED                     host: predictions open (the lobby) or closed (the match has started)
 //   CLOCK <seconds>                   host, to someone who arrives mid-match: how far in it is
 //   RESULT <side>                     host: who won (-1 = a draw)
@@ -44,8 +47,19 @@ const double END_GRACE_SECONDS = 15.0;   // after time's up, how long to wait fo
 
 enum class VsPhase { Lobby, Countdown, Playing, Finished };
 
+// What someone's Mal is wearing: wardrobe ids (wardrobe.cpp), e.g. "crown" "diamond" "dog".
+struct VsLook {
+    std::string hat = "none", skin = "classic", pet = "nopet";
+};
+
+// The LOOK line, both ways. Ids are cleaned (lowercase letters and digits,
+// at most 16), and anything missing or junk becomes the default.
+std::string vs_look_line(const VsLook &look);
+VsLook vs_parse_look(const std::string &rest);
+
 struct VsPlayer {
     std::string name;
+    VsLook look;                    // their Mal's outfit (from LOOK)
     int passed = 0, total = 0;      // the last run
     int bestPassed = 0;             // the most tests passed in any run
     std::string lastResult;         // "wrong", "compile"... ("" before the first run)
@@ -144,6 +158,7 @@ struct VsWatcher {
     std::string name;
     int side = -1;
     int bytes = 0;
+    VsLook look;                    // their Mal, for the crowd (last, so {name, side, bytes} still works)
 };
 
 // The pool: the bytes on each side.

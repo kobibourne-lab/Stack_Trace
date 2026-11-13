@@ -52,6 +52,7 @@ UnlockInfo unlock_info(const App &app)
     auto crashes = app.progress.scores.find("crashes");   // game overs in MAL-OS games
     u.crashes = crashes == app.progress.scores.end() ? 0 : crashes->second;
     u.unlockAll = app.mos.unlockAll;
+    u.owned = app.progress.owned;
     return u;
 }
 
@@ -511,13 +512,20 @@ static void draw_wardrobe(App &app, float t)
     DrawEllipse((int)big.x, (int)big.y, 80, 18, COL_SURFACE_2);
     mal_draw_with_pet(app.mal, big, 150);
 
-    // Tabs: hats, skins, pets
+    // Bytes to spend, top right
+    std::string have = std::to_string(app.progress.bytes) + " bytes";
+    float hw = ui_text_width(have, 16, FontKind::MonoBold) + 28;
+    ui_panel({ p.x + p.width - 28 - hw, p.y + 22, hw, 38 }, COL_BG, COL_PURPLE, 1);
+    ui_text(have, p.x + p.width - 28 - hw + 14, p.y + 32, 16, COL_PURPLE, FontKind::MonoBold);
+
+    // Tabs: hats, skins, pets, and the shop (things bought with bytes)
     static int tab = 0;
-    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS" };
-    const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet };
+    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS", "SHOP" };
+    const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet, WearKind::Hat };
+    const bool shop = tab == 3;
     float gx = p.x + 300, gy = p.y + 86;
     Vector2 mouse = GetMousePosition();
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         Rectangle tr = { gx + i * 150.0f, gy, 140, 34 };
         bool on = tab == i, hov = CheckCollisionPointRec(mouse, tr);
         ui_panel(tr, on ? COL_AMBER : (hov ? COL_SURFACE_2 : COL_BG), on ? COL_AMBER : COL_LINE, 1);
@@ -525,27 +533,34 @@ static void draw_wardrobe(App &app, float t)
         ui_text(tabs[i], tr.x + (tr.width - tw) / 2, tr.y + 10, 12, on ? COL_BG : COL_TEXT_SOFT, FontKind::MonoBold);
         if (hov) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { tab = i; sfx_play(Sfx::Click); } }
     }
-    if (IsKeyPressed(KEY_TAB)) tab = (tab + 1) % 3;
-    if (tab == 1) ui_text("Beat a boss and you can wear its look.", gx + 470, gy + 10, 13, COL_MUTED);
-    if (tab == 2) ui_text("Pets follow Mal around.", gx + 470, gy + 10, 13, COL_MUTED);
-    gy += 54;
+    if (IsKeyPressed(KEY_TAB)) tab = (tab + 1) % 4;
+    const char *hint = tab == 0 ? "Reach the level, then buy it with bytes. Boss and mastery rewards are free."
+                     : tab == 1 ? "Level skins cost bytes. Beat a boss and its look is yours for free."
+                     : tab == 2 ? "Pets follow Mal around. Reach the level, then buy them with bytes."
+                     : "Extras, just for bytes. Earn bytes from MAL-OS high scores and winning Versus predictions.";
+    ui_text(hint, gx, gy + 44, 13, COL_MUTED);
+    gy += 72;
 
     UnlockInfo u = unlock_info(app);
     const float cw = 116, ch = 124, gap = 10;
     int col = 0;
     for (const WardrobeItem &item : wardrobe_items()) {
-        if (item.kind != kinds[tab]) continue;
+        bool shopOnly = item.price > 0 && item.level == 0;
+        if (shop ? !shopOnly : (item.kind != kinds[tab] || shopOnly)) continue;   // shop-only items are in the SHOP tab
         if (col == 6) { col = 0; gy += ch + gap; }
         Rectangle c = { gx + col * (cw + gap), gy, cw, ch };
         col++;
         bool open = wardrobe_unlocked(item, u);
         bool worn = item.kind == WearKind::Hat ? app.mal.hat == item.id
                   : item.kind == WearKind::Skin ? app.mal.skin == item.id : app.mal.pet == item.id;
-        bool hover = open && CheckCollisionPointRec(mouse, c);
-        ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, worn ? COL_GREEN : (hover ? COL_TEXT_SOFT : COL_LINE), worn ? 2 : 1);
+        bool earned = wardrobe_earned(item, u);
+        bool forSale = item.price > 0 && !open && earned;   // reached, not bought yet
+        bool canBuy = forSale && app.progress.bytes >= item.price;
+        bool hover = (open || forSale) && CheckCollisionPointRec(mouse, c);
+        ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, worn ? COL_GREEN : forSale && hover ? COL_PURPLE : (hover ? COL_TEXT_SOFT : COL_LINE), worn || (forSale && hover) ? 2 : 1);
 
         if (item.kind == WearKind::Pet && item.id != "nopet") {
-            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 86 }, 66, t, false);
+            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 86 }, item.id == "duck" ? 56 : 66, t, false);
         } else {
             Mal preview;   // a little Mal showing the item
             preview.hat = item.kind == WearKind::Hat ? item.id : "none";
@@ -554,18 +569,48 @@ static void draw_wardrobe(App &app, float t)
             preview.blinkIn = 99;
             mal_draw(preview, { c.x + cw / 2 - (item.id == "shallow" ? 8 : 0), c.y + 86 }, 42);
         }
-        if (!open) {   // dimmed, with what unlocks it
+        if (forSale) {   // the price, and what clicking does
+            std::string price = std::to_string(item.price) + " bytes";
+            float pw = ui_text_width(price, 11, FontKind::MonoBold);
+            ui_panel({ c.x + (cw - pw) / 2 - 6, c.y + 6, pw + 12, 18 }, canBuy ? COL_PURPLE : Fade(COL_PURPLE, 0.25f), Fade(COL_PURPLE, 0), 0);
+            ui_text(price, c.x + (cw - pw) / 2, c.y + 9, 11, canBuy ? COL_BG : COL_PURPLE, FontKind::MonoBold);
+            if (hover) {
+                std::string act = canBuy ? "click to buy" : "need " + std::to_string(item.price - app.progress.bytes) + " more";
+                ui_text(act, c.x + (cw - ui_text_width(act, 11, FontKind::Mono)) / 2, c.y + ch - 40, 11, canBuy ? COL_PURPLE : COL_MUTED, FontKind::Mono);
+            }
+        } else if (!open) {   // dimmed, with what unlocks it (and what it'll cost after)
             DrawRectangleRec(c, Fade(COL_BG, 0.72f));
             std::string req = wardrobe_requirement(item);
             float rw = ui_text_width(req, 11, FontKind::UiBold);
             ui_panel({ c.x + (cw - rw) / 2 - 6, c.y + 6, rw + 12, 18 }, Fade(COL_AMBER, 0.15f), Fade(COL_AMBER, 0), 0);
             ui_text(req, c.x + (cw - rw) / 2, c.y + 9, 11, COL_AMBER, FontKind::UiBold);
+            if (item.price > 0) {
+                std::string then = "then " + std::to_string(item.price) + " bytes";
+                ui_text(then, c.x + (cw - ui_text_width(then, 10, FontKind::Mono)) / 2, c.y + 28, 10, COL_PURPLE, FontKind::Mono);
+            }
         }
         float nw = ui_text_width(item.name, 12, FontKind::UiBold);
         ui_text(item.name, c.x + (cw - nw) / 2, c.y + ch - 22, 12, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
         if (hover) {
             ui_want_hand();
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) wear_item(app, item);
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                if (forSale) {
+                    std::string why;
+                    Vector2 mid = { c.x + cw / 2, c.y + ch / 2 };
+                    if (wardrobe_buy(app.progress, item, u, why)) {   // bought: put it straight on
+                        sfx_play(Sfx::Combo);
+                        fx_burst(mid, 30, COL_PURPLE, COL_AMBER);
+                        fx_float_text("-" + std::to_string(item.price) + " bytes", { mid.x, c.y - 6 }, 18, COL_PURPLE);
+                        wear_item(app, item);
+                        mal_react(app.mal, MalMood::Cheer, 2.0f);
+                    } else {
+                        sfx_play(Sfx::Wrong);
+                        fx_float_text(why, { mid.x, c.y - 6 }, 16, COL_CORAL);
+                    }
+                } else {
+                    wear_item(app, item);
+                }
+            }
         }
     }
     if (ui_button("Done", { p.x + p.width - 28 - 140, p.y + p.height - 28 - 48, 140, 48 }, ButtonStyle::Primary, COL_GREEN) ||

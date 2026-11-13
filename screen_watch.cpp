@@ -90,13 +90,41 @@ static std::vector<std::string> split_code(const std::string &code)
     return lines;
 }
 
-static void avatar(const std::string &name, float cx, float cy, float r, Color c)
+// Every frame: dress both players' Mals and the crowd from their LOOKs, and
+// let them react: a hop for tests passing, a squash for a compile error, and
+// the whole crowd cheers when someone gets more tests passing.
+static void update_mals(App &app)
 {
-    DrawCircleV({ cx, cy }, r, c);
-    DrawCircleV({ cx, cy }, r - 3, COL_BG);
-    std::string i = name.empty() ? "?" : std::string(1, (char)toupper((unsigned char)name[0]));
-    float size = r * 0.8f;
-    ui_text(i, cx - ui_text_width(i, size, FontKind::MonoBold) / 2, cy - size * 0.62f, size, c, FontKind::MonoBold);
+    WatchState &w = app.watch;
+    VsSpectate &s = w.spec;
+    float dt = GetFrameTime();
+    bool cheer = false;
+    for (int i = 0; i < 2; i++) {
+        const VsPlayer &p = s.side[i].them;
+        Mal &m = w.mals[i];
+        mal_wear(m, p.look.hat, p.look.skin, p.look.pet);
+        if (p.runs < w.runsSeen[i]) { w.runsSeen[i] = 0; w.bestSeen[i] = 0; }   // a new match
+        if (p.runs > w.runsSeen[i]) {
+            w.runsSeen[i] = p.runs;
+            const std::string &r = p.lastResult;
+            if (r == "compile" || r == "crash" || r == "timeout" || p.passed == 0) mal_react(m, MalMood::Sad, 1.4f);
+            else mal_react(m, MalMood::Happy, 1.2f);
+        }
+        if (p.bestPassed > w.bestSeen[i]) { w.bestSeen[i] = p.bestPassed; cheer = true; }
+        if (p.finished && !w.doneSeen[i]) { mal_react(m, MalMood::Cheer, 3.0f); cheer = true; }
+        w.doneSeen[i] = p.finished;
+        // After the match: the winner keeps cheering
+        MalMood base = MalMood::Idle;
+        if (s.phase == VsPhase::Finished && (s.winner == 0 || s.winner == 1)) base = s.winner == i ? MalMood::Cheer : MalMood::Sad;
+        mal_set_base(m, base);
+        mal_update(m, dt);
+    }
+    w.crowd.resize(s.room.size());
+    for (size_t i = 0; i < s.room.size(); i++) {
+        mal_wear(w.crowd[i], s.room[i].look.hat, s.room[i].look.skin, s.room[i].look.pet);
+        if (cheer) mal_react(w.crowd[i], i % 2 ? MalMood::Happy : MalMood::Cheer, 1.0f + 0.15f * i);
+        mal_update(w.crowd[i], dt);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +165,11 @@ static void update_network(App &app, double now)
     net_update(w.net, now);
     if (connected(app) && !w.helloSent) {
         net_send(w.net, "WATCH " + std::to_string(VERSUS_VERSION) + " " + vs_clean_name(app.vs.myName));
+        VsLook look;   // our Mal sits in the crowd
+        look.hat = app.mal.hat;
+        look.skin = app.mal.skin;
+        look.pet = app.mal.pet;
+        net_send(w.net, vs_look_line(look));
         w.helloSent = true;
     }
     VsPhase before = s.phase;
@@ -278,7 +311,7 @@ static void draw_predict(App &app)
             ui_text("Waiting for someone to join...", r.x + 24, r.y + 30, 16, COL_MUTED);
             continue;
         }
-        avatar(name_of(app, i), r.x + 48, r.y + 50, 26, c);
+        mal_badge(w.mals[i], { r.x + 48, r.y + 50 }, 26, c);
         ui_text(name_of(app, i), r.x + 88, r.y + 26, 24, COL_TEXT, FontKind::UiBold);
         std::string lvl = s.level[i] > 0 ? "Level " + std::to_string(s.level[i]) + "  |  " + level_title(s.level[i]) : "";
         ui_text(lvl, r.x + 88, r.y + 58, 13, c, FontKind::Mono);
@@ -395,18 +428,19 @@ static void draw_predict(App &app)
     float ly = roomBox.y + 40;
     for (int i = 0; i < 2; i++) {
         if (s.side[i].them.name.empty()) continue;
-        DrawCircleV({ roomBox.x + 24, ly + 9 }, 5, SIDE_COL[i]);
-        ui_text(name_of(app, i), roomBox.x + 38, ly, 14, COL_TEXT);
+        mal_draw(w.mals[i], { roomBox.x + 26, ly + 19 }, 17);
+        ui_text(name_of(app, i), roomBox.x + 44, ly, 14, COL_TEXT);
         ui_text("playing", roomBox.x + rw - 18 - ui_text_width("playing", 13), ly + 1, 13, COL_MUTED);
-        ly += 24;
+        ly += 28;
     }
-    for (const VsWatcher &wt : s.room) {
-        DrawCircleV({ roomBox.x + 24, ly + 9 }, 5, COL_PURPLE);
+    for (size_t k = 0; k < s.room.size(); k++) {
+        const VsWatcher &wt = s.room[k];
+        if (k < w.crowd.size()) mal_draw(w.crowd[k], { roomBox.x + 26, ly + 19 }, 17);
         bool me = wt.name == vs_clean_name(app.vs.myName);
-        ui_text(wt.name + (me ? " (you)" : ""), roomBox.x + 38, ly, 14, COL_TEXT);
+        ui_text(wt.name + (me ? " (you)" : ""), roomBox.x + 44, ly, 14, COL_TEXT);
         std::string what = wt.side < 0 ? "picking..." : std::to_string(wt.bytes) + " on " + name_of(app, wt.side);
         ui_text(what, roomBox.x + rw - 18 - ui_text_width(what, 13), ly + 1, 13, wt.side < 0 ? COL_MUTED : COL_PURPLE);
-        ly += 24;
+        ly += 28;
     }
 
     if (!w.message.empty()) ui_text(w.message, x, SCREEN_H - FOOTER_H - 30, 14, COL_CORAL);
@@ -449,11 +483,13 @@ static void draw_watch(App &app)
         std::string nm = name_of(app, i), tests = std::to_string(best) + " / " + std::to_string(total) + " tests";
         if (p.finished) tests = "SOLVED " + clock_text(p.finishSeconds);
         if (i == 0) {
-            ui_text(nm, bx, 22, 17, COL_TEXT, FontKind::UiBold);
+            mal_badge(w.mals[0], { bx + 15, 31 }, 15, SIDE_COL[0]);
+            ui_text(nm, bx + 38, 22, 17, COL_TEXT, FontKind::UiBold);
             ui_text(tests, bx + half - ui_text_width(tests, 13, FontKind::Mono), 25, 13, SIDE_COL[i], FontKind::Mono);
         } else {
             ui_text(tests, bx, 25, 13, SIDE_COL[i], FontKind::Mono);
-            ui_text(nm, bx + half - ui_text_width(nm, 17, FontKind::UiBold), 22, 17, COL_TEXT, FontKind::UiBold);
+            mal_badge(w.mals[1], { bx + half - 15, 31 }, 15, SIDE_COL[1]);
+            ui_text(nm, bx + half - 38 - ui_text_width(nm, 17, FontKind::UiBold), 22, 17, COL_TEXT, FontKind::UiBold);
         }
         draw_bar(bx, 50, half, best, total, SIDE_COL[i], i == 1);
     }
@@ -531,14 +567,28 @@ static void draw_watch(App &app)
     ui_panel(feed, COL_SURFACE, COL_LINE, 1);
     ui_text("LIVE FEED", feed.x + 16, feed.y + 14, 12, COL_BLUE, FontKind::MonoBold);
     float fy = feed.y + 40;
+    float standsH = w.crowd.empty() ? 0 : 92;   // the crowd at the bottom
     for (const VsNamedEvent &e : vs_spectate_feed(s)) {
         float h = ui_text_wrapped_height(e.text, rw - 80, 13) + 8;
-        if (fy + h > feed.y + feed.height - 8) break;
+        if (fy + h > feed.y + feed.height - 8 - standsH) break;
         ui_text(clock_text(e.seconds), feed.x + 16, fy + 1, 11, COL_MUTED, FontKind::Mono);
         Color c = e.kind == 3 ? COL_GREEN : e.kind == 1 ? COL_CORAL : SIDE_COL[e.side];
         DrawCircleV({ feed.x + 62, fy + 8 }, 4, c);
         ui_text_wrapped(e.text, feed.x + 74, fy, rw - 84, 13, COL_TEXT_SOFT);
         fy += h;
+    }
+    if (!w.crowd.empty()) {   // the stands: every spectator's Mal, cheering when someone passes more tests
+        float sy = feed.y + feed.height - standsH;
+        DrawLine((int)feed.x + 12, (int)sy, (int)(feed.x + feed.width - 12), (int)sy, COL_LINE_SOFT);
+        ui_text("IN THE STANDS", feed.x + 16, sy + 10, 11, COL_PURPLE, FontKind::MonoBold);
+        float step = fminf(64.0f, (rw - 32) / (float)w.crowd.size());
+        for (size_t k = 0; k < w.crowd.size(); k++) {
+            float cx = feed.x + 16 + step * (k + 0.5f);
+            mal_draw(w.crowd[k], { cx, sy + 78 }, 34);
+            std::string nm = s.room[k].name;
+            if (nm.size() > 7) nm = nm.substr(0, 6) + ".";
+            ui_text(nm, cx - ui_text_width(nm, 10, FontKind::Mono) / 2, sy + 80, 10, COL_MUTED, FontKind::Mono);
+        }
     }
 
     // The countdown, over everything
@@ -571,6 +621,8 @@ static void draw_result(App &app)
     ui_text("MATCH OVER", x, y, 12, COL_AMBER, FontKind::MonoBold);
     std::string title = (win == 0 || win == 1) ? name_of(app, win) + " wins!" : win == -1 ? "It's a draw" : "Match over";
     ui_text(title, x, y + 18, 38, COL_TEXT, FontKind::UiBold);
+    if (win == 0 || win == 1)   // the winner's Mal, cheering beside it
+        mal_draw(w.mals[win], { x + ui_text_width(title, 38, FontKind::UiBold) + 46, y + 84 }, 44);
     std::string why;
     if (win == 0 || win == 1) {
         const VsPlayer &p = s.side[win].them, &o = s.side[1 - win].them;
@@ -662,6 +714,7 @@ void screen_watch(App &app)
 {
     WatchState &w = app.watch;
     update_network(app, GetTime());
+    update_mals(app);
     if (IsKeyPressed(KEY_ESCAPE)) { stop_watching(app); return; }
 
     bool ready = connected(app) && !w.spec.side[0].them.name.empty();

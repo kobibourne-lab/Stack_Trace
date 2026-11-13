@@ -31,7 +31,14 @@ struct Workspace {
     double started = 0;                // GetTime() when it was opened
     double endsAt = 0;                 // exam mode: when time runs out
     bool timeUp = false;
-    double stoppedAt = 0;              // exam mode: when it was accepted (the clock stops)
+    double stoppedAt = 0;              // when it was accepted (the clock stops)
+
+    // The "Solved!" card shown when a submit is accepted
+    bool finishShown = false;          // showing it now (closed with "Keep my code open")
+    double finishAt = 0;
+    bool firstSolve = false;           // the first time this problem was solved (XP!)
+    bool newBest = false;              // faster than the last time
+    int solveSeconds = 0, bestSeconds = 0;
 
     int runPhase = 0;                  // 0 idle, 1 showing "Running", 2 running now
     bool submitting = false;           // Submit (counts if accepted) rather than Run
@@ -81,6 +88,12 @@ struct VersusState {
     int theirLevel = 0, theirSolved = 0;
     int watchersShown = -1;           // the count last told to the joiner
     int watcherCount = 0;             // as the joiner: how many are watching (from WATCHERS)
+
+    // Mals: the opponent's (dressed by their LOOK), and the watchers' (the host's lobby)
+    Mal theirMal;
+    std::vector<Mal> crowd;
+    int theirRunsSeen = 0;            // so their Mal reacts once to each run
+    bool theirDoneSeen = false;
 };
 
 // Watching someone else's match (screen_watch.cpp).
@@ -96,6 +109,12 @@ struct WatchState {
     int lockedBytes = 0, lockedSide = -1;
     int payout = 0;                 // what came back
     std::string message;
+
+    // Mals: both players', and the other spectators' in the crowd
+    Mal mals[2];
+    std::vector<Mal> crowd;
+    int runsSeen[2] = { 0, 0 }, bestSeen[2] = { 0, 0 };
+    bool doneSeen[2] = { false, false };
 };
 
 // A campaign boss fight (screen_boss.cpp). The problem itself is in App::work.

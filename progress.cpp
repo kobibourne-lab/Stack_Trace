@@ -5,7 +5,8 @@
 //   ANSWER: 2026-11-03 | pointers | 1
 //   SOLVED: lab1/q01_leap_year | 2026-11-03 | 154
 //   BOSS: stack | 2026-11-10 | 401 | 2
-//   BYTES: 160   (a spectator's play money for Versus predictions)
+//   BYTES: 160   (pocket money: Versus predictions, rewards, the wardrobe shop)
+//   OWNED: beanie | duck   (wardrobe items bought with bytes)
 // For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
 // the fastest time in seconds. For BOSS (a campaign boss beaten), the numbers
 // are the fastest win in seconds and the most stars.
@@ -49,6 +50,8 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             s.date = fields[1];
             s.seconds = fields.size() >= 3 ? std::atoi(fields[2].c_str()) : 0;
             p.solved[fields[0]] = s;
+        } else if (key == "OWNED") {
+            for (const std::string &id : fields) if (!id.empty()) p.owned.insert(id);
         } else if (key == "BYTES" && !fields.empty()) {
             p.bytes = std::atoi(fields[0].c_str());
             if (p.bytes < 0) p.bytes = 0;
@@ -86,6 +89,12 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
     for (const auto &entry : p.solved)
         f << "SOLVED: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << "\n";
     f << "BYTES: " << p.bytes << "\n";
+    if (!p.owned.empty()) {
+        f << "OWNED: ";
+        bool first = true;
+        for (const std::string &id : p.owned) { f << (first ? "" : " | ") << id; first = false; }
+        f << "\n";
+    }
     for (const auto &entry : p.bosses)
         f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
           << entry.second.stars << "\n";

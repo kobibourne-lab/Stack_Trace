@@ -969,11 +969,16 @@ static void test_wardrobe_snake_scores()
     UnlockInfo u;
     u.level = 3;
     u.topicsTotal = 20;
+    CHECK(wardrobe_earned(*wardrobe_find("drinkhat"), u));       // level 2: earned...
+    CHECK(!wardrobe_unlocked(*wardrobe_find("drinkhat"), u));    // ...but it costs bytes to wear
+    CHECK(wardrobe_find("drinkhat")->price == 20 && wardrobe_find("wizard")->price == 120);
+    u.owned.insert("drinkhat");
     CHECK(wardrobe_unlocked(*wardrobe_find("drinkhat"), u));
-    CHECK(!wardrobe_unlocked(*wardrobe_find("hardhat"), u));     // level 5
+    CHECK(!wardrobe_earned(*wardrobe_find("hardhat"), u));       // level 5
     CHECK(!wardrobe_unlocked(*wardrobe_find("bowtie"), u));      // 1 boss
     u.bossesBeaten = 1;
-    CHECK(wardrobe_unlocked(*wardrobe_find("bowtie"), u));
+    CHECK(wardrobe_unlocked(*wardrobe_find("bowtie"), u));       // boss rewards are free
+    CHECK(wardrobe_find("bowtie")->price == 0 && wardrobe_find("slayer")->price == 0 && wardrobe_find("diamond")->price == 0);
     CHECK(!wardrobe_unlocked(*wardrobe_find("crown"), u));       // every topic mastered
     u.topicsMastered = 20;
     CHECK(wardrobe_unlocked(*wardrobe_find("crown"), u));
@@ -1081,7 +1086,7 @@ static void test_memory_city()
 static void test_spectators()
 {
     // The pool, and what predictions pay
-    std::vector<VsWatcher> room = { { "Aoife", 0, 40 }, { "Cian", 1, 60 }, { "Dara", -1, 0 } };
+    std::vector<VsWatcher> room = { { "Aoife", 0, 40, {} }, { "Cian", 1, 60, {} }, { "Dara", -1, 0, {} } };
     int pool[2];
     vs_pool(room, pool);
     CHECK(pool[0] == 40 && pool[1] == 60);
@@ -1146,7 +1151,9 @@ static void test_spectators()
     CHECK(late.phase == VsPhase::Playing);
     CHECK(vs_elapsed(late.side[0], 500) > 59.9 && vs_elapsed(late.side[0], 500) < 60.1);
 
-    // A real listening socket taking two spectators at once
+    // A real listening socket taking two spectators at once. Windows needs the
+    // network started again: the earlier Versus test shut it down when it finished.
+    CHECK(net_init());
     NetServer server;
     const int port = 5097;
     CHECK(net_server_open(server, port));
@@ -1180,6 +1187,7 @@ static void test_spectators()
     net_server_close(server);
     CHECK(net_server_open(second, port));             // and free again after
     net_server_close(second);
+    net_shutdown();
 
     // Bytes are saved
     Progress p;
@@ -1190,6 +1198,83 @@ static void test_spectators()
     Progress loaded;
     CHECK(progress_load(path, loaded, error));
     CHECK(loaded.bytes == 160);
+    std::remove(path.c_str());
+}
+
+static void test_versus_looks()
+{
+    // The LOOK line both ways
+    VsLook look;
+    look.hat = "crown"; look.skin = "diamond"; look.pet = "dog";
+    CHECK(vs_look_line(look) == "LOOK crown diamond dog");
+    VsLook back = vs_parse_look(vs_parse(vs_look_line(look)).rest);
+    CHECK(back.hat == "crown" && back.skin == "diamond" && back.pet == "dog");
+    // Junk is cleaned, and anything missing is the default
+    back = vs_parse_look("Cr;OWN! <script>");
+    CHECK(back.hat == "crown" && back.skin == "script" && back.pet == "nopet");
+    back = vs_parse_look("");
+    CHECK(back.hat == "none" && back.skin == "classic" && back.pet == "nopet");
+    CHECK(vs_look_line(VsLook()) == "LOOK none classic nopet");
+
+    // A player's LOOK dresses their Mal on the other screen
+    VsMatch m;
+    vs_apply(m, "LOOK afro tux cat", 0);
+    CHECK(m.them.look.hat == "afro" && m.them.look.skin == "tux" && m.them.look.pet == "cat");
+
+    // Spectators get both players' looks through the host
+    VsSpectate s;
+    vs_spectate_apply(s, "P 0 LOOK mohawk glitch bird", 0);
+    vs_spectate_apply(s, "P 1 LOOK crown slayer nopet", 0);
+    CHECK(s.side[0].them.look.hat == "mohawk" && s.side[0].them.look.pet == "bird");
+    CHECK(s.side[1].them.look.skin == "slayer");
+    // ...and still have them once the match starts (starting resets the scores, not the outfits)
+    vs_apply(m, "RAN 3 5 wrong", 0);
+    vs_begin(m, "lab1", "q15_reverse_array", 10, 0);
+    CHECK(m.them.look.hat == "afro" && m.them.runs == 0);
+    vs_spectate_apply(s, "P 0 START lab1 q15_reverse_array 10", 0);
+    CHECK(s.side[0].them.look.hat == "mohawk" && s.side[1].them.look.skin == "slayer");
+
+    // The crowd: ROOM carries each spectator's look, and still reads the old short form
+    std::vector<VsWatcher> room = { { "Aoife", 0, 40, {} }, { "Cian", -1, 0, {} } };
+    room[0].look.hat = "sombrero";
+    room[0].look.pet = "bird";
+    std::string line = vs_room_line(room);
+    CHECK(line == "ROOM Aoife:0:40:sombrero:classic:bird Cian:-1:0:none:classic:nopet");
+    std::vector<VsWatcher> got = vs_parse_room(vs_parse(line).rest);
+    CHECK(got.size() == 2 && got[0].name == "Aoife" && got[0].side == 0 && got[0].bytes == 40);
+    CHECK(got[0].look.hat == "sombrero" && got[0].look.pet == "bird" && got[1].look.hat == "none");
+    got = vs_parse_room("Aoife:1:25 Dara:-1:0");
+    CHECK(got.size() == 2 && got[0].side == 1 && got[0].bytes == 25 && got[0].look.skin == "classic");
+}
+
+static void test_wardrobe_shop()
+{
+    Progress p;   // a new student: 100 bytes
+    const WardrobeItem *duck = wardrobe_find("duck"), *neon = wardrobe_find("neon"), *crown = wardrobe_find("crown");
+    CHECK(duck && neon && crown && duck->price == 60 && duck->kind == WearKind::Pet);
+    UnlockInfo u;
+    u.level = 20;   // a high level doesn't buy anything
+    CHECK(!wardrobe_unlocked(*duck, u));
+    CHECK(wardrobe_requirement(*duck) == "60 bytes");
+
+    std::string why;
+    CHECK(!wardrobe_buy(p, *crown, u, why) && why == "That's not in the shop.");
+    u.level = 3;   // a level item: has to be reached before it can be bought
+    CHECK(!wardrobe_buy(p, *wardrobe_find("hardhat"), u, why) && why == "Reach level 5 first." && p.bytes == 100);
+    u.level = 20;
+    CHECK(!wardrobe_buy(p, *neon, u, why) && why == "You need 20 more bytes." && p.bytes == 100);
+    CHECK(wardrobe_buy(p, *duck, u, why) && p.bytes == 40 && p.owned.count("duck"));
+    CHECK(!wardrobe_buy(p, *duck, u, why) && why == "You already have it." && p.bytes == 40);
+    CHECK(wardrobe_buy(p, *wardrobe_find("drinkhat"), u, why) && p.bytes == 20);   // a level item, once reached
+    u.owned = p.owned;
+    CHECK(wardrobe_unlocked(*duck, u) && !wardrobe_unlocked(*neon, u));
+
+    // Bought things are kept in progress.txt
+    std::string path = "test_shop_progress.txt", error;
+    CHECK(progress_save(path, p, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    CHECK(back.bytes == 20 && back.owned.size() == 2 && back.owned.count("duck") && back.owned.count("drinkhat"));
     std::remove(path.c_str());
 }
 
@@ -1214,6 +1299,8 @@ int main()
     run("wardrobe, snake and minigame scores", test_wardrobe_snake_scores);
     run("memory city: islands, stops and labels", test_memory_city);
     run("Versus spectators: predictions, payouts, watching", test_spectators);
+    run("Versus: Mal's look for players and the crowd", test_versus_looks);
+    run("the wardrobe shop: buying with bytes", test_wardrobe_shop);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

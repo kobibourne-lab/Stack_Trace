@@ -23,6 +23,8 @@
 // Shared: the screen frame, game over, scores
 // ---------------------------------------------------------------------------
 
+const int NEW_BEST_BYTES = 10;   // bytes for beating your own high score
+
 static bool over = false;
 static std::string overTitle, overLine;
 static bool newBest = false;
@@ -67,7 +69,14 @@ static void game_over(App &app, const std::string &title, const std::string &lin
         app.mos.out.push_back({ "Memory corrupted. Glitch skin unlocked in the wardrobe!", MosTone::Accent });
         fx_float_text("Glitch skin unlocked!", { SCREEN_W / 2.0f, 150 }, 26, COL_PURPLE);
     }
-    if (newBest) { sfx_play(Sfx::LevelUp); mal_react(app.mal, MalMood::Cheer, 2.5f); }
+    if (newBest) {   // a new high score earns bytes for the wardrobe shop
+        app.progress.bytes += NEW_BEST_BYTES;
+        save_progress(app);
+        app.mos.out.push_back({ "+" + std::to_string(NEW_BEST_BYTES) + " bytes for a new best", MosTone::Good });
+        fx_float_text("+" + std::to_string(NEW_BEST_BYTES) + " bytes", { SCREEN_W / 2.0f, 190 }, 22, COL_PURPLE);
+        sfx_play(Sfx::LevelUp);
+        mal_react(app.mal, MalMood::Cheer, 2.5f);
+    }
     else { sfx_play(Sfx::Crumble); mal_react(app.mal, MalMood::Sad, 2.0f); }
     fx_shake(0.6f);
 }
