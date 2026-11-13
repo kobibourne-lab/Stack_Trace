@@ -5,6 +5,7 @@
 //   ANSWER: 2026-11-03 | pointers | 1
 //   SOLVED: lab1/q01_leap_year | 2026-11-03 | 154
 //   BOSS: stack | 2026-11-10 | 401 | 2
+//   BYTES: 160   (a spectator's play money for Versus predictions)
 // For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
 // the fastest time in seconds. For BOSS (a campaign boss beaten), the numbers
 // are the fastest win in seconds and the most stars.
@@ -48,6 +49,9 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             s.date = fields[1];
             s.seconds = fields.size() >= 3 ? std::atoi(fields[2].c_str()) : 0;
             p.solved[fields[0]] = s;
+        } else if (key == "BYTES" && !fields.empty()) {
+            p.bytes = std::atoi(fields[0].c_str());
+            if (p.bytes < 0) p.bytes = 0;
         } else if (key == "BOSS" && fields.size() >= 2 && !fields[0].empty()) {
             BossRecord b;
             b.date = fields[1];
@@ -81,6 +85,7 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         f << "ANSWER: " << a.date << " | " << a.topic << " | " << (a.correct ? 1 : 0) << "\n";
     for (const auto &entry : p.solved)
         f << "SOLVED: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << "\n";
+    f << "BYTES: " << p.bytes << "\n";
     for (const auto &entry : p.bosses)
         f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
           << entry.second.stars << "\n";

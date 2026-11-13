@@ -16,7 +16,7 @@
 #include "mos.h"
 #include "wardrobe.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -49,6 +49,13 @@ struct Workspace {
 };
 
 // Versus mode: the connection, the match, and the lobby's text boxes.
+// A spectator connected to this computer while it hosts (screen_versus.cpp).
+struct WatcherConn {
+    NetConn conn;
+    VsWatcher who;                  // their name and prediction
+    bool hello = false;             // they've said WATCH
+};
+
 struct VersusState {
     NetConn net;
     VsMatch match;
@@ -63,6 +70,32 @@ struct VersusState {
     double lastLinesSent = 0;
     bool timeUpHandled = false;
     bool codeSent = false;
+
+    // Spectators (only while hosting)
+    NetServer watchServer;
+    std::vector<WatcherConn> watchers;
+    bool predictionsOpen = true;
+    VsPhase lastPhase = VsPhase::Lobby;
+    std::string lastLive, theirLive;  // the latest code from each player, for spectators who arrive late
+    double lastLiveSent = 0;
+    int theirLevel = 0, theirSolved = 0;
+    int watchersShown = -1;           // the count last told to the joiner
+    int watcherCount = 0;             // as the joiner: how many are watching (from WATCHERS)
+};
+
+// Watching someone else's match (screen_watch.cpp).
+struct WatchState {
+    NetConn net;
+    VsSpectate spec;
+    std::string address;
+    bool helloSent = false;
+    int pick = -1;                  // 0 the host, 1 the joiner
+    int amount = 25;
+    bool locked = false;            // the prediction has been sent (its bytes are taken off)
+    bool paid = false;              // the result has been paid out
+    int lockedBytes = 0, lockedSide = -1;
+    int payout = 0;                 // what came back
+    std::string message;
 };
 
 // A campaign boss fight (screen_boss.cpp). The problem itself is in App::work.
@@ -109,6 +142,7 @@ struct App {
 
     Workspace work;              // the open problem
     VersusState vs;              // Versus mode
+    WatchState watch;            // watching a Versus match
 
     std::vector<Region> campaign;       // content/campaign.txt
     std::string campaignError;
@@ -157,6 +191,9 @@ void screen_problem(App &app);
 void save_draft(App &app);           // saves the open problem's code (main.cpp calls it on quit too)
 void open_versus(App &app);
 void screen_versus(App &app);
+void open_watch(App &app, const std::string &address);   // watch the match hosted at address
+void screen_watch(App &app);
+void watch_quit(App &app);                                // at shutdown
 void versus_quit(App &app);          // tells the other player you've gone (main.cpp calls it on quit)
 
 // Pieces of the problem screen that Versus reuses (screen_problem.cpp)

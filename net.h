@@ -15,6 +15,7 @@
 #include <vector>
 
 const int VERSUS_PORT = 5050;
+const int WATCH_PORT = 5051;    // spectators connect here, so they can never take the player's place
 
 enum class NetState {
     Idle,        // nothing open
@@ -56,6 +57,18 @@ bool net_send(NetConn &c, const std::string &line);
 bool net_receive(NetConn &c, std::string &line);
 
 void net_close(NetConn &c);
+
+// Hosting for spectators: a listening socket that keeps accepting, so any
+// number of people can connect (screen_versus.cpp decides how many to keep).
+struct NetServer {
+    intptr_t sock = -1;
+    std::string error;
+};
+bool net_server_open(NetServer &s, int port);
+// A new connection, if one has arrived: out becomes Connected. Never waits.
+bool net_server_accept(NetServer &s, NetConn &out);
+void net_server_close(NetServer &s);
+bool net_server_open_now(const NetServer &s);   // listening?
 
 // This computer's address on the network it would use to reach the internet,
 // e.g. "10.170.59.202". "" if it can't tell (no network).

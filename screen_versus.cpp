@@ -44,7 +44,170 @@ static Color difficulty_color(const std::string &d)
     return COL_TEXT_SOFT;
 }
 
-static void send(App &app, const std::string &line) { net_send(app.vs.net, line); }
+// ---------------------------------------------------------------------------
+// Spectators (when hosting): everything both players say is passed on to
+// them as "P <side> <line>", so they can follow the whole match
+// ---------------------------------------------------------------------------
+
+// To every spectator who has said hello.
+static void broadcast(App &app, const std::string &line)
+{
+    for (WatcherConn &w : app.vs.watchers)
+        if (w.hello) net_send(w.conn, line);
+}
+
+static void send(App &app, const std::string &line)
+{
+    net_send(app.vs.net, line);
+    if (app.vs.match.host) broadcast(app, "P 0 " + line);
+}
+
+static std::vector<VsWatcher> room_of(const App &app)
+{
+    std::vector<VsWatcher> room;
+    for (const WatcherConn &w : app.vs.watchers) if (w.hello) room.push_back(w.who);
+    return room;
+}
+
+static void broadcast_room(App &app) { broadcast(app, vs_room_line(room_of(app))); }
+
+static std::string my_stats(const App &app)
+{
+    return "STATS " + std::to_string(level_for_xp(progress_xp(app.progress))) + " " + std::to_string(app.progress.solved.size());
+}
+
+static void close_watchers(App &app)
+{
+    VersusState &vs = app.vs;
+    for (WatcherConn &w : vs.watchers) {
+        net_send(w.conn, "BYE");
+        net_update(w.conn, GetTime());
+        net_close(w.conn);
+    }
+    vs.watchers.clear();
+    net_server_close(vs.watchServer);
+    vs.watchersShown = -1;
+}
+
+// What a spectator who has just arrived needs to catch up.
+static void catch_up(App &app, WatcherConn &w)
+{
+    VersusState &vs = app.vs;
+    VsMatch &m = vs.match;
+    double now = GetTime();
+    auto say = [&](const std::string &line) { net_send(w.conn, line); };
+    say("P 0 HELLO " + std::to_string(VERSUS_VERSION) + " " + vs.myName);
+    say("P 0 " + my_stats(app));
+    if (m.helloReceived && vs.net.state == NetState::Connected) {
+        say("P 1 HELLO " + std::to_string(VERSUS_VERSION) + " " + m.them.name);
+        say("P 1 STATS " + std::to_string(vs.theirLevel) + " " + std::to_string(vs.theirSolved));
+    }
+    say("P 0 SETTINGS " + m.lobbySet + " " + m.lobbyDifficulty + " " + std::to_string(m.lobbyMinutes));
+    say("SCORE " + std::to_string(m.myWins) + " " + std::to_string(m.theirWins) + " " + std::to_string(m.draws));
+    if (m.phase == VsPhase::Countdown || m.phase == VsPhase::Playing) {
+        say("P 0 START " + m.setId + " " + m.problemId + " " + std::to_string(m.minutes));
+        char buf[48];
+        std::snprintf(buf, sizeof buf, "CLOCK %.2f", now - m.startAt);
+        say(buf);
+        if (!vs.lastLive.empty()) say("P 0 LIVE " + vs.lastLive);
+        if (!vs.theirLive.empty()) say("P 1 LIVE " + vs.theirLive);
+    }
+    say(vs.predictionsOpen ? "OPEN" : "CLOSED");
+}
+
+// Every frame while hosting: let spectators in, read their predictions, and
+// notice when they go.
+static void update_watchers(App &app, double now)
+{
+    VersusState &vs = app.vs;
+    if (!net_server_open_now(vs.watchServer)) return;
+
+    NetConn incoming;
+    while (net_server_accept(vs.watchServer, incoming)) {
+        if ((int)vs.watchers.size() >= MAX_WATCHERS) {
+            net_send(incoming, "FULL");
+            net_update(incoming, now);
+            net_close(incoming);
+            continue;
+        }
+        WatcherConn w;
+        w.conn = incoming;
+        vs.watchers.push_back(w);
+        incoming = NetConn();
+    }
+
+    bool roomChanged = false;
+    for (size_t i = 0; i < vs.watchers.size();) {
+        WatcherConn &w = vs.watchers[i];
+        net_update(w.conn, now);
+        std::string line;
+        while (net_receive(w.conn, line)) {
+            VsMessage msg = vs_parse(line);
+            if (msg.kind == "WATCH" && !w.hello) {
+                if (msg.args.empty() || std::atoi(msg.args[0].c_str()) != VERSUS_VERSION) {
+                    net_send(w.conn, "P 0 HELLO " + std::to_string(VERSUS_VERSION) + " " + vs.myName);   // their copy shows the mismatch
+                    continue;
+                }
+                std::string name = vs_clean_name(msg.args.size() > 1 ? msg.args[1] : "");
+                // Two spectators with the same name get a number
+                std::string base = name;
+                for (int n = 2;; n++) {
+                    bool taken = name == vs.myName || name == vs.match.them.name;
+                    for (const WatcherConn &o : vs.watchers) if (&o != &w && o.hello && o.who.name == name) taken = true;
+                    if (!taken) break;
+                    name = base + std::to_string(n);
+                }
+                w.who.name = name;
+                w.hello = true;
+                catch_up(app, w);
+                roomChanged = true;
+            } else if (msg.kind == "PREDICT" && w.hello && msg.args.size() >= 2) {
+                int side = std::atoi(msg.args[0].c_str()), bytes = std::atoi(msg.args[1].c_str());
+                if (vs.predictionsOpen && w.who.side < 0 && (side == 0 || side == 1) && bytes > 0 && bytes <= 100000) {
+                    w.who.side = side;
+                    w.who.bytes = bytes;
+                    roomChanged = true;
+                }
+            }
+        }
+        if (w.conn.state != NetState::Connected) {
+            net_close(w.conn);
+            vs.watchers.erase(vs.watchers.begin() + i);
+            roomChanged = true;
+        } else {
+            i++;
+        }
+    }
+    if (roomChanged) broadcast_room(app);
+
+    // Tell the opponent how many are watching
+    int n = (int)room_of(app).size();
+    if (n != vs.watchersShown && vs.net.state == NetState::Connected) {
+        net_send(vs.net, "WATCHERS " + std::to_string(n));
+        vs.watchersShown = n;
+    }
+}
+
+// Predictions open in the lobby and close when the match starts. The result
+// goes out when the match ends.
+static void watch_phase_changes(App &app)
+{
+    VersusState &vs = app.vs;
+    VsMatch &m = vs.match;
+    if (!m.host || m.phase == vs.lastPhase) return;
+    if (m.phase == VsPhase::Finished) {
+        std::string why;
+        int r = vs_outcome(m, why);
+        broadcast(app, "RESULT " + std::to_string(r > 0 ? 0 : r < 0 ? 1 : -1));
+        broadcast(app, "SCORE " + std::to_string(m.myWins) + " " + std::to_string(m.theirWins) + " " + std::to_string(m.draws));
+    } else if (m.phase == VsPhase::Lobby) {
+        vs.predictionsOpen = true;
+        for (WatcherConn &w : vs.watchers) { w.who.side = -1; w.who.bytes = 0; }
+        broadcast(app, "OPEN");
+        broadcast_room(app);
+    }
+    vs.lastPhase = m.phase;
+}
 
 static bool connected(const App &app) { return app.vs.net.state == NetState::Connected; }
 
@@ -89,6 +252,12 @@ static void disconnect(App &app)
 {
     VersusState &vs = app.vs;
     net_close(vs.net);
+    close_watchers(app);
+    vs.predictionsOpen = true;
+    vs.lastPhase = VsPhase::Lobby;
+    vs.lastLive.clear();
+    vs.theirLive.clear();
+    vs.watcherCount = 0;
     int wins = vs.match.myWins, losses = vs.match.theirWins, draws = vs.match.draws;
     std::string set = vs.match.lobbySet, diff = vs.match.lobbyDifficulty;
     int minutes = vs.match.lobbyMinutes;
@@ -111,6 +280,7 @@ void versus_quit(App &app)
     send(app, "BYE");
     net_update(vs.net, GetTime());   // one last chance to send them
     net_close(vs.net);
+    close_watchers(app);
 }
 
 static void leave_versus(App &app)
@@ -138,6 +308,9 @@ static bool start_workspace(App &app)
     vs.lastLinesSent = 0;
     vs.timeUpHandled = false;
     vs.codeSent = false;
+    vs.lastLive.clear();
+    vs.theirLive.clear();
+    vs.lastLiveSent = 0;
     return true;
 }
 
@@ -157,6 +330,8 @@ static void host_start(App &app)
     if (choices.empty()) for (int i = 0; i < (int)set->problems.size(); i++) choices.push_back(i);
     const Problem &p = set->problems[choices[GetRandomValue(0, (int)choices.size() - 1)]];
 
+    app.vs.predictionsOpen = false;
+    broadcast(app, "CLOSED");
     send(app, "START " + set->id + " " + p.id + " " + std::to_string(m.lobbyMinutes));
     vs_begin(m, set->id, p.id, m.lobbyMinutes, GetTime());
     start_workspace(app);
@@ -182,12 +357,27 @@ static void update_network(App &app, double now)
 
     if (connected(app) && !vs.helloSent) {
         send(app, "HELLO " + std::to_string(VERSUS_VERSION) + " " + vs.myName);
+        send(app, my_stats(app));
         vs.helloSent = true;
         send_settings(app);
     }
 
     std::string line;
     while (net_receive(vs.net, line)) {
+        // Lines just for spectators, or about them
+        VsMessage msg = vs_parse(line);
+        if (m.host) {
+            if (msg.kind == "LIVE") { vs.theirLive = msg.rest; broadcast(app, "P 1 " + line); continue; }
+            if (msg.kind == "STATS" && msg.args.size() >= 2) {
+                vs.theirLevel = std::atoi(msg.args[0].c_str());
+                vs.theirSolved = std::atoi(msg.args[1].c_str());
+            }
+            broadcast(app, "P 1 " + line);
+            if (msg.kind == "HELLO") broadcast_room(app);
+        } else if (msg.kind == "WATCHERS" && !msg.args.empty()) {
+            vs.watcherCount = std::atoi(msg.args[0].c_str());
+            continue;
+        }
         vs_apply(m, line, now);
         if (m.startRequested) {
             m.startRequested = false;
@@ -324,6 +514,8 @@ static void draw_lobby(App &app)
         ui_text(addr, hostCard.x + 34, hostCard.y + 81, 22, COL_TEXT, FontKind::MonoBold);
         if (vs.localAddress.empty())
             ui_text("Find it with ipconfig getifaddr en0 (Mac) or ipconfig (Windows)", hostCard.x + 20, hostCard.y + 124, 12, COL_AMBER);
+        else
+            ui_text("Spectators type the same address and press Watch", hostCard.x + 20, hostCard.y + 126, 12, COL_PURPLE);
         if (net.state == NetState::Listening) {
             float pulse = 0.5f + 0.5f * std::sin((float)now * 4);
             DrawCircleV({ hostCard.x + 26, hostCard.y + 168 }, 5, Fade(COL_AMBER, 0.4f + 0.6f * pulse));
@@ -344,6 +536,7 @@ static void draw_lobby(App &app)
             m.host = true;
             vs.localAddress = net_local_address();
             net_host(net, VERSUS_PORT);
+            if (!net_server_open(vs.watchServer, WATCH_PORT)) vs.message = vs.watchServer.error;
         }
     }
 
@@ -358,12 +551,23 @@ static void draw_lobby(App &app)
         DrawCircleV({ joinCard.x + 26, joinCard.y + 168 }, 5, COL_GREEN);
         std::string who = "Joined " + (m.helloReceived ? m.them.name : net.peerAddress);
         ui_text(who, joinCard.x + 40, joinCard.y + 159, 14, COL_GREEN, FontKind::UiBold);
-    } else if ((ui_button("Join match", { joinCard.x + 20, joinCard.y + cardH - 20 - 44, cardW - 40, 44 },
-                          idle ? ButtonStyle::Outline : ButtonStyle::Disabled, COL_BLUE) || enter) && idle) {
-        disconnect(app);
-        m.host = false;
-        vs.focus = 0;
-        net_join(net, vs.joinAddress, VERSUS_PORT, now);
+    } else {
+        float bw = (cardW - 40 - 12) * 0.62f;
+        if ((ui_button("Join match", { joinCard.x + 20, joinCard.y + cardH - 20 - 44, bw, 44 },
+                       idle ? ButtonStyle::Outline : ButtonStyle::Disabled, COL_BLUE) || enter) && idle) {
+            disconnect(app);
+            m.host = false;
+            vs.focus = 0;
+            net_join(net, vs.joinAddress, VERSUS_PORT, now);
+        }
+        // Or just watch: see both players' code and predict the winner
+        if (ui_button("Watch", { joinCard.x + 20 + bw + 12, joinCard.y + cardH - 20 - 44, cardW - 40 - bw - 12, 44 },
+                      idle ? ButtonStyle::Outline : ButtonStyle::Disabled, COL_PURPLE) && idle) {
+            disconnect(app);
+            vs.focus = 0;
+            open_watch(app, vs.joinAddress);
+            return;
+        }
     }
     y += cardH + 16;
 
@@ -450,6 +654,28 @@ static void draw_lobby(App &app)
         ui_panel({ rx, ny, rw, h }, COL_SURFACE, COL_CORAL, 1);
         ui_text_wrapped(problem, rx + 18, ny + 14, rw - 36, 14, COL_CORAL);
         ny += h + 12;
+    }
+    // Who's watching (the host sees their predictions)
+    std::vector<VsWatcher> room = room_of(app);
+    if (m.host && !room.empty()) {
+        float h = 44 + room.size() * 24.0f;
+        Rectangle box = { rx, ny, rw, h };
+        ui_panel(box, COL_SURFACE, COL_PURPLE, 1);
+        ui_text("WATCHING (" + std::to_string(room.size()) + ")", box.x + 18, box.y + 14, 12, COL_PURPLE, FontKind::MonoBold);
+        std::string state = vs.predictionsOpen ? "Predictions are open until you start" : "Predictions closed";
+        ui_text(state, box.x + rw - 18 - ui_text_width(state, 12), box.y + 15, 12, COL_MUTED);
+        for (size_t i = 0; i < room.size(); i++) {
+            const VsWatcher &wt = room[i];
+            float ly = box.y + 38 + i * 24.0f;
+            ui_text(wt.name, box.x + 18, ly, 14, COL_TEXT);
+            std::string pick = wt.side < 0 ? "picking..." :
+                               std::to_string(wt.bytes) + " bytes on " + (wt.side == 0 ? vs.myName : m.them.name);
+            ui_text(pick, box.x + rw - 18 - ui_text_width(pick, 13), ly + 1, 13, wt.side < 0 ? COL_MUTED : COL_PURPLE);
+        }
+        ny += h + 12;
+    } else if (!m.host && vs.watcherCount > 0 && connected(app)) {
+        ui_text(std::to_string(vs.watcherCount) + " watching", rx, ny, 13, COL_PURPLE, FontKind::Mono);
+        ny += 24;
     }
     if (ny < SCREEN_H - FOOTER_H - 110) {
         Rectangle tip = { rx, ny, rw, 92 };
@@ -602,6 +828,19 @@ static void play_frame(App &app)
     }
     if (vs.timeUpHandled && !m.me.over && w.runPhase == 0 && vs.lastRunCount == w.runCount) send(app, vs_my_time_up(m));
 
+    // My code so far, every second if it changed, for spectators. The host
+    // sends it straight to them; the joiner sends it to the host, which passes
+    // it on (and never shows it to the host player).
+    if (now - vs.lastLiveSent > 1.0) {
+        std::string live = vs_escape(eb_text(w.code));
+        if (live != vs.lastLive) {
+            if (m.host) broadcast(app, "P 0 LIVE " + live);
+            else net_send(vs.net, "LIVE " + live);
+            vs.lastLive = live;
+        }
+        vs.lastLiveSent = now;
+    }
+
     // The length of my code, every couple of seconds if it changed
     int lines = count_lines(w.code);
     if (lines != vs.lastLines && now - vs.lastLinesSent > 2.0) {
@@ -637,7 +876,9 @@ static void play_frame(App &app)
     float tw = ui_text_width(t, 24, FontKind::MonoBold) + 36;
     ui_panel({ SCREEN_W / 2.0f - tw / 2, 11, tw, 42 }, COL_BG, tc, 1);
     ui_text(t, SCREEN_W / 2.0f - tw / 2 + 18, 20, 24, tc, FontKind::MonoBold);
+    int watching = m.host ? (int)room_of(app).size() : vs.watcherCount;
     std::string conn = connected(app) ? "Connected to " + m.them.name : "Disconnected";
+    if (watching > 0) conn += "  |  " + std::to_string(watching) + " watching";
     float cw = ui_text_width(conn, 13);
     DrawCircleV({ SCREEN_W - MARGIN - cw - 14, 32 }, 4, connected(app) ? COL_GREEN : COL_CORAL);
     ui_text(conn, SCREEN_W - MARGIN - cw, 24, 13, COL_MUTED);
@@ -788,7 +1029,9 @@ void screen_versus(App &app)
     VersusState &vs = app.vs;
     double now = GetTime();
     update_network(app, now);
+    if (vs.match.host) update_watchers(app, now);
     vs_check_end(vs.match, now);
+    watch_phase_changes(app);
 
     switch (vs.match.phase) {
         case VsPhase::Lobby:     draw_lobby(app); break;
