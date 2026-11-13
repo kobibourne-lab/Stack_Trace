@@ -88,6 +88,7 @@ static void do_run(App &app)
     w.result = run_answer(p, eb_text(w.code), WORK_DIR);
     w.hasResult = true;
     w.runCount++;
+    if (!w.versus) quest_event(app, "run");
     w.resultWasSubmit = w.submitting;
     w.consoleScroll = 0;
     w.detailScroll = 0;
@@ -117,6 +118,8 @@ static void do_run(App &app)
             sfx_play(Sfx::LevelUp);
             fx_burst({ SCREEN_W / 2.0f, SCREEN_H / 2.0f - 40 }, 60, COL_GREEN, COL_AMBER);
         }
+        learned_today(app);
+        quest_event(app, "solve");
         if (first && !p.topic.empty()) {
             record_answer(app, p.topic, true);   // counts towards the topic's mastery, and saves
         } else {

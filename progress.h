@@ -34,6 +34,13 @@ struct BossRecord {
     int stars = 0;       // the most stars won (1 to 3)
 };
 
+// Today's quest counters (daily.cpp). They start again each day.
+struct DailyLog {
+    std::string date;                     // the day these counts are for
+    std::map<std::string, int> counts;    // "correct" -> 4, "game" -> 1 ...
+    int claimed = 0;                      // chests opened today: bit 0..2 the quests, bit 3 the golden chest
+};
+
 struct Progress {
     std::map<std::string, int> points;  // topic id -> 0..100
     std::map<std::string, int> scores;  // MAL-OS minigame -> best score
@@ -43,6 +50,12 @@ struct Progress {
     std::map<std::string, BossRecord> bosses;     // campaign region id ("stack") -> record
     int bytes = 100;                              // pocket money: Versus predictions, rewards, the wardrobe shop
     std::set<std::string> owned;                  // wardrobe shop items bought with bytes
+
+    // The streak (daily.cpp): days something was learned, and days a freeze covered
+    std::set<std::string> activeDays;             // DAYS: lesson finished, answer given, problem solved, boss beaten
+    std::set<std::string> frozenDays;             // FROZEN: missed days a const freeze kept the streak alive through
+    int freezes = 0;                              // const freezes held (bought in the shop)
+    DailyLog daily;                               // DAILY: today's quests
 };
 
 // A missing file just means a new student: returns true with empty progress.
@@ -90,8 +103,12 @@ int date_weekday(const std::string &date);
 // How many answers were given on each date.
 std::map<std::string, int> answers_per_day(const Progress &p);
 
-// Days in a row with at least one answer, counting back from today. If there's
+// Did the student learn something on this date? (an answer, or a DAYS entry)
+bool progress_day_active(const Progress &p, const std::string &date);
+
+// Days in a row with something learned, counting back from today. If there's
 // nothing today yet, the streak is still alive from yesterday (like GitHub).
+// A day covered by a const freeze keeps it going but doesn't add to it.
 int progress_streak(const Progress &p, const std::string &today);
 
 int progress_total_points(const Progress &p);

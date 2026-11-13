@@ -40,6 +40,7 @@ static void answer(App &app, int choice, Vector2 at)
     QuizSession &s = app.quiz;
     bool correct = quiz_answer(s, choice);
     record_answer(app, quiz_topic(app), correct);
+    if (correct) quest_best(app, "combo", s.combo);
     answeredAt = (float)GetTime();
 
     if (correct) {
@@ -231,7 +232,7 @@ static void draw_question(App &app, const Question &q)
         if (quiz_finished(s) && s.lives > 0) {
             // Passed: mastery from the lives left (this clears the topic in the campaign)
             progress_finish_quiz(app.progress, quiz_topic(app), s.lives, START_LIVES);
-            save_progress(app);
+            quest_event(app, "quiz");   // saves
         }
         if (quiz_finished(s) && s.lives > 0) {   // results: celebrate a good run
             int total = (int)s.quiz.questions.size();

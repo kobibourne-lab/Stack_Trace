@@ -537,7 +537,7 @@ static void draw_wardrobe(App &app, float t)
     const char *hint = tab == 0 ? "Reach the level, then buy it with bytes. Boss and mastery rewards are free."
                      : tab == 1 ? "Level skins cost bytes. Beat a boss and its look is yours for free."
                      : tab == 2 ? "Pets follow Mal around. Reach the level, then buy them with bytes."
-                     : "Extras, just for bytes. Earn bytes from MAL-OS high scores and winning Versus predictions.";
+                     : "Extras, just for bytes. Earn them from daily quests, MAL-OS high scores and Versus predictions.";
     ui_text(hint, gx, gy + 44, 13, COL_MUTED);
     gy += 72;
 
@@ -609,6 +609,39 @@ static void draw_wardrobe(App &app, float t)
                     }
                 } else {
                     wear_item(app, item);
+                }
+            }
+        }
+    }
+    if (shop) {   // the const freeze: not something to wear, it protects the streak
+        if (col == 6) { col = 0; gy += ch + gap; }
+        Rectangle c = { gx + col * (cw + gap), gy, cw, ch };
+        bool full = app.progress.freezes >= FREEZE_MAX, canBuy = !full && app.progress.bytes >= FREEZE_PRICE;
+        bool hover = CheckCollisionPointRec(mouse, c);
+        ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, hover ? COL_BLUE : COL_LINE, hover ? 2 : 1);
+        draw_freeze({ c.x + cw / 2 - 26, c.y + 34, 52, 52 }, true, t);
+        std::string price = full ? "holding " + std::to_string(FREEZE_MAX) : std::to_string(FREEZE_PRICE) + " bytes";
+        float pw = ui_text_width(price, 11, FontKind::MonoBold);
+        ui_panel({ c.x + (cw - pw) / 2 - 6, c.y + 6, pw + 12, 18 }, canBuy ? COL_PURPLE : Fade(COL_PURPLE, 0.25f), Fade(COL_PURPLE, 0), 0);
+        ui_text(price, c.x + (cw - pw) / 2, c.y + 9, 11, canBuy ? COL_BG : COL_PURPLE, FontKind::MonoBold);
+        std::string held = "you have " + std::to_string(app.progress.freezes);
+        ui_text(held, c.x + (cw - ui_text_width(held, 10, FontKind::Mono)) / 2, c.y + 90, 10, COL_BLUE, FontKind::Mono);
+        float nw = ui_text_width("Const freeze", 12, FontKind::UiBold);
+        ui_text("Const freeze", c.x + (cw - nw) / 2, c.y + ch - 22, 12, COL_TEXT, FontKind::UiBold);
+        if (hover) {
+            ui_want_hand();
+            ui_text("Keeps your streak alive if you miss a day", c.x, c.y + ch + 6, 12, COL_BLUE);
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                std::string why;
+                Vector2 mid = { c.x + cw / 2, c.y + ch / 2 };
+                if (streak_buy_freeze(app.progress, why)) {
+                    save_progress(app);
+                    sfx_play(Sfx::Combo);
+                    fx_burst(mid, 30, COL_BLUE, WHITE);
+                    fx_float_text("-" + std::to_string(FREEZE_PRICE) + " bytes", { mid.x, c.y - 6 }, 18, COL_PURPLE);
+                } else {
+                    sfx_play(Sfx::Wrong);
+                    fx_float_text(why, { mid.x, c.y - 6 }, 16, COL_CORAL);
                 }
             }
         }

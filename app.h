@@ -15,8 +15,9 @@
 #include "campaign.h"
 #include "mos.h"
 #include "wardrobe.h"
+#include "daily.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -178,6 +179,13 @@ struct App {
     Mal mal;                     // the mascot, shared by every screen
     int levelShown = 1;          // the level last celebrated, so each level-up shows once
     float levelUpLeft = 0;       // seconds left on the level-up banner
+
+    // The daily loop (screen_daily.cpp)
+    Screen dailyFrom = Screen::Title;   // where Back goes from the Daily screen
+    float streakLeft = 0;        // seconds left on the streak banner (waits for the level-up one)
+    int freezesUsed = 0;         // const freezes used when the app opened (the banner says so)
+    float toastLeft = 0;         // a quest just finished: the toast in the corner
+    std::string toastText;
 };
 
 // Moving between screens. open_lesson and open_quiz load the files for the
@@ -239,5 +247,22 @@ MosInfo mos_info(const App &app);
 // Put on a wardrobe item (if unlocked) and save it.
 void wear_item(App &app, const WardrobeItem &item);
 void screen_campaign(App &app);
+
+// The daily loop (screen_daily.cpp): the streak, const freezes and quests.
+void open_daily(App &app);
+void screen_daily(App &app);
+// Something was learned today (an answer, a lesson, a solve, a boss): keeps
+// the streak alive, and shows the flame banner the first time each day.
+void learned_today(App &app);
+// A quest counter went up ("correct", "game"...), or a best of the day
+// ("combo", "snake"...). Saves, and shows a toast if it finished a quest.
+void quest_event(App &app, const std::string &key, int n = 1);
+void quest_best(App &app, const std::string &key, int value);
+// The streak banner and the quest toast, over every screen (main.cpp).
+void draw_daily_overlays(App &app);
+// Drawing pieces the start screen shares.
+void draw_flame(Vector2 base, float height, float t, bool lit);
+void draw_freeze(Rectangle r, bool held, float t);
+void draw_chest(Vector2 base, float width, int state, float t, bool golden, float openAge);   // state: 0 locked, 1 ready, 2 open
 void open_boss(App &app, int region);   // the boss's intro; the fight starts from there
 void screen_boss(App &app);

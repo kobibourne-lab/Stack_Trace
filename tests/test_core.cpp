@@ -38,6 +38,7 @@
 #include "../citymap.h"
 #include <cmath>
 #include "../minigames.h"
+#include "../daily.h"
 #include <chrono>
 #include <thread>
 
@@ -1278,6 +1279,130 @@ static void test_wardrobe_shop()
     std::remove(path.c_str());
 }
 
+// The Duolingo loop: streak days, const freezes, daily quests and chests.
+static void test_daily()
+{
+    Progress p;
+    p.bytes = 100;
+
+    // The streak counts any day something was learned, not just answers
+    CHECK(streak_mark_active(p, "2026-11-10"));
+    CHECK(!streak_mark_active(p, "2026-11-10"));      // only new the first time that day
+    CHECK(streak_mark_active(p, "2026-11-11"));
+    CHECK(progress_streak(p, "2026-11-11") == 2);
+    CHECK(progress_streak(p, "2026-11-12") == 2);     // nothing yet today: still alive
+    CHECK(progress_streak(p, "2026-11-13") == 0);     // missed a whole day: gone out
+
+    // Answers from older saves still count as learning days
+    progress_record(p, "pointers", true, "2026-11-09");
+    CHECK(progress_day_active(p, "2026-11-09"));
+    CHECK(progress_streak(p, "2026-11-11") == 3);
+
+    // Freezes: bought with bytes, at most two held
+    std::string why;
+    CHECK(streak_buy_freeze(p, why));
+    CHECK(p.freezes == 1 && p.bytes == 100 - FREEZE_PRICE);
+    p.bytes = 1000;
+    CHECK(streak_buy_freeze(p, why));
+    CHECK(!streak_buy_freeze(p, why));                // already holding the most
+    CHECK(p.freezes == FREEZE_MAX);
+    Progress poor;
+    poor.bytes = 10;
+    CHECK(!streak_buy_freeze(poor, why) && poor.freezes == 0 && poor.bytes == 10);
+
+    // Opening on the 13th: the 12th was missed, one freeze covers it
+    CHECK(streak_use_freezes(p, "2026-11-13") == 1);
+    CHECK(p.freezes == 1);
+    CHECK(p.frozenDays.count("2026-11-12") == 1);
+    CHECK(progress_streak(p, "2026-11-13") == 3);     // kept going, but the frozen day doesn't add
+    CHECK(streak_use_freezes(p, "2026-11-13") == 0);  // opening again the same day uses nothing
+    streak_mark_active(p, "2026-11-13");
+    CHECK(progress_streak(p, "2026-11-13") == 4);
+
+    // Missing 3 days with only 1 freeze: it goes out, and the freeze is kept
+    CHECK(streak_use_freezes(p, "2026-11-17") == 0);
+    CHECK(p.freezes == 1);
+    CHECK(progress_streak(p, "2026-11-17") == 0);
+
+    // The week row: learned, frozen, nothing
+    std::vector<int> week = streak_week(p, "2026-11-13");
+    CHECK(week.size() == 7);
+    CHECK(week[6] == 1 && week[5] == 2 && week[4] == 1 && week[0] == 0);
+
+    // Quests: three a day, the same for everyone that day, different days differ
+    std::vector<Quest> q = daily_quests("2026-11-13");
+    CHECK(q.size() == 3);
+    CHECK(daily_quests("2026-11-13")[2].key == q[2].key);
+    bool differs = false;
+    for (int d = 0; d < 14 && !differs; d++) {
+        std::vector<Quest> other = daily_quests(date_add_days("2026-11-13", d + 1));
+        for (int i = 0; i < 3; i++) if (other[i].text != q[i].text) differs = true;
+    }
+    CHECK(differs);
+    for (int d = 0; d < 60; d++) {   // never two "correct" quests on one day
+        std::vector<Quest> day = daily_quests(date_add_days("2026-01-01", d));
+        CHECK(!(day[0].key == "correct" && day[1].key == "correct"));
+    }
+
+    // Progress, finishing and opening chests
+    const std::string today = "2026-11-20";
+    Progress s;
+    s.bytes = 0;
+    std::vector<Quest> qs = daily_quests(today);
+    int bytes = 0;
+    std::string item;
+    CHECK(!daily_claim(s, today, 0, bytes, item, why));   // not done yet
+    for (int i = 0; i < 3; i++) {
+        if (qs[i].best) daily_best(s, today, qs[i].key, qs[i].target - 1);
+        else daily_add(s, today, qs[i].key, qs[i].target - 1);
+        CHECK(!quest_done(s, qs[i], today));
+        if (qs[i].best) { daily_best(s, today, qs[i].key, 1); CHECK(!quest_done(s, qs[i], today)); daily_best(s, today, qs[i].key, qs[i].target + 5); }
+        else daily_add(s, today, qs[i].key, 1);
+        CHECK(quest_done(s, qs[i], today));
+        CHECK(quest_progress(s, qs[i], today) == qs[i].target);   // capped
+    }
+    CHECK(quests_done(s, today) == 3);
+    int total = 0;
+    for (int i = 0; i < 3; i++) {
+        CHECK(daily_claim(s, today, i, bytes, item, why));
+        CHECK(bytes == qs[i].reward);
+        total += bytes;
+        CHECK(!daily_claim(s, today, i, bytes, item, why));   // once only
+    }
+    CHECK(s.bytes == total);
+    GoldenPrize prize = daily_golden(s, today);
+    CHECK(daily_claim(s, today, GOLDEN_CHEST, bytes, item, why));
+    CHECK(bytes == GOLDEN_BYTES && item == prize.itemId);
+    if (!item.empty()) CHECK(s.owned.count(item) == 1);
+
+    // Some day in a month gives an item, and only ones not owned yet
+    bool anyItem = false;
+    for (int d = 0; d < 30; d++) {
+        GoldenPrize g = daily_golden(s, date_add_days(today, d));
+        if (!g.itemId.empty()) { anyItem = true; CHECK(s.owned.count(g.itemId) == 0); }
+    }
+    CHECK(anyItem);
+
+    // A new day starts the counters again
+    daily_add(s, "2026-11-21", "game");
+    CHECK(s.daily.date == "2026-11-21" && s.daily.claimed == 0 && s.daily.counts["game"] == 1);
+    CHECK(quests_done(s, "2026-11-21") <= 1);
+
+    // It all saves and loads back
+    const char *path = "test_progress.txt";
+    p.daily = s.daily;
+    p.daily.claimed = 5;
+    std::string error;
+    CHECK(progress_save(path, p, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    CHECK(back.activeDays == p.activeDays);
+    CHECK(back.frozenDays == p.frozenDays);
+    CHECK(back.freezes == p.freezes);
+    CHECK(back.daily.date == "2026-11-21" && back.daily.claimed == 5 && back.daily.counts["game"] == 1);
+    CHECK(progress_streak(back, "2026-11-13") == 4);
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -1301,6 +1426,7 @@ int main()
     run("Versus spectators: predictions, payouts, watching", test_spectators);
     run("Versus: Mal's look for players and the crowd", test_versus_looks);
     run("the wardrobe shop: buying with bytes", test_wardrobe_shop);
+    run("daily loop: streak, const freezes, quests, chests", test_daily);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

@@ -62,7 +62,8 @@ static void game_over(App &app, const std::string &title, const std::string &lin
     overAt = (float)GetTime();
     newBest = progress_record_score(app.progress, app.gameId, score) && score > 0;
     int crashes = ++app.progress.scores["crashes"];   // the glitch skin unlocks on the first one
-    save_progress(app);
+    quest_event(app, "game");
+    quest_best(app, app.gameId, score);   // saves
     app.mos.out.push_back({ app.gameId + " exited: score " + std::to_string(score) + (newBest ? "  NEW BEST!" : ""),
                             newBest ? MosTone::Good : MosTone::Dim });
     if (crashes == 1) {
@@ -543,6 +544,7 @@ void screen_games(App &app)
         if (!over) {
             int score = app.gameId == "snake" ? snake.score : app.gameId == "heaphero" ? heap.score : tower.score;
             if (progress_record_score(app.progress, app.gameId, score)) save_progress(app);
+            quest_best(app, app.gameId, score);   // a score counts for a quest even if you quit
             app.mos.out.push_back({ app.gameId + " exited: score " + std::to_string(score), MosTone::Dim });
         }
         app.screen = Screen::Room;   // back at the terminal, where we left it

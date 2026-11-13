@@ -13,6 +13,8 @@ static void next_step(App &app)
         app.step++;
     } else {
         // Finished: on to the quiz if there is one, otherwise back to the map
+        learned_today(app);
+        quest_event(app, "lesson");
         if (!app.topics[app.selected].quizFile.empty()) open_quiz(app);
         else open_map(app);
     }
