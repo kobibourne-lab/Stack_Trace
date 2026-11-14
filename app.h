@@ -16,8 +16,12 @@
 #include "mos.h"
 #include "wardrobe.h"
 #include "daily.h"
+#include "outputle.h"
+#include "codex.h"
+#include "bugdex.h"
+#include "farm.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm };
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -49,6 +53,7 @@ struct Workspace {
     bool accepted = false;             // the last submit was accepted
     int selectedTest = 0;              // the test whose details are shown
     int runCount = 0;                  // goes up after every run (Versus watches it)
+    bool hadCrash = false, hadTimeout = false;   // for the Bugdex: fixing these catches a Segfault / Infinite Loop
 
     int hintsShown = 0;
     float descScroll = 0, descHeight = 0;
@@ -184,8 +189,12 @@ struct App {
     Screen dailyFrom = Screen::Title;   // where Back goes from the Daily screen
     float streakLeft = 0;        // seconds left on the streak banner (waits for the level-up one)
     int freezesUsed = 0;         // const freezes used when the app opened (the banner says so)
-    float toastLeft = 0;         // a quest just finished: the toast in the corner
-    std::string toastText;
+    float toastLeft = 0;         // a quest just finished (or a bug was caught): the toast in the corner
+    std::string toastTitle, toastText, toastSub;
+    bool toastBug = false;       // the toast is for a bug caught (draws the bug, not a chest)
+    std::string toastBugId;
+
+    Screen returnTo = Screen::Title;    // where Outputle, the Codex, the Bugdex and the farm go back to
 };
 
 // Moving between screens. open_lesson and open_quiz load the files for the
@@ -260,6 +269,23 @@ void quest_event(App &app, const std::string &key, int n = 1);
 void quest_best(App &app, const std::string &key, int value);
 // The streak banner and the quest toast, over every screen (main.cpp).
 void draw_daily_overlays(App &app);
+// A bug caught (a boss beaten, a crash fixed...): adds it to the Bugdex,
+// saves, and shows a toast. how: "boss", "exam prep", "practice".
+void catch_bug(App &app, const std::string &bugId, const std::string &how);
+
+// Outputle, the C Codex, the Bugdex and the Memory Farm
+void open_outputle(App &app);
+void screen_outputle(App &app);
+void open_codex(App &app);
+void screen_codex(App &app);
+void open_bugdex(App &app);
+void screen_bugdex(App &app);
+void open_farm(App &app);
+void screen_farm(App &app);
+void draw_bug(const Bug &bug, Vector2 centre, float size, float t, bool silhouette);
+// The code tree (a branch per region, a leaf per topic): Mal's room and the farm draw it.
+void draw_code_tree(const App &app, Rectangle area, float t, bool labels);
+
 // Drawing pieces the start screen shares.
 void draw_flame(Vector2 base, float height, float t, bool lit);
 void draw_freeze(Rectangle r, bool held, float t);

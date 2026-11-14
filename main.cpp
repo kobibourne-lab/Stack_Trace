@@ -279,7 +279,8 @@ int main()
         if (IsKeyPressed(KEY_F11)) ToggleBorderlessWindowed();
         // M mutes, except where you type code (M is a letter you might need there)
         if (IsKeyPressed(KEY_M) && app.screen != Screen::Problem && app.screen != Screen::Versus && app.screen != Screen::Boss &&
-            app.screen != Screen::Room) sfx_toggle_mute();
+            app.screen != Screen::Room && app.screen != Screen::Outputle && app.screen != Screen::Codex && app.screen != Screen::Campaign)
+            sfx_toggle_mute();   // (the Campaign's 3D city uses M to switch view)
 
         float dt = GetFrameTime();
         fx_update(dt);
@@ -315,6 +316,10 @@ int main()
             case Screen::Room:     screen_room(app); break;
             case Screen::Game:     screen_games(app); break;
             case Screen::Daily:    screen_daily(app); break;
+            case Screen::Outputle: screen_outputle(app); break;
+            case Screen::Codex:    screen_codex(app); break;
+            case Screen::Bugdex:   screen_bugdex(app); break;
+            case Screen::Farm:     screen_farm(app); break;
         }
         fx_draw();
         draw_level_up(app);

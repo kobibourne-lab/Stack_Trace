@@ -33,7 +33,7 @@ endif
 
 # The tests only use the files that don't draw, so they need no raylib and no window
 TEST_SRC = tests/test_core.cpp content.cpp quiz.cpp progress.cpp practice.cpp editbuf.cpp versus.cpp net.cpp campaign.cpp citymap.cpp \
-           mos.cpp wardrobe.cpp minigames.cpp daily.cpp
+           mos.cpp wardrobe.cpp minigames.cpp daily.cpp outputle.cpp codex.cpp bugdex.cpp farm.cpp
 
 $(TARGET): $(SRC) $(wildcard *.h) $(ICON_RES)
 	$(CXX) $(CXXFLAGS) $(SRC) $(ICON_RES) $(LDFLAGS) -o $(TARGET)
@@ -49,7 +49,7 @@ run: $(TARGET)
 test: $(TESTS)
 	./$(TESTS)
 
-$(TESTS): $(TEST_SRC) content.h quiz.h progress.h practice.h editbuf.h versus.h net.h campaign.h citymap.h mos.h wardrobe.h minigames.h daily.h
+$(TESTS): $(TEST_SRC) content.h quiz.h progress.h practice.h editbuf.h versus.h net.h campaign.h citymap.h mos.h wardrobe.h minigames.h daily.h outputle.h codex.h bugdex.h farm.h
 	$(CXX) $(CXXFLAGS) $(TEST_SRC) $(NETLIBS) -o $(TESTS)
 
 clean:

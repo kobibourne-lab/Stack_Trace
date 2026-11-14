@@ -160,6 +160,9 @@ void screen_title(App &app)
     if (IsKeyPressed(KEY_V)) { open_versus(app); return; }
     if (IsKeyPressed(KEY_P)) { app.screen = Screen::Profile; return; }
     if (IsKeyPressed(KEY_D)) { open_daily(app); return; }
+    if (IsKeyPressed(KEY_O)) { open_outputle(app); return; }
+    if (IsKeyPressed(KEY_X)) { open_codex(app); return; }
+    if (IsKeyPressed(KEY_B)) { open_bugdex(app); return; }
     if (IsKeyPressed(KEY_ESCAPE)) { app.quit = true; return; }
 
     // Left: the logo, the name with a blinking cursor, and a line about it
@@ -178,17 +181,26 @@ void screen_title(App &app)
     ui_text("Learn C and C++ by watching memory move.", x, y, 20, COL_TEXT_SOFT);
     y += 52;
 
-    // Menu
-    float bw = 236, bh = 48, gap = 14;
+    // Menu: the big two, then two rows, then the daily puzzle and the collections
+    float bw = 236, bh = 44, gap = 12;
+    y -= 14;
     if (ui_button("Campaign", { x, y, bw, bh }, ButtonStyle::Primary, COL_AMBER)) { open_campaign(app); return; }
     if (ui_button("Topic map", { x + bw + gap, y, bw, bh }, ButtonStyle::Primary, COL_GREEN)) { app.inCampaign = false; open_map(app); return; }
     y += bh + gap;
     if (ui_button("Exam prep", { x, y, bw, bh }, ButtonStyle::Outline, COL_PURPLE)) { open_exam_prep(app); return; }
     if (ui_button("Versus", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_CORAL)) { open_versus(app); return; }
     y += bh + gap;
-    if (ui_button("Profile", { x, y, bw, bh }, ButtonStyle::Outline, COL_AMBER)) { app.screen = Screen::Profile; return; }
-    if (ui_button("Quit", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_MUTED)) { app.quit = true; return; }
-    y += bh + 28;
+    std::string today = today_string();
+    std::string outLabel = "Outputle #" + std::to_string(outputle_number(today)) +
+                           (outputle_won(app.progress, today) ? "  solved" : outputle_over(app.progress, today) ? "  done" : "");
+    if (ui_button(outLabel, { x, y, bw, bh }, ButtonStyle::Outline, COL_GREEN)) { open_outputle(app); return; }
+    if (ui_button("Profile", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_AMBER)) { app.screen = Screen::Profile; return; }
+    y += bh + gap;
+    float sw = (2 * bw + gap - 2 * gap) / 3;
+    if (ui_button("C Codex", { x, y, sw, bh }, ButtonStyle::Outline, COL_BLUE)) { open_codex(app); return; }
+    if (ui_button("Bugdex", { x + sw + gap, y, sw, bh }, ButtonStyle::Outline, COL_CORAL)) { open_bugdex(app); return; }
+    if (ui_button("Quit", { x + 2 * (sw + gap), y, sw, bh }, ButtonStyle::Outline, COL_MUTED)) { app.quit = true; return; }
+    y += bh + 18;
 
     // Your level, and the streak beside it, once there's some progress to show
     const Progress &p = app.progress;
@@ -202,7 +214,7 @@ void screen_title(App &app)
     // Along the bottom: who made it, and the keys
     float fy = SCREEN_H - FOOTER_H;
     DrawLine(0, (int)fy, SCREEN_W, (int)fy, COL_LINE_SOFT);
-    ui_text("ENTER campaign   T topic map   E exam prep   V versus   D daily   P profile   M sound   F11 full screen   ESC quit", MARGIN, fy + 20, 13,
+    ui_text("ENTER campaign  T topics  E exam  V versus  D daily  O outputle  X codex  B bugdex  P profile  ESC quit", MARGIN, fy + 20, 13,
             COL_MUTED, FontKind::Mono);
     const char *credit = "Advanced Programming, SETU  |  Ryan Mulcahy & Kobi Bourne";
     ui_text(credit, SCREEN_W - MARGIN - ui_text_width(credit, 13), fy + 19, 13, COL_MUTED);

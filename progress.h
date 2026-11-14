@@ -41,6 +41,24 @@ struct DailyLog {
     int claimed = 0;                      // chests opened today: bit 0..2 the quests, bit 3 the golden chest
 };
 
+// Outputle: today's guesses, and the stats over every day (outputle.cpp).
+struct OutputleGame {
+    std::string date;
+    std::vector<std::string> guesses;
+};
+struct OutputleStats {
+    int played = 0, won = 0, streak = 0, best = 0;
+    std::string lastWin;     // the last day it was solved (for the streak)
+    int dist[6] = { 0, 0, 0, 0, 0, 0 };   // wins in 1..6 tries
+};
+
+// The Bugdex: a bug caught (bugdex.cpp).
+struct BugRecord {
+    int caught = 0;          // times caught
+    std::string date;        // first caught
+    std::string how;         // where it was first caught: "practice", "boss", "exam prep"
+};
+
 struct Progress {
     std::map<std::string, int> points;  // topic id -> 0..100
     std::map<std::string, int> scores;  // MAL-OS minigame -> best score
@@ -56,6 +74,12 @@ struct Progress {
     std::set<std::string> frozenDays;             // FROZEN: missed days a const freeze kept the streak alive through
     int freezes = 0;                              // const freezes held (bought in the shop)
     DailyLog daily;                               // DAILY: today's quests
+
+    OutputleGame outputle;                        // OUTPUTLE: today's guesses
+    OutputleStats outputleStats;                  // OUTPUTLE_STATS
+    std::map<std::string, BugRecord> bugs;        // BUG: the Bugdex
+    std::map<std::string, int> bugFixes;          // BUGFIX: a bug's quick fixes done, as bits
+    std::map<std::string, std::string> harvested; // HARVEST: farm crop (topic) -> the day it was last harvested
 };
 
 // A missing file just means a new student: returns true with empty progress.

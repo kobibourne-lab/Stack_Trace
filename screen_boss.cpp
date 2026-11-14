@@ -176,6 +176,7 @@ static void win(App &app)
     b.stars = boss_stars(true, b.livesLost, b.seconds, limit);
     b.firstWin = progress_record_boss(app.progress, reg.id, today_string(), (int)b.seconds, b.stars);
     learned_today(app);
+    catch_bug(app, bugdex_for_boss(reg.bossLook), "boss");   // the boss's bug goes in the Bugdex
     std::string error;
     progress_save(app.progressPath, app.progress, error);
     b.xpGained = progress_xp(app.progress) - b.xpBefore;

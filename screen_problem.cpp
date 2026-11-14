@@ -88,6 +88,8 @@ static void do_run(App &app)
     w.result = run_answer(p, eb_text(w.code), WORK_DIR);
     w.hasResult = true;
     w.runCount++;
+    if (w.result.status == RunStatus::Crashed) w.hadCrash = true;
+    if (w.result.status == RunStatus::TimedOut) w.hadTimeout = true;
     if (!w.versus) quest_event(app, "run");
     w.resultWasSubmit = w.submitting;
     w.consoleScroll = 0;
@@ -120,6 +122,9 @@ static void do_run(App &app)
         }
         learned_today(app);
         quest_event(app, "solve");
+        if (w.hadCrash) catch_bug(app, "segfault", "exam prep");      // fixed a crash: caught a Segfault
+        if (w.hadTimeout) catch_bug(app, "infloop", "exam prep");     // fixed an endless loop
+        w.hadCrash = w.hadTimeout = false;
         if (first && !p.topic.empty()) {
             record_answer(app, p.topic, true);   // counts towards the topic's mastery, and saves
         } else {

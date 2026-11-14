@@ -114,8 +114,9 @@ const std::string &find_compiler();
 // MAL-OS's gcc: compiles a plain C program (as C, not C++) to workDir/a.out
 // (a.exe on Windows), with a watchdog that stops it after 3 seconds so an
 // endless loop can't freeze the app. Returns false on a compile error, with
-// the compiler's messages in output.
-bool compile_c_program(const std::string &code, const std::string &workDir, std::string &output);
+// the compiler's messages in output. cpp compiles it as C++ instead (hello.cpp),
+// for the C Codex's C++ entries.
+bool compile_c_program(const std::string &code, const std::string &workDir, std::string &output, bool cpp = false);
 
 // Runs what compile_c_program made, with no keyboard input, and returns what
 // it printed.

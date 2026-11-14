@@ -12,6 +12,12 @@
 //   FREEZES: 1   (const freezes held)
 //   DAILY: 2026-11-13 | 1 | correct=4 | game=2   (today's quests: the date,
 //          the chests opened as bits, then the counters)
+//   OUTPUTLE: 2026-11-13 | 5,49 | 7,49   (today's Outputle guesses)
+//   OUTPUTLE_STATS: 4 | 3 | 2 | 2 | 2026-11-13 | 0 | 1 | 2 | 0 | 0 | 0
+//          (played, won, streak, best streak, last win, then wins in 1..6 tries)
+//   BUG: offbyone | 2 | 2026-11-13 | boss   (the Bugdex: times caught, first date, how)
+//   BUGFIX: leak | 3   (a bug's quick fixes done, as bits)
+//   HARVEST: pointers | 2026-11-13   (the Memory Farm: last harvest of a crop)
 // For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
 // the fastest time in seconds. For BOSS (a campaign boss beaten), the numbers
 // are the fastest win in seconds and the most stars.
@@ -72,6 +78,27 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
                 if (eq == std::string::npos || eq == 0) continue;
                 p.daily.counts[fields[i].substr(0, eq)] = std::atoi(fields[i].substr(eq + 1).c_str());
             }
+        } else if (key == "OUTPUTLE" && !fields.empty()) {
+            p.outputle.date = fields[0];
+            for (size_t i = 1; i < fields.size(); i++) if (!fields[i].empty()) p.outputle.guesses.push_back(fields[i]);
+        } else if (key == "OUTPUTLE_STATS" && fields.size() >= 5) {
+            OutputleStats &s = p.outputleStats;
+            s.played = std::atoi(fields[0].c_str());
+            s.won = std::atoi(fields[1].c_str());
+            s.streak = std::atoi(fields[2].c_str());
+            s.best = std::atoi(fields[3].c_str());
+            s.lastWin = fields[4];
+            for (int i = 0; i < 6 && 5 + i < (int)fields.size(); i++) s.dist[i] = std::atoi(fields[5 + i].c_str());
+        } else if (key == "BUG" && fields.size() >= 2 && !fields[0].empty()) {
+            BugRecord b;
+            b.caught = std::atoi(fields[1].c_str());
+            if (fields.size() >= 3) b.date = fields[2];
+            if (fields.size() >= 4) b.how = fields[3];
+            p.bugs[fields[0]] = b;
+        } else if (key == "BUGFIX" && fields.size() >= 2 && !fields[0].empty()) {
+            p.bugFixes[fields[0]] = std::atoi(fields[1].c_str());
+        } else if (key == "HARVEST" && fields.size() >= 2 && !fields[0].empty()) {
+            p.harvested[fields[0]] = fields[1];
         } else if (key == "BYTES" && !fields.empty()) {
             p.bytes = std::atoi(fields[0].c_str());
             if (p.bytes < 0) p.bytes = 0;
@@ -130,6 +157,21 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         for (const auto &c : p.daily.counts) f << " | " << c.first << "=" << c.second;
         f << "\n";
     }
+    if (!p.outputle.date.empty()) {
+        f << "OUTPUTLE: " << p.outputle.date;
+        for (const std::string &g : p.outputle.guesses) f << " | " << g;
+        f << "\n";
+    }
+    if (p.outputleStats.played > 0) {
+        const OutputleStats &s = p.outputleStats;
+        f << "OUTPUTLE_STATS: " << s.played << " | " << s.won << " | " << s.streak << " | " << s.best << " | " << s.lastWin;
+        for (int d : s.dist) f << " | " << d;
+        f << "\n";
+    }
+    for (const auto &b : p.bugs)
+        f << "BUG: " << b.first << " | " << b.second.caught << " | " << b.second.date << " | " << b.second.how << "\n";
+    for (const auto &b : p.bugFixes) f << "BUGFIX: " << b.first << " | " << b.second << "\n";
+    for (const auto &h : p.harvested) f << "HARVEST: " << h.first << " | " << h.second << "\n";
     for (const auto &entry : p.bosses)
         f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
           << entry.second.stars << "\n";

@@ -142,7 +142,10 @@ static void after_quest_change(App &app, const std::vector<bool> &before)
     std::vector<Quest> quests = daily_quests(today);
     for (int i = 0; i < (int)quests.size(); i++) {
         if (!before[i] && quest_done(app.progress, quests[i], today)) {
+            app.toastTitle = "QUEST COMPLETE";
             app.toastText = quests[i].text;
+            app.toastSub = app.screen == Screen::Daily ? "Click its chest to open it." : "Open its chest in Daily quests (D on the start screen).";
+            app.toastBug = false;
             app.toastLeft = 4.2f;
             sfx_play(Sfx::Combo);
         }
@@ -172,6 +175,20 @@ void quest_best(App &app, const std::string &key, int value)
     after_quest_change(app, before);
 }
 
+void catch_bug(App &app, const std::string &bugId, const std::string &how)
+{
+    const Bug *bug = bugdex_find(bugId);
+    if (!bug) return;
+    bool first = bugdex_catch(app.progress, bugId, today_string(), how);
+    save_progress(app);
+    app.toastTitle = first ? "NEW BUG CAUGHT!" : "CAUGHT AGAIN";
+    app.toastText = bug->name;
+    app.toastSub = first ? "It's in your Bugdex now (B on the start screen)." : "Caught " + std::to_string(app.progress.bugs[bugId].caught) + " times.";
+    app.toastBug = true;
+    app.toastBugId = bugId;
+    app.toastLeft = 4.2f;
+}
+
 // The streak banner (drops in like the level-up one) and the quest toast.
 void draw_daily_overlays(App &app)
 {
@@ -184,11 +201,12 @@ void draw_daily_overlays(App &app)
         float x = SCREEN_W - (w + 24) * in + (w + 40) * out, y = SCREEN_H - FOOTER_H - h - 16;
         ui_panel({ x, y + 4, w, h }, { 120, 84, 38, 255 }, { 120, 84, 38, 255 }, 0);
         ui_panel({ x, y, w, h }, COL_SURFACE_2, COL_AMBER, 2);
-        draw_chest({ x + 44, y + h - 16 }, 50, 1, t, false, 0);
-        ui_text("QUEST COMPLETE", x + 86, y + 12, 12, COL_AMBER, FontKind::MonoBold);
+        const Bug *bug = app.toastBug ? bugdex_find(app.toastBugId) : nullptr;
+        if (bug) draw_bug(*bug, { x + 44, y + h / 2 }, 50, t, false);
+        else draw_chest({ x + 44, y + h - 16 }, 50, 1, t, false, 0);
+        ui_text(app.toastTitle, x + 86, y + 12, 12, bug ? COL_GREEN : COL_AMBER, FontKind::MonoBold);
         ui_text(app.toastText, x + 86, y + 30, 16, COL_TEXT, FontKind::UiBold);
-        ui_text(app.screen == Screen::Daily ? "Click its chest to open it." : "Open its chest in Daily quests (D on the start screen).",
-                x + 86, y + 52, 12, COL_TEXT_SOFT);
+        ui_text(app.toastSub, x + 86, y + 52, 12, COL_TEXT_SOFT);
     }
 
     if (app.streakLeft <= 0 || app.levelUpLeft > 0) return;   // the level-up banner goes first
@@ -250,6 +268,10 @@ static const char *quest_icon(const std::string &key)
     if (key == "quiz") return "Q";
     if (key == "solve") return "</>";
     if (key == "game") return "OS";
+    if (key == "outputle") return "_?";
+    if (key == "bugfix") return "!!";
+    if (key == "codexrun") return "C";
+    if (key == "harvest") return "**";
     return "#";
 }
 
