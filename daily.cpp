@@ -42,18 +42,21 @@ static const std::vector<Quest> &pile(int which)
         { "lesson", 1, "Finish a lesson", 15, false },
         { "run", 3, "Run your code 3 times in Exam prep", 15, false },
         { "answer", 8, "Answer 8 quiz questions", 15, false },
+        { "outputle", 1, "Solve today's Outputle", 15, false },
     };
     static const std::vector<Quest> push = {
         { "correct", 15, "Get 15 answers right", 25, false },
         { "combo", 5, "Get 5 right in a row in one quiz", 25, true },
         { "quiz", 2, "Pass 2 quizzes", 25, false },
         { "solve", 1, "Solve an Exam prep problem", 25, false },
+        { "bugfix", 3, "Do 3 Bugdex quick fixes", 25, false },
     };
     static const std::vector<Quest> play = {
         { "game", 3, "Play 3 games on MAL-OS", 20, false },
         { "snake", 60, "Score 60 in Linked-list Snake", 20, true },
         { "heaphero", 100, "Score 100 in Heap Hero", 20, true },
         { "stacktower", 100, "Score 100 in Stack Tower", 20, true },
+        { "codexrun", 2, "Run 2 examples in the C Codex", 20, false },
     };
     return which == 0 ? learn : which == 1 ? push : play;
 }

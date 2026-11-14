@@ -24,6 +24,7 @@
 // passes, a FAIL line when one doesn't, and exit code 1 if anything failed.
 
 #include <cstdio>
+#include <set>
 #include <string>
 #include "../content.h"
 #include "../quiz.h"
@@ -39,6 +40,10 @@
 #include <cmath>
 #include "../minigames.h"
 #include "../daily.h"
+#include "../outputle.h"
+#include "../codex.h"
+#include "../bugdex.h"
+#include "../farm.h"
 #include <chrono>
 #include <thread>
 
@@ -1403,6 +1408,190 @@ static void test_daily()
     CHECK(progress_streak(back, "2026-11-13") == 4);
 }
 
+// Outputle: the daily puzzle, Wordle colours, guesses, streak and bytes.
+static void test_outputle()
+{
+    const std::vector<OutPuzzle> &ps = outputle_puzzles();
+    CHECK(ps.size() >= 30);
+    for (const OutPuzzle &q : ps) {
+        CHECK(!q.code.empty() && !q.answer.empty() && !q.why.empty());
+        CHECK(q.answer.find(' ') == std::string::npos && q.answer.find('|') == std::string::npos);
+    }
+    // Every puzzle comes round once in a cycle, and the same date gives the same one
+    std::set<int> seen;
+    for (int d = 0; d < (int)ps.size(); d++) seen.insert(outputle_index(date_add_days(OUTPUTLE_START, d)));
+    CHECK(seen.size() == ps.size());
+    CHECK(outputle_number(OUTPUTLE_START) == 1 && outputle_number("2026-11-20") == 8);
+
+    // Wordle colours, including repeated characters
+    std::vector<int> g = outputle_grade("5,25", "7,49");
+    CHECK(g[0] == 0 && g[1] == 2 && g[2] == 0 && g[3] == 0);
+    g = outputle_grade("7,94", "7,49");
+    CHECK(g[0] == 2 && g[1] == 2 && g[2] == 1 && g[3] == 1);
+    g = outputle_grade("444", "014");
+    CHECK(g[0] == 0 && g[1] == 0 && g[2] == 2);     // only one 4 in the answer, and it's green
+    g = outputle_grade("441", "014");
+    CHECK(g[0] == 1 && g[1] == 0 && g[2] == 1);
+
+    std::string why;
+    CHECK(!outputle_valid("7,4", "7,49", why));
+    CHECK(!outputle_valid("7 49", "7,49", why));
+    CHECK(outputle_valid("1234", "7,49", why));
+
+    // Playing: wrong, wrong, right on the third try
+    const std::string day = "2026-11-20";
+    const std::string answer = ps[outputle_index(day)].answer;
+    std::string wrong(answer.size(), '#');
+    Progress p;
+    p.bytes = 0;
+    int won = 0;
+    CHECK(outputle_guess(p, day, wrong, won, why) && won == 0);
+    CHECK(!outputle_guess(p, day, wrong + "x", won, why));   // wrong length: not counted
+    CHECK(outputle_guesses(p, day).size() == 1);
+    CHECK(outputle_guess(p, day, wrong, won, why));
+    CHECK(outputle_guess(p, day, answer, won, why));
+    CHECK(outputle_won(p, day) && outputle_over(p, day));
+    CHECK(won == outputle_reward(3) && p.bytes == won && won == 25);
+    CHECK(!outputle_guess(p, day, answer, won, why));         // over for today
+    CHECK(p.outputleStats.played == 1 && p.outputleStats.won == 1 && p.outputleStats.streak == 1 && p.outputleStats.dist[2] == 1);
+    std::string share = outputle_share(p, day);
+    CHECK(share.find("Outputle #8 3/6") == 0);
+    CHECK(share.find(answer) == std::string::npos || answer.size() < 2);   // no spoilers
+
+    // The next day, solved first time: the streak goes up. Then a lost day resets it.
+    const std::string next = date_add_days(day, 1);
+    CHECK(outputle_guess(p, next, ps[outputle_index(next)].answer, won, why));
+    CHECK(won == 35 && p.outputleStats.streak == 2 && p.outputleStats.best == 2);
+    const std::string third = date_add_days(day, 2);
+    std::string miss(ps[outputle_index(third)].answer.size(), '#');
+    for (int i = 0; i < OUTPUTLE_TRIES; i++) CHECK(outputle_guess(p, third, miss, won, why));
+    CHECK(outputle_over(p, third) && !outputle_won(p, third) && won == 0);
+    CHECK(p.outputleStats.streak == 0 && p.outputleStats.best == 2 && p.outputleStats.played == 3);
+
+    // Saved and loaded back
+    std::string error;
+    CHECK(progress_save("test_progress.txt", p, error));
+    Progress back;
+    CHECK(progress_load("test_progress.txt", back, error));
+    CHECK(back.outputle.date == third && back.outputle.guesses.size() == 6);
+    CHECK(back.outputleStats.won == 2 && back.outputleStats.best == 2 && back.outputleStats.lastWin == next && back.outputleStats.dist[0] == 1);
+}
+
+// The C Codex: entries, unlocking with topics, stars and search.
+static void test_codex()
+{
+    const std::vector<CodexEntry> &es = codex_entries();
+    CHECK(es.size() >= 30);
+    std::vector<Topic> topics;
+    std::string error;
+    CHECK(load_topics("content/topics.txt", topics, error));
+    std::set<std::string> ids;
+    for (const CodexEntry &e : es) {
+        CHECK(ids.insert(e.id).second);   // no two the same
+        bool known = false;
+        for (const Topic &t : topics) if (t.id == e.topic) known = true;
+        CHECK(known);
+        CHECK(!e.example.empty() && !e.output.empty() && e.mistakes.size() == 2);
+        CHECK(e.example.find("main") != std::string::npos);
+    }
+    Progress p;
+    CHECK(codex_found(p) == 0);
+    progress_record(p, "dynmem", false, "2026-11-13");   // started: the dynmem entries unlock
+    const CodexEntry *malloc_e = nullptr;
+    for (const CodexEntry &e : es) if (e.id == "malloc") malloc_e = &e;
+    CHECK(malloc_e && codex_unlocked(p, *malloc_e) && codex_stars(p, *malloc_e) == 0);
+    CHECK(codex_found(p) == 4);   // malloc, calloc, realloc, free
+    p.points["dynmem"] = 100;
+    CHECK(codex_stars(p, *malloc_e) == 3);
+    CHECK(codex_search("").size() == es.size());
+    CHECK(codex_search("STRING.H").size() == 4);
+    CHECK(!codex_search("mal").empty());
+}
+
+// The Bugdex: catching by quick fixes, bosses and again.
+static void test_bugdex()
+{
+    const std::vector<Bug> &bugs = bugdex_bugs();
+    CHECK(bugs.size() >= 12);
+    for (const Bug &b : bugs) {
+        CHECK(b.fixes.size() == 3);
+        for (const BugFix &f : b.fixes) CHECK(f.line >= 1 && f.line <= (int)f.code.size() && !f.why.empty());
+    }
+    // Every campaign boss has its bug
+    std::vector<Region> regions;
+    std::string error;
+    CHECK(load_campaign("content/campaign.txt", regions, error));
+    for (const Region &r : regions) CHECK(!bugdex_for_boss(r.bossLook).empty());
+
+    Progress p;
+    bool caught = false;
+    const Bug *leak = bugdex_find("leak");
+    CHECK(leak != nullptr);
+    CHECK(!bugdex_answer_fix(p, "leak", 0, leak->fixes[0].line + 1, "2026-11-13", caught) && !caught);
+    CHECK(bugdex_answer_fix(p, "leak", 0, leak->fixes[0].line, "2026-11-13", caught) && !caught);
+    CHECK(bugdex_answer_fix(p, "leak", 2, leak->fixes[2].line, "2026-11-13", caught) && !caught);
+    CHECK(!bug_caught(p, "leak") && bugdex_fix_done(p, "leak", 2) && !bugdex_fix_done(p, "leak", 1));
+    CHECK(bugdex_answer_fix(p, "leak", 1, leak->fixes[1].line, "2026-11-14", caught) && caught);
+    CHECK(bug_caught(p, "leak") && p.bugs["leak"].how == "practice" && p.bugs["leak"].date == "2026-11-14");
+    CHECK(bugdex_answer_fix(p, "leak", 1, leak->fixes[1].line, "2026-11-14", caught) && !caught);   // all done already
+
+    CHECK(bugdex_catch(p, "offbyone", "2026-11-15", "boss"));
+    CHECK(!bugdex_catch(p, "offbyone", "2026-11-16", "boss"));   // caught again
+    CHECK(p.bugs["offbyone"].caught == 2 && p.bugs["offbyone"].date == "2026-11-15");
+    CHECK(!bugdex_catch(p, "nonsense", "2026-11-15", "boss"));
+    CHECK(bugs_caught(p) == 2);
+
+    CHECK(progress_save("test_progress.txt", p, error));
+    Progress back;
+    CHECK(progress_load("test_progress.txt", back, error));
+    CHECK(bugs_caught(back) == 2 && back.bugs["offbyone"].caught == 2 && back.bugs["leak"].how == "practice");
+    CHECK(bugdex_fix_done(back, "leak", 1));
+}
+
+// The Memory Farm: growing, wilting, harvesting and the drone.
+static void test_farm()
+{
+    Progress p;
+    p.bytes = 0;
+    const std::string today = "2026-11-20";
+    CHECK(crop_stage(p, "pointers") == 0 && crop_days_left(p, "pointers", today) == -1 && !crop_wilting(p, "pointers", today));
+
+    progress_record(p, "pointers", true, "2026-11-19");   // attempted: a sprout, fresh for 2 days
+    CHECK(crop_stage(p, "pointers") == 1);
+    CHECK(crop_days_left(p, "pointers", today) == 1);
+    CHECK(crop_wilting(p, "pointers", "2026-11-21"));
+    CHECK(crop_harvest_value(p, "pointers", today) == 0);   // too small to harvest
+
+    p.points["pointers"] = 100;   // mastered: in fruit, fresh for 8 days
+    CHECK(crop_stage(p, "pointers") == 4);
+    CHECK(!crop_wilting(p, "pointers", "2026-11-26"));
+    CHECK(crop_wilting(p, "pointers", "2026-11-27"));
+    CHECK(crop_harvest(p, "pointers", today) == 8 && p.bytes == 8);
+    CHECK(crop_harvest(p, "pointers", today) == 0);                 // once every two days
+    CHECK(crop_harvest(p, "pointers", "2026-11-21") == 0);
+    CHECK(crop_harvest(p, "pointers", "2026-11-22") == 8 && p.bytes == 16);
+    CHECK(crop_harvest(p, "pointers", "2026-11-28") == 0);          // wilting: review it first
+    progress_record(p, "pointers", true, "2026-11-28");             // a quiz waters it
+    CHECK(!crop_wilting(p, "pointers", "2026-11-28") && crop_harvest(p, "pointers", "2026-11-28") == 8);
+
+    p.points["arith"] = 80;   // proficient, harvested for 4
+    progress_record(p, "arith", true, today);
+    p.points["arith"] = 80;
+    CHECK(crop_stage(p, "arith") == 3 && crop_harvest_value(p, "arith", today) == 4);
+
+    std::string why;
+    CHECK(!farm_buy_drone(p, why) && !farm_has_drone(p));
+    p.bytes = 200;
+    CHECK(farm_buy_drone(p, why) && farm_has_drone(p) && p.bytes == 200 - DRONE_PRICE);
+    CHECK(!farm_buy_drone(p, why));
+
+    std::string error;
+    CHECK(progress_save("test_progress.txt", p, error));
+    Progress back;
+    CHECK(progress_load("test_progress.txt", back, error));
+    CHECK(back.harvested["pointers"] == "2026-11-28" && farm_has_drone(back));
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -1427,6 +1616,10 @@ int main()
     run("Versus: Mal's look for players and the crowd", test_versus_looks);
     run("the wardrobe shop: buying with bytes", test_wardrobe_shop);
     run("daily loop: streak, const freezes, quests, chests", test_daily);
+    run("Outputle: puzzles, colours, guesses, streak", test_outputle);
+    run("the C Codex: entries, unlocking, search", test_codex);
+    run("the Bugdex: quick fixes, bosses, catching", test_bugdex);
+    run("the Memory Farm: growing, wilting, harvest, drone", test_farm);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

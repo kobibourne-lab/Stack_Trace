@@ -705,7 +705,7 @@ static std::string c_exe_path(const std::string &workDir)
 #endif
 }
 
-bool compile_c_program(const std::string &code, const std::string &workDir, std::string &output)
+bool compile_c_program(const std::string &code, const std::string &workDir, std::string &output, bool cpp)
 {
     const std::string &cxx = find_compiler();
     if (cxx.empty()) {
@@ -714,7 +714,8 @@ bool compile_c_program(const std::string &code, const std::string &workDir, std:
     }
     std::error_code ec;
     std::filesystem::create_directories(workDir, ec);
-    { std::ofstream f(workDir + "/hello.c"); f << code; }
+    const std::string file = cpp ? "hello.cpp" : "hello.c";
+    { std::ofstream f(workDir + "/" + file); f << code; }
     { std::ofstream f(workDir + "/watchdog.c"); f << WATCHDOG_C; }
     std::string exe = c_exe_path(workDir);
     std::remove(exe.c_str());
@@ -724,12 +725,12 @@ bool compile_c_program(const std::string &code, const std::string &workDir, std:
     std::string extra = "";
 #endif
     // -x c: compile as C even though the compiler found is a C++ one
-    int status = run_command(cxx + " -x c -Wall -O0" + extra + " -o " + exe + " " + workDir + "/hello.c " +
-                             workDir + "/watchdog.c", output);
+    int status = run_command(cxx + (cpp ? " -x c++ -std=c++17" : " -x c") + " -Wall -O0" + extra + " -o " + exe + " " + workDir + "/" +
+                             file + " -x c " + workDir + "/watchdog.c", output);
     // Show the student's file name, not the work folder
-    std::string from = workDir + "/hello.c";
+    std::string from = workDir + "/" + file;
     for (size_t at = output.find(from); at != std::string::npos; at = output.find(from, at))
-        output.replace(at, from.size(), "hello.c");
+        output.replace(at, from.size(), file);
     return status == 0;
 }
 
