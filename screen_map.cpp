@@ -1,14 +1,21 @@
 // screen_map.cpp - the topic map: one row per track, a circle per topic
-// coloured by mastery, and a card for the selected topic.
+// coloured by mastery, and a card for the selected topic. When there are more
+// tracks than fit, the rows scroll (mouse wheel), and moving the selection
+// with the keys scrolls its row into view.
 
 #include "app.h"
 #include "theme.h"
 #include "ui.h"
+#include <cmath>
 
 const float MAP_W = 840;       // the area the tracks are drawn in
 const float SLOT_W = 120;      // space per topic, so columns line up across rows
 const float NODE_R = 28;
 const float ROW_H = 124;
+
+static float mapScroll = 0;     // how far the rows are scrolled up, in pixels
+static int scrolledTo = -1;     // the selection the scroll last followed
+static Rectangle mapClip;       // where the rows are visible this frame
 
 // The tracks in the order they first appear in topics.txt.
 static std::vector<std::string> track_names(const App &app)
@@ -88,8 +95,16 @@ static void draw_track(App &app, const std::string &track, float x, float y, int
     std::string upper = track;
     for (char &c : upper) c = (char)toupper((unsigned char)c);
     ui_text(upper, x, y, 14, COL_TEXT, FontKind::MonoBold);
-    std::string exam = app.topics[list[0]].exam;
-    for (int i : list) if (app.topics[i].exam != exam) exam.clear();
+    // (topics with no exam don't count: C basics stays Exam 1 with bits in it)
+    std::string exam;
+    bool mixed = false;
+    for (int i : list) {
+        const std::string &e = app.topics[i].exam;
+        if (e.empty()) continue;
+        if (exam.empty()) exam = e;
+        else if (e != exam) mixed = true;
+    }
+    if (mixed) exam.clear();
     if (!exam.empty()) {
         float tx = x + ui_text_width(upper, 14, FontKind::MonoBold) + 14;
         float w = ui_text_width(exam, 12, FontKind::Mono) + 14;
@@ -115,7 +130,7 @@ static void draw_track(App &app, const std::string &track, float x, float y, int
         Color ring = mastery_color(m);
         bool hasContent = !t.lessonFile.empty() || !t.quizFile.empty();
 
-        bool hover = CheckCollisionPointCircle(GetMousePosition(), centre, NODE_R + 4);
+        bool hover = CheckCollisionPointCircle(GetMousePosition(), centre, NODE_R + 4) && CheckCollisionPointRec(GetMousePosition(), mapClip);
         if (hover) {
             ui_want_hand();
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { app.selected = index; app.message.clear(); }
@@ -216,10 +231,35 @@ void screen_map(App &app)
     draw_course_mastery(app, x, y);
     y += 58;
 
+    // The rows, scrolled if they don't all fit
+    std::vector<std::string> tracks = track_names(app);
+    mapClip = { x - 12, y - 6, MAP_W + 24, SCREEN_H - FOOTER_H - 8 - (y - 6) };
+    float total = tracks.size() * ROW_H, maxScroll = fmaxf(0, total - mapClip.height + 6);
+    if (CheckCollisionPointRec(GetMousePosition(), mapClip)) mapScroll -= GetMouseWheelMove() * 60;
+    if (app.selected != scrolledTo) {   // keep the selected topic's row in view
+        scrolledTo = app.selected;
+        for (int r = 0; r < (int)tracks.size(); r++)
+            if (tracks[r] == app.topics[app.selected].track) {
+                if (r * ROW_H < mapScroll) mapScroll = r * ROW_H;
+                if ((r + 1) * ROW_H > mapScroll + mapClip.height - 6) mapScroll = (r + 1) * ROW_H - mapClip.height + 6;
+            }
+    }
+    mapScroll = fminf(fmaxf(mapScroll, 0), maxScroll);
+
+    ui_scissor((int)mapClip.x, (int)mapClip.y, (int)mapClip.width, (int)mapClip.height);
     int number = 1;
-    for (const std::string &track : track_names(app)) {
-        draw_track(app, track, x, y, number);
+    for (const std::string &track : tracks) {
+        draw_track(app, track, x, y - mapScroll, number);
         y += ROW_H;
+    }
+    EndScissorMode();
+    // A fade at an edge that has more rows past it
+    if (mapScroll > 1)
+        DrawRectangleGradientV((int)mapClip.x, (int)mapClip.y, (int)mapClip.width, 26, COL_BG, Fade(COL_BG, 0));
+    if (mapScroll < maxScroll - 1) {
+        float by = mapClip.y + mapClip.height;
+        DrawRectangleGradientV((int)mapClip.x, (int)(by - 30), (int)mapClip.width, 30, Fade(COL_BG, 0), COL_BG);
+        ui_text("scroll for more", x + MAP_W / 2 - ui_text_width("scroll for more", 12, FontKind::Mono) / 2, by - 16, 12, COL_MUTED, FontKind::Mono);
     }
 
     draw_topic_card(app, { MARGIN + MAP_W + 24, HEADER_H + 22, SCREEN_W - 2 * MARGIN - MAP_W - 24, 470 });

@@ -1,6 +1,7 @@
 // memcity.h - Memory City: the campaign seen from above in 3D. Each region of
 // memory is a floating island (the Stack's tower of frames, Address Space's
-// field of cells, the Heap's scattered blocks, Object Land's buildings),
+// field of cells, the Heap's scattered blocks, Object Land's buildings,
+// Inheritance Grove's family of trees, the Library's bookshelves),
 // its topics are glowing pads around the edge, and pointer arcs bridge one
 // island to the next. You can turn it and zoom it; clicking an island dives
 // into that world's 2D map (screen_campaign.cpp does the diving).

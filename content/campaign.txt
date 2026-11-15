@@ -4,7 +4,8 @@
 #
 #   REGION: id | name | what it covers | exam (or -)
 #   TOPICS: topic ids from topics.txt, in the order they're played
-#   BOSS:   name | problem id from content/practice | look (offbyone, dangling, leaker, shallow)
+#   BOSS:   name | problem id from content/practice | look (offbyone, dangling, leaker, shallow,
+#           impostor, invalidator)
 #   TAUNT:  what the boss says before the fight
 #   STORY:  what Mal says on the map while you're in this region
 #   WIN:    what Mal says when the boss is beaten
@@ -12,7 +13,7 @@
 # A topic counts as cleared once it's Familiar (50 mastery points) or better.
 
 REGION: stack | The Stack | C basics | Exam 1
-TOPICS: basics, control, arrays, strings, functions
+TOPICS: basics, control, arrays, strings, functions, bits
 BOSS: The Off-By-One | lab1/q15_reverse_array | offbyone
 TAUNT: Go one step too far and you're mine. Or stop one step short. I'm not fussy.
 STORY: Welcome to the Stack, where every function gets a frame. Clear these topics, then we deal with The Off-By-One.
@@ -26,7 +27,7 @@ STORY: The Dangling Pointer guards the way to the Heap. It hits hardest when you
 WIN: The Heap is open. Something in there is losing nodes, and I'm made of heap. Let's go.
 
 REGION: heap | The Heap | Memory bugs & linked lists | Exam 2
-TOPICS: membugs, sll, dll
+TOPICS: membugs, sll, dll, llclass
 BOSS: The Leaker | exam2/13_insert_at_position | leaker
 TAUNT: Wire one next pointer wrong and the rest of your list leaks away to me.
 STORY: Down here, blocks live until someone frees them. The Leaker feeds on nodes nobody points at any more.
@@ -37,4 +38,18 @@ TOPICS: classes, ctors, copyctor, access, dtors, objarrays
 BOSS: The Shallow Copy | boss/shallow_copy | shallow
 TAUNT: Two objects, one array, and a delete too many. Copy me properly, if you can.
 STORY: Objects own their memory here. The Shallow Copy makes two of everything, except the part that matters.
-WIN: That's every region! The whole machine is leak-free. You're ready for the exams.
+WIN: Object Land is safe! But past the castles there's a forest where classes have families, and something in there is pretending.
+
+REGION: grove | Inheritance Grove | C++ OOP | -
+TOPICS: opover, friends, inherit, poly, smartptr
+BOSS: The Impostor | boss/virtual_shapes | impostor
+TAUNT: Call me through a Shape pointer and I'll answer as a plain Shape. Nobody ever checks.
+STORY: Classes grow from other classes here, like branches. The Impostor hides in the family tree: a Circle that answers like a plain Shape.
+WIN: Unmasked! Every shape answers as itself now. One last place: the Library, where the templates are kept.
+
+REGION: library | The Library | Templates & STL | -
+TOPICS: templates, vectors, iters, stllist, maps
+BOSS: The Invalidator | boss/remove_value | invalidator
+TAUNT: Erase while you walk the vector and your iterator points at nothing. I love a for loop.
+STORY: The Standard Template Library: shelves of containers, one for every job. The Invalidator lurks between the shelves, waiting for an iterator to go stale.
+WIN: That's every region! The whole machine runs clean, from the Stack to the Library. You're ready for the exams.

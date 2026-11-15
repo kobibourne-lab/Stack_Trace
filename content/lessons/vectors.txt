@@ -1,0 +1,56 @@
+# Vectors - size, capacity and what happens when a vector runs out of room,
+# from the Vector Sequence Container part of Noel's Templates and STL notes.
+TITLE: Vectors: an array that grows
+TOPIC: vectors
+TEXT: A vector is an array on the heap that grows for you. The vector itself is small: a pointer to the array, its size (how many are in it) and its capacity (how many fit).
+TEXT: When it's full, adding one more means a bigger array, copying everything across and freeing the old one. reserve gets the room up front.
+
+CODE:
+vector<int> v;
+v.reserve(2);
+v.push_back(10);
+v.push_back(20);
+v.push_back(30);
+v.pop_back();
+END
+
+STEP: 1
+EXPLAIN: An empty vector: no array yet, size 0, capacity 0.
+MEM: main | v.data | int* | 3000 | nullptr | changed
+MEM: main | v.size | size_t | 3008 | 0 | changed
+MEM: main | v.capacity | size_t | 3016 | 0 | changed
+
+STEP: 2
+EXPLAIN: reserve(2) makes room for 2 ints on the heap, but puts nothing in them: the size is still 0.
+MEM: main | v.data | int* | 3000 | ->arr | changed
+MEM: main | v.size | size_t | 3008 | 0
+MEM: main | v.capacity | size_t | 3016 | 2 | changed
+MEM: heap | arr | int[2] | 9000 | ? ? | changed
+
+STEP: 3
+EXPLAIN: push_back adds to the end. v[0] and v.at(0) both read it; at() also checks the index is in range.
+MEM: main | v.data | int* | 3000 | ->arr
+MEM: main | v.size | size_t | 3008 | 1 | changed
+MEM: main | v.capacity | size_t | 3016 | 2
+MEM: heap | arr | int[2] | 9000 | 10 ? | changed
+
+STEP: 4
+EXPLAIN: Now size equals capacity: the array is full.
+MEM: main | v.data | int* | 3000 | ->arr
+MEM: main | v.size | size_t | 3008 | 2 | changed
+MEM: main | v.capacity | size_t | 3016 | 2
+MEM: heap | arr | int[2] | 9000 | 10 20 | changed
+
+STEP: 5
+EXPLAIN: No room for 30, so the vector makes a new array with double the capacity, copies 10 and 20 across, frees the old one, then adds 30. Any pointer into the old array is now dangling.
+MEM: main | v.data | int* | 3000 | ->arr2 | changed
+MEM: main | v.size | size_t | 3008 | 3 | changed
+MEM: main | v.capacity | size_t | 3016 | 4 | changed
+MEM: heap | arr2 | int[4] | 9016 | 10 20 30 ? | changed
+
+STEP: 6
+EXPLAIN: pop_back removes the last one, but the capacity stays at 4: the vector keeps its memory for next time. shrink_to_fit gives the spare room back.
+MEM: main | v.data | int* | 3000 | ->arr2
+MEM: main | v.size | size_t | 3008 | 2 | changed
+MEM: main | v.capacity | size_t | 3016 | 4
+MEM: heap | arr2 | int[4] | 9016 | 10 20 ? ? | changed

@@ -1,0 +1,65 @@
+# Polymorphism and virtual quiz.
+
+TITLE: Polymorphism & virtual
+TOPIC: poly
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct Animal {
+    virtual void sound() { cout << "..."; }
+    void move() { cout << "walk"; }
+};
+struct Cat : Animal {
+    void sound() override { cout << "meow"; }
+    void move() { cout << "sneak"; }
+};
+int main() {
+    Animal *a = new Cat();
+    a->sound();
+    cout << " ";
+    a->move();
+}
+END
+OPTION: meow sneak
+OPTION: ... walk
+OPTION: ... sneak
+OPTION: meow walk
+ANSWER: 4
+EXPLAIN: sound is virtual, so the Cat's version runs. move isn't, so the pointer's type (Animal*) decides and you get Animal's.
+
+QUESTION: Choose
+PROMPT: Animal has virtual void makeSound() = 0; What does that mean?
+OPTION: makeSound returns 0
+OPTION: It's pure virtual: Animal is abstract and every derived class must write makeSound
+OPTION: makeSound does nothing by default
+OPTION: makeSound can't be overridden
+ANSWER: 2
+EXPLAIN: = 0 makes it pure virtual. You can't make an Animal object, only objects of classes that implement it, like Dog and Cat.
+
+QUESTION: Choose
+PROMPT: An interface class, like IPrintable, usually has...
+OPTION: Only static functions
+OPTION: Data members but no functions
+OPTION: A constructor that every class must call
+OPTION: Only pure virtual functions and a virtual destructor
+ANSWER: 4
+EXPLAIN: An interface says what a class must do, not how: pure virtual functions, no data, and a virtual destructor so deleting through it is safe.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Shape *s = new Circle(); delete s; only runs ~Shape, so the Circle's memory leaks. Click the line to fix.
+CODE:
+class Shape {
+public:
+    virtual void draw() {}
+    ~Shape() {}
+};
+class Circle : public Shape {
+    double *radius = new double(1);
+public:
+    ~Circle() { delete radius; }
+};
+END
+ANSWER: 4
+EXPLAIN: Deleting through a Shape* only runs the right destructors if Shape's destructor is virtual: virtual ~Shape() {}. Any class with virtual functions should have one.

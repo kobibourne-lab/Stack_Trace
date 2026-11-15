@@ -508,7 +508,7 @@ static void test_real_problems()
             CHECK(!p.prototype.empty());
             if (p.id == "lab1/q01_leap_year") leap = &p;
         }
-    CHECK(count == 38);   // 13 from the Exam 2 lab, 23 from Lab 1, 2 campaign bosses
+    CHECK(count == 40);   // 13 from the Exam 2 lab, 23 from Lab 1, 4 campaign bosses
     if (leap == nullptr) return;
 
     if (find_compiler().empty()) {
@@ -854,7 +854,7 @@ static void test_campaign()
     error.clear();
     CHECK(load_campaign("content/campaign.txt", real, error));
     CHECK(error.empty());
-    CHECK(real.size() == 4);
+    CHECK(real.size() == 6);
     std::vector<Topic> topics;
     CHECK(load_topics("content/topics.txt", topics, error));
     std::vector<ProblemSet> sets;

@@ -1,0 +1,75 @@
+# Iterators and algorithms - an iterator is a pointer into the container, and
+# a vector that reallocates leaves old iterators pointing at freed memory. From
+# the Vectors and Iterators and Iterator invalidation parts of Noel's
+# Templates and STL notes.
+TITLE: Iterators, sort, and invalidation
+TOPIC: iters
+TEXT: An iterator is a pointer for containers: *it reads the element it's on, ++it moves to the next. begin() is the first element and end() is one past the last.
+TEXT: STL algorithms like sort take a range of two iterators. But adding to or erasing from a vector can move its array, and then old iterators point at freed memory.
+
+CODE:
+vector<int> v = {30, 10, 5};
+auto it = v.begin();
+++it;
+int x = *it;
+v.push_back(7);
+sort(v.begin(), v.end());
+END
+
+STEP: 1
+EXPLAIN: The vector's array holds 30, 10 and 5, with no spare room: capacity 3.
+MEM: main | v.data | int* | 3000 | ->arr[0] | changed
+MEM: main | v.size | size_t | 3008 | 3 | changed
+MEM: main | v.capacity | size_t | 3016 | 3 | changed
+MEM: heap | arr[0] | int | 9000 | 30 | changed
+MEM: heap | arr[1] | int | 9004 | 10 | changed
+MEM: heap | arr[2] | int | 9008 | 5 | changed
+
+STEP: 2
+EXPLAIN: begin() gives an iterator on the first element. auto saves writing its type, vector<int>::iterator.
+MEM: main | v.data | int* | 3000 | ->arr[0]
+MEM: main | v.size | size_t | 3008 | 3
+MEM: main | v.capacity | size_t | 3016 | 3
+MEM: main | it | iterator | 3024 | ->arr[0] | changed
+MEM: heap | arr[0] | int | 9000 | 30
+MEM: heap | arr[1] | int | 9004 | 10
+MEM: heap | arr[2] | int | 9008 | 5
+
+STEP: 3
+EXPLAIN: ++it moves it to the next element, like p++ on a pointer.
+MEM: main | v.data | int* | 3000 | ->arr[0]
+MEM: main | v.size | size_t | 3008 | 3
+MEM: main | v.capacity | size_t | 3016 | 3
+MEM: main | it | iterator | 3024 | ->arr[1] | changed
+MEM: heap | arr[0] | int | 9000 | 30
+MEM: heap | arr[1] | int | 9004 | 10
+MEM: heap | arr[2] | int | 9008 | 5
+
+STEP: 4
+EXPLAIN: *it reads the element it's on: 10.
+MEM: main | v.data | int* | 3000 | ->arr[0]
+MEM: main | v.size | size_t | 3008 | 3
+MEM: main | v.capacity | size_t | 3016 | 3
+MEM: main | it | iterator | 3024 | ->arr[1]
+MEM: main | x | int | 3032 | 10 | changed
+MEM: heap | arr[0] | int | 9000 | 30
+MEM: heap | arr[1] | int | 9004 | 10
+MEM: heap | arr[2] | int | 9008 | 5
+
+STEP: 5
+EXPLAIN: The array was full, so push_back moved everything to a bigger one and freed the old. it still holds 9004, the old address: it's invalid now, and *it would read freed memory. Get a fresh iterator after changing the vector.
+MEM: main | v.data | int* | 3000 | ->arr2 | changed
+MEM: main | v.size | size_t | 3008 | 4 | changed
+MEM: main | v.capacity | size_t | 3016 | 6 | changed
+MEM: main | it | iterator | 3024 | 9004 | changed
+MEM: main | x | int | 3032 | 10
+MEM: heap | arr2 | int[6] | 9016 | 30 10 5 7 ? ? | changed
+
+STEP: 6
+EXPLAIN: sort(begin, end) sorts everything from begin up to, but not including, end. Erasing with remove works on ranges the same way: v.erase(remove(v.begin(), v.end(), 3), v.end()).
+MEM: main | v.data | int* | 3000 | ->arr2
+MEM: main | v.size | size_t | 3008 | 4
+MEM: main | v.capacity | size_t | 3016 | 6
+MEM: main | it | iterator | 3024 | 9004
+MEM: main | x | int | 3032 | 10
+MEM: heap | arr2 | int[6] | 9016 | 5 7 10 30 ? ? | changed

@@ -1,0 +1,56 @@
+# Boss fight: The Invalidator (The Library). Written for the campaign.
+# The starter erases while it walks the vector and then does ++it on the
+# iterator it just erased with, so it skips the element after each one it
+# removes, and runs past the end when the last one goes.
+
+TITLE: Remove Value
+FUNCTION: removeValue
+GROUP: Boss fights
+DIFFICULTY: Hard
+TOPIC: iters
+MINUTES: 20
+PROTOTYPE: void removeValue(vector<int> &v, int value);
+TEXT: Remove every copy of value from v, keeping the others in the same order.
+TEXT: The starter erases while it walks the vector, then uses an iterator that erase has just made invalid. It misses copies that sit next to each other, and can run off the end.
+RULE: Every copy of value must go, the rest stay in order
+HINT: v.erase(it) returns an iterator on the element after the one it erased. Use that instead of ++it, and only do ++it when you didn't erase.
+HINT: Or skip the loop altogether with the erase-remove idiom: v.erase(remove(v.begin(), v.end(), value), v.end());
+
+EXAMPLE:
+vector<int> v = {1, 3, 3, 2};
+removeValue(v, 3);        // v is {1, 2}
+END
+
+STARTER:
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+void removeValue(vector<int> &v, int value)
+{
+    // your code here
+    for (auto it = v.begin(); it != v.end(); ++it)
+        if (*it == value)
+            v.erase(it);
+}
+END
+
+TESTS:
+    vector<int> a = {1, 3, 2, 4};
+    removeValue(a, 3);
+    int wantA[] = { 1, 2, 4 };
+    checkInt((int)a.size(), 3, "one copy in the middle is removed");
+    checkArray(3, a.data(), wantA, "the rest stay in order");
+    vector<int> b = {5, 3, 3, 6, 3};
+    removeValue(b, 3);
+    int wantB[] = { 5, 6 };
+    checkInt((int)b.size(), 2, "copies next to each other, and one at the end, all go");
+    checkArray(2, b.data(), wantB, "what's left is 5 6");
+    vector<int> c = {7, 7, 7};
+    removeValue(c, 7);
+    checkInt((int)c.size(), 0, "a vector of nothing but value ends up empty");
+    vector<int> d = {1, 2};
+    removeValue(d, 9);
+    int wantD[] = { 1, 2 };
+    checkArray(2, d.data(), wantD, "a value that isn't there changes nothing");
+END

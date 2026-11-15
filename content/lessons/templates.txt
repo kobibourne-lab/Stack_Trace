@@ -1,0 +1,66 @@
+# Templates - one sum function for any type, from Noel's Templates and STL
+# notes. The compiler makes a copy of it for each type it's used with.
+TITLE: Templates: one function, any type
+TOPIC: templates
+TEXT: A template is a pattern for a function or class with a type left blank, written T. You write it once instead of once per type.
+TEXT: When you call it, the compiler works out T from the arguments and makes a copy of the function with T filled in: sum<int>, sum<double>.
+
+CODE:
+template <typename T>
+T sum(const T *arr, int n) {
+    T total = 0;
+    for (int i = 0; i < n; i++)
+        total += arr[i];
+    return total;
+}
+int main() {
+    int ints[] = {1, 2, 3};
+    double ds[] = {1.5, 2.5};
+    int a = sum(ints, 3);
+    double b = sum(ds, 2);
+}
+END
+
+STEP: 10
+EXPLAIN: Two arrays of different types.
+MEM: main | ints | int[3] | 3000 | {1, 2, 3} | changed
+MEM: main | ds | double[2] | 3012 | {1.5, 2.5} | changed
+
+STEP: 2
+EXPLAIN: sum(ints, 3) passes an int*, so T is int. The compiler makes sum<int> from the template, as if you'd written it with int everywhere.
+MEM: main | ints | int[3] | 3000 | {1, 2, 3}
+MEM: main | ds | double[2] | 3012 | {1.5, 2.5}
+MEM: sum<int> | arr | const int* | 2960 | ->ints | changed
+MEM: sum<int> | n | int | 2968 | 3 | changed
+
+STEP: 6
+EXPLAIN: total is a T, so here it's an int. The loop adds 1 + 2 + 3.
+MEM: main | ints | int[3] | 3000 | {1, 2, 3}
+MEM: main | ds | double[2] | 3012 | {1.5, 2.5}
+MEM: sum<int> | arr | const int* | 2960 | ->ints
+MEM: sum<int> | n | int | 2968 | 3
+MEM: sum<int> | total | int | 2972 | 6 | changed
+
+STEP: 2
+EXPLAIN: a is 6. Now sum(ds, 2) passes a double*, so the compiler makes a second copy, sum<double>.
+MEM: main | ints | int[3] | 3000 | {1, 2, 3}
+MEM: main | ds | double[2] | 3012 | {1.5, 2.5}
+MEM: main | a | int | 3028 | 6 | changed
+MEM: sum<double> | arr | const double* | 2960 | ->ds | changed
+MEM: sum<double> | n | int | 2968 | 2 | changed
+
+STEP: 6
+EXPLAIN: This time total is a double: 1.5 + 2.5 is 4.
+MEM: main | ints | int[3] | 3000 | {1, 2, 3}
+MEM: main | ds | double[2] | 3012 | {1.5, 2.5}
+MEM: main | a | int | 3028 | 6
+MEM: sum<double> | arr | const double* | 2960 | ->ds
+MEM: sum<double> | n | int | 2968 | 2
+MEM: sum<double> | total | double | 2976 | 4 | changed
+
+STEP: 13
+EXPLAIN: One template, two functions. T is always worked out from the arguments, never from the return type. A class template works the same way, but you name the type yourself: Adder<int>.
+MEM: main | ints | int[3] | 3000 | {1, 2, 3}
+MEM: main | ds | double[2] | 3012 | {1.5, 2.5}
+MEM: main | a | int | 3028 | 6
+MEM: main | b | double | 3032 | 4 | changed

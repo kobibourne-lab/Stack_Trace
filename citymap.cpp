@@ -7,10 +7,10 @@ const float CITY_PI = 3.14159265f;
 
 CityPoint city_island_at(int region, int regionCount)
 {
-    static const float lift[4] = { 0.0f, 0.6f, 0.2f, 0.9f };   // islands float at slightly different heights
+    static const float lift[6] = { 0.0f, 0.6f, 0.2f, 0.9f, 0.4f, 0.75f };   // islands float at slightly different heights
     CityPoint p;
     p.x = (region - (regionCount - 1) / 2.0f) * 7.4f;
-    p.y = lift[region % 4];
+    p.y = lift[region % 6];
     p.z = region % 2 == 0 ? 3.6f : -3.6f;                       // zigzag front and back
     return p;
 }

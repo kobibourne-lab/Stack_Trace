@@ -6,7 +6,11 @@
 #include <cmath>
 #include <cstdio>
 
-enum class Look { Plains, Caverns, Islands, Citadel };
+enum class Look { Plains, Caverns, Islands, Citadel, Grove, Library };
+
+// The two later worlds' highlights: a firefly mint and a reading-lamp rose.
+const Color GROVE_MINT = { 110, 230, 200, 255 };
+const Color LIBRARY_ROSE = { 245, 140, 180, 255 };
 
 struct WorldLook {
     Look look;
@@ -22,9 +26,14 @@ static const WorldLook LOOKS[] = {
       COL_BLUE,   { 200, 230, 255, 255 } },
     { Look::Citadel, { 34, 16, 20, 255 }, { 96, 52, 30, 255 }, { 58, 30, 26, 255 }, { 76, 40, 30, 255 },
       COL_AMBER,  { 255, 220, 160, 255 } },
+    { Look::Grove,   { 6, 22, 24, 255 },  { 18, 58, 52, 255 }, { 14, 44, 42, 255 }, { 10, 34, 32, 255 },
+      GROVE_MINT, { 220, 255, 150, 255 } },
+    { Look::Library, { 26, 16, 12, 255 }, { 66, 42, 26, 255 }, { 50, 32, 22, 255 }, { 36, 24, 16, 255 },
+      LIBRARY_ROSE, { 255, 228, 190, 255 } },
 };
+const int LOOK_COUNT = sizeof LOOKS / sizeof LOOKS[0];
 
-static const WorldLook &look_for(int world) { return LOOKS[((world % 4) + 4) % 4]; }
+static const WorldLook &look_for(int world) { return LOOKS[((world % LOOK_COUNT) + LOOK_COUNT) % LOOK_COUNT]; }
 
 Color world_accent(int world) { return look_for(world).accent; }
 bool world_has_chains(int world) { return look_for(world).look == Look::Islands; }
@@ -75,6 +84,12 @@ void world_scene(int world, Rectangle a, float t)
         float y = a.y + 60 + hash01(seed + i * 7) * a.height * 0.6f;
         if (L.look == Look::Caverns || L.look == Look::Citadel)   // these drift upwards
             y = a.y + a.height - fmodf(t * (8 + hash01(seed + i * 5) * 12) + hash01(seed + i) * a.height, a.height);
+        if (L.look == Look::Grove) {   // fireflies wander about
+            x += sinf(t * (0.5f + hash01(seed + i * 13)) + i) * 14;
+            y += cosf(t * (0.4f + hash01(seed + i * 17)) + i * 2) * 10;
+        }
+        if (L.look == Look::Library)   // dust drifting down through the lamplight
+            y = a.y + fmodf(t * (4 + hash01(seed + i * 5) * 6) + hash01(seed + i) * a.height, a.height);
         float tw = 0.5f + 0.5f * sinf(t * (1.2f + hash01(seed + i) * 2) + i);
         DrawCircleV({ x, y }, 1.1f + hash01(seed + i * 11) * 1.4f, Fade(L.sparkle, 0.2f + 0.5f * tw));
     }
@@ -168,6 +183,67 @@ void world_scene(int world, Rectangle a, float t)
         }
         ridge(a, a.y + h * 0.93f, 60, 8.0f + world, L.near, false);
         break;
+
+    case Look::Grove: {
+        ridge(a, a.y + h * 0.5f, 60, 3.0f + world, L.far, false);
+        for (int i = 0; i < (int)(w / 26) + 2; i++) {   // a dark wall of pines behind
+            float x = a.x + i * 26 - 10 + hash01(seed + 800 + i) * 10;
+            float base = a.y + h * 0.62f, th = 60 + hash01(seed + 810 + i) * 60;
+            for (int k = 0; k < 3; k++) {
+                float ty = base - th * (0.25f + k * 0.28f), tw = 20 - k * 4;
+                DrawTriangle({ x + tw, ty + th * 0.35f }, { x, ty - th * 0.08f }, { x - tw, ty + th * 0.35f }, shade(L.far, 0.85f));
+            }
+        }
+        for (int i = 0; i < 2; i++) {   // family trees: a base class with two derived classes growing from it
+            float x = a.x + w * (0.25f + i * 0.5f) + (hash01(seed + 820 + i) - 0.5f) * 30;
+            float ground = a.y + h * 0.8f, top = ground - 120 - i * 20;
+            DrawRectangle((int)(x - 5), (int)top, 10, (int)(ground - top), shade(L.near, 1.4f));
+            Vector2 base = { x, top }, kids[2] = { { x - 44, top + 40 }, { x + 44, top + 40 } };
+            for (const Vector2 &k : kids) DrawLineEx({ x, top + 14 }, k, 5, shade(L.near, 1.4f));
+            float glow = 0.55f + 0.25f * sinf(t * 1.3f + i * 2);
+            DrawRectangleRounded({ base.x - 26, base.y - 22, 52, 26 }, 0.35f, 6, Fade(L.accent, 0.5f * glow));
+            DrawRectangleRoundedLinesEx({ base.x - 26, base.y - 22, 52, 26 }, 0.35f, 6, 1.5f, Fade(L.accent, 0.8f));
+            for (const Vector2 &k : kids) {
+                DrawRectangleRounded({ k.x - 20, k.y - 8, 40, 20 }, 0.35f, 6, Fade(L.accent, 0.3f * glow));
+                DrawRectangleRoundedLinesEx({ k.x - 20, k.y - 8, 40, 20 }, 0.35f, 6, 1.5f, Fade(L.accent, 0.6f));
+            }
+        }
+        ridge(a, a.y + h * 0.9f, 55, 9.0f + world, L.near, false);
+        break;
+    }
+
+    case Look::Library: {
+        for (int i = 0; i < 3; i++) {   // tall arched windows, moonlight coming in
+            float x = a.x + w * (0.18f + i * 0.32f), y = a.y + 70, ww = 46, wh = 120;
+            DrawRectangle((int)(x - ww / 2), (int)(y + ww / 2), (int)ww, (int)(wh - ww / 2), Fade(L.sparkle, 0.07f));
+            DrawCircleV({ x, y + ww / 2 }, ww / 2, Fade(L.sparkle, 0.07f));
+            DrawLineEx({ x, y }, { x, y + wh }, 2, Fade(L.far, 0.9f));
+            DrawLineEx({ x - ww / 2, y + wh * 0.6f }, { x + ww / 2, y + wh * 0.6f }, 2, Fade(L.far, 0.9f));
+        }
+        static const Color spines[] = { { 160, 70, 60, 255 }, { 70, 110, 150, 255 }, { 200, 160, 80, 255 }, { 90, 130, 90, 255 }, { 130, 90, 150, 255 } };
+        float shelfTop = a.y + h * 0.42f;
+        for (int row = 0; row < 5; row++) {   // shelves of books right across, the containers of the STL
+            float y = shelfTop + row * 46;
+            DrawRectangle((int)a.x, (int)(y + 36), (int)w, 6, shade(L.far, 1.5f));
+            float x = a.x + hash01(seed + 900 + row) * 10;
+            int k = 0;
+            while (x < a.x + w) {
+                float bw = 7 + hash01(seed + row * 97 + k) * 9, bh = 24 + hash01(seed + row * 53 + k) * 12;
+                if (hash01(seed + row * 31 + k) > 0.12f)
+                    DrawRectangle((int)x, (int)(y + 36 - bh), (int)bw - 1, (int)bh, shade(spines[(row + k) % 5], 0.55f));
+                x += bw;
+                k++;
+            }
+        }
+        static const char *words[] = { "<T>", "vector", "map", "list", "begin()", "end()" };
+        for (int i = 0; i < 6; i++) {   // template names drifting up between the shelves
+            float x = a.x + hash01(seed + 950 + i) * (w - 60);
+            float y = a.y + h - fmodf(t * (7 + hash01(seed + 960 + i) * 8) + hash01(seed + 970 + i) * h, h);
+            ui_text(words[i], x, y, 12, Fade(L.accent, 0.3f), FontKind::Mono);
+        }
+        DrawRectangleGradientV((int)a.x, (int)(a.y + h * 0.9f), (int)w, (int)(h * 0.1f) + 1, Fade(L.near, 0.0f), L.near);
+        break;
+    }
     }
 
     // Darken the top, where the region's name sits, so it always reads

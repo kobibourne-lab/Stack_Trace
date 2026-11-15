@@ -1,0 +1,64 @@
+# Operator overloading quiz.
+
+TITLE: Operator overloading
+TOPIC: opover
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct V {
+    int x, y;
+    V operator+(const V &o) {
+        return V{x + o.x, y + o.y};
+    }
+};
+int main() {
+    V a{1, 2}, b{10, 20};
+    V c = a + b;
+    printf("%d %d %d\n", c.x, c.y, a.x);
+}
+END
+OPTION: 11 22 11
+OPTION: 1 2 1
+OPTION: 11 22 1
+OPTION: It doesn't compile
+ANSWER: 3
+EXPLAIN: a + b calls a.operator+(b), which returns a new V of 11, 22. a isn't changed, so a.x is still 1.
+
+QUESTION: Predict the output
+PROMPT: Clock's ++ adds a minute. c starts at 10:59. What does this print?
+CODE:
+Clock a = c++;
+Clock b = ++c;
+cout << a << " " << b << " " << c;
+END
+OPTION: 10:59 11:01 11:01
+OPTION: 11:00 11:01 11:01
+OPTION: 10:59 11:00 11:01
+OPTION: 11:00 11:00 11:01
+ANSWER: 1
+EXPLAIN: Postfix c++ returns the clock as it was (10:59), then adds. Prefix ++c adds first (11:01) and returns the new value.
+
+QUESTION: Choose
+PROMPT: How does C++ tell the postfix operator++ apart from the prefix one?
+OPTION: Postfix returns a reference and prefix returns a copy
+OPTION: Postfix is written operator++post()
+OPTION: It can't: you can only overload one of them
+OPTION: Postfix takes an extra int parameter that isn't used
+ANSWER: 4
+EXPLAIN: Clock operator++(int) is the postfix one. The int is never used: it only marks which one it is.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: These overloads won't compile together. Click the line that clashes.
+CODE:
+class Printer {
+public:
+    void print(int i);
+    void print(double d);
+    int print(int n);
+    void print(const char *s);
+};
+END
+ANSWER: 5
+EXPLAIN: Overloads must differ in their parameters. int print(int) only differs from void print(int) by its return type, which isn't allowed.

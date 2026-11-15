@@ -117,6 +117,22 @@ const std::vector<Bug> &bugdex_bugs()
               "At the end of the list p is NULL, but it keeps going. Add if (p == NULL) return 0;" },
             { { "int sum(int n) {", "    if (n == 0) return 0;", "    return n + sum(n + 1);", "}" }, 3,
               "n + 1 goes away from the base case. It should be sum(n - 1)." } } },
+        { "novirtual", "Missing Virtual", "class type", "base class pointers to derived objects", "make it virtual, and give the base a virtual destructor",
+          "double area() { return 0; }", "virtual double area() { return 0; }", "impostor", BugShape::Ghost, 0x6EE6C8, {
+            { { "class Shape {", "public:", "    void draw() { cout << \"shape\"; }", "};", "Shape *s = new Circle();", "s->draw();   // prints shape!" }, 3,
+              "draw isn't virtual, so the pointer's type picks Shape::draw. Make it virtual void draw()." },
+            { { "class Base {", "public:", "    virtual void f() {}", "    ~Base() {}", "};", "Base *b = new Derived();", "delete b;" }, 4,
+              "Deleting through a Base* only runs ~Derived if the destructor is virtual: virtual ~Base() {}" },
+            { { "void show(Shape s) {", "    s.draw();", "}", "Circle c;", "show(c);   // prints shape" }, 1,
+              "Taking a Shape by value copies only its Shape part, so the Circle is lost. Take Shape &s instead." } } },
+        { "invalidated", "Invalid Iterator", "iterator type", "vectors changed while you walk them", "use the iterator erase gives back, or erase-remove",
+          "v.erase(it); ++it;", "it = v.erase(it);", "invalidator", BugShape::Bolt, 0xF58CB4, {
+            { { "for (auto it = v.begin(); it != v.end(); ++it)", "    if (*it < 0)", "        v.erase(it);" }, 3,
+              "erase(it) makes it invalid, then the loop does ++it on it. Write it = v.erase(it), and only ++it when nothing was erased." },
+            { { "vector<int> v = {1, 2, 3};", "int *p = &v[0];", "v.push_back(4);", "cout << *p;" }, 4,
+              "push_back can move the array somewhere bigger, so p points at freed memory. Take the address after adding." },
+            { { "auto it = v.begin();", "v.insert(v.begin(), 0);", "cout << *it;" }, 3,
+              "insert can move the array too, so it is invalid. Get a fresh iterator after changing the vector." } } },
     };
     return list;
 }

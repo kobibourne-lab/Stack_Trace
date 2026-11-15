@@ -1,0 +1,98 @@
+# Linked list class - deleting a node by value with a cur and a prev pointer,
+# from the C++ class version of the linked list in Noel's Pointers in C++ and
+# Linked List lecture.
+TITLE: A linked list class: deleting a value
+TOPIC: llclass
+TEXT: Noel's LinkedList class keeps head private, and its methods do the pointer work. Its destructor deletes every node, so the list cleans up after itself.
+TEXT: To delete a value, walk two pointers along: cur on the node you're checking, prev one behind it. When cur finds the value, prev's next skips over it.
+
+CODE:
+void LinkedList::deleteWithValue(int v)
+{
+    Node *cur = head, *prev = nullptr;
+    while (cur && cur->data != v) {
+        prev = cur;
+        cur = cur->next;
+    }
+    if (cur == nullptr) return;
+    if (!prev) head = cur->next;
+    else prev->next = cur->next;
+    delete cur;
+}
+END
+
+STEP: 3
+EXPLAIN: list holds 5, 10, 20, and we call list.deleteWithValue(10). cur starts at the first node (while (cur) means while cur isn't nullptr) and prev at nullptr: there's nothing behind the first node.
+MEM: main | list.head | Node* | 3000 | ->n1.data
+MEM: deleteWithValue | this | LinkedList* | 2960 | ->list.head | changed
+MEM: deleteWithValue | v | int | 2968 | 10 | changed
+MEM: deleteWithValue | cur | Node* | 2972 | ->n1.data | changed
+MEM: deleteWithValue | prev | Node* | 2980 | nullptr | changed
+MEM: heap | n1.data | int | 9000 | 5
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 10
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 20
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 6
+EXPLAIN: 5 isn't 10, so prev moves up to cur, and cur moves on to the next node.
+MEM: main | list.head | Node* | 3000 | ->n1.data
+MEM: deleteWithValue | this | LinkedList* | 2960 | ->list.head
+MEM: deleteWithValue | v | int | 2968 | 10
+MEM: deleteWithValue | cur | Node* | 2972 | ->n2.data | changed
+MEM: deleteWithValue | prev | Node* | 2980 | ->n1.data | changed
+MEM: heap | n1.data | int | 9000 | 5
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 10
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 20
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 4
+EXPLAIN: cur->data is 10 now, so the loop stops. cur is on the node to delete, and prev is on the one before it.
+MEM: main | list.head | Node* | 3000 | ->n1.data
+MEM: deleteWithValue | this | LinkedList* | 2960 | ->list.head
+MEM: deleteWithValue | v | int | 2968 | 10
+MEM: deleteWithValue | cur | Node* | 2972 | ->n2.data
+MEM: deleteWithValue | prev | Node* | 2980 | ->n1.data
+MEM: heap | n1.data | int | 9000 | 5
+MEM: heap | n1.next | Node* | 9008 | ->n2.data
+MEM: heap | n2.data | int | 9016 | 10
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 20
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 10
+EXPLAIN: prev wasn't nullptr, so it wasn't the first node. prev->next = cur->next makes the 5 skip straight to the 20. Only cur still points at the 10.
+MEM: main | list.head | Node* | 3000 | ->n1.data
+MEM: deleteWithValue | this | LinkedList* | 2960 | ->list.head
+MEM: deleteWithValue | v | int | 2968 | 10
+MEM: deleteWithValue | cur | Node* | 2972 | ->n2.data
+MEM: deleteWithValue | prev | Node* | 2980 | ->n1.data
+MEM: heap | n1.data | int | 9000 | 5
+MEM: heap | n1.next | Node* | 9008 | ->n3.data | changed
+MEM: heap | n2.data | int | 9016 | 10
+MEM: heap | n2.next | Node* | 9024 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 20
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 11
+EXPLAIN: delete cur frees the unlinked node. Unlink first, then delete: the other way round, cur->next would read freed memory.
+MEM: main | list.head | Node* | 3000 | ->n1.data
+MEM: deleteWithValue | this | LinkedList* | 2960 | ->list.head
+MEM: deleteWithValue | v | int | 2968 | 10
+MEM: deleteWithValue | cur | Node* | 2972 | 9016 | changed
+MEM: deleteWithValue | prev | Node* | 2980 | ->n1.data
+MEM: heap | n1.data | int | 9000 | 5
+MEM: heap | n1.next | Node* | 9008 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 20
+MEM: heap | n3.next | Node* | 9040 | nullptr
+
+STEP: 12
+EXPLAIN: The list is 5, 20. Deleting the first node is the other case: prev is still nullptr, so head moves on instead. That's why the method needs both lines 9 and 10.
+MEM: main | list.head | Node* | 3000 | ->n1.data
+MEM: heap | n1.data | int | 9000 | 5
+MEM: heap | n1.next | Node* | 9008 | ->n3.data
+MEM: heap | n3.data | int | 9032 | 20
+MEM: heap | n3.next | Node* | 9040 | nullptr

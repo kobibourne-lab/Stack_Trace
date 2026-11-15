@@ -1,0 +1,62 @@
+# Friend functions quiz.
+
+TITLE: Friend functions
+TOPIC: friends
+
+QUESTION: Choose
+PROMPT: Which of these can read a private member of class Box?
+OPTION: Any function in the same file as Box
+OPTION: Any class derived from Box
+OPTION: Box's own methods, and functions or classes Box names as friends
+OPTION: Only Box's constructor
+ANSWER: 3
+EXPLAIN: Private means only the class's own members, plus the friends it names. Derived classes only get protected and public members.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+class Secret {
+    int n = 42;
+    friend class Spy;
+};
+class Spy {
+public:
+    int peek(Secret &s) { return s.n; }
+};
+int main() {
+    Secret s;
+    Spy spy;
+    printf("%d\n", spy.peek(s));
+}
+END
+OPTION: 42
+OPTION: 0
+OPTION: It doesn't compile: n is private
+OPTION: Some random number
+ANSWER: 1
+EXPLAIN: Secret names Spy as a friend class, so every method of Spy can read Secret's private members.
+
+QUESTION: Choose
+PROMPT: printLength is a friend of Box. How does it get the Box to work on?
+OPTION: Through this, like any method
+OPTION: As a parameter: a friend isn't a member, so it has no this
+OPTION: It can only read static members
+OPTION: Box passes itself automatically
+ANSWER: 2
+EXPLAIN: Being a friend only gives access. It's still an ordinary function, called as printLength(myBox), not myBox.printLength().
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This doesn't compile. Click the line the compiler complains about.
+CODE:
+class Box {
+    int length;
+public:
+    Box(int l) : length(l) {}
+};
+void printLength(Box b) {
+    cout << b.length;
+}
+END
+ANSWER: 7
+EXPLAIN: length is private and printLength isn't a friend. Add friend void printLength(Box b); inside the class.

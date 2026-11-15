@@ -32,6 +32,8 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "dangling",   "Dangling Pointer",WearKind::Skin, 0,  2, false },   // half freed, flickers
         { "leaker",     "The Leaker",      WearKind::Skin, 0,  3, false },   // drips leaked memory
         { "shallow",    "Shallow Copy",    WearKind::Skin, 0,  4, false },   // a ghost copy, one array
+        { "impostor",   "The Impostor",    WearKind::Skin, 0,  5, false },   // glasses, nose and moustache
+        { "invalidator","The Invalidator", WearKind::Skin, 0,  6, false },   // a stale iterator over Mal
         { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  4, false },
         { "diamond",    "Diamond",         WearKind::Skin, 0,  0, true  },
         // The shop: bought with bytes (price last), only in the SHOP tab

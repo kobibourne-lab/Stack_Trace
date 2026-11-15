@@ -1,0 +1,58 @@
+# Bit manipulation quiz.
+
+TITLE: Bit manipulation
+TOPIC: bits
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+unsigned char a = 12;   // 0000 1100
+unsigned char b = 10;   // 0000 1010
+printf("%d %d %d\n", a & b, a | b, a ^ b);
+END
+OPTION: 22 14 6
+OPTION: 8 6 14
+OPTION: 8 14 6
+OPTION: 1 1 0
+ANSWER: 3
+EXPLAIN: & keeps bits set in both (0000 1000 = 8), | in either (0000 1110 = 14), ^ in exactly one (0000 0110 = 6).
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+int x = 5;
+printf("%d %d\n", x << 3, x >> 1);
+END
+OPTION: 15 4
+OPTION: 40 2
+OPTION: 8 2
+OPTION: 40 2.5
+ANSWER: 2
+EXPLAIN: Each place left doubles it: 5 x 2 x 2 x 2 = 40. One place right halves it, and the bit that falls off is lost: 5 / 2 = 2.
+
+QUESTION: Choose
+PROMPT: Which test is true exactly when bit 2 of flags (the 4s bit) is set?
+OPTION: flags | 4
+OPTION: flags ^ 4
+OPTION: flags && 4
+OPTION: flags & 4
+ANSWER: 4
+EXPLAIN: flags & 4 keeps only the 4s bit: it's 4 if the bit is set, 0 if not. flags | 4 sets the bit (always true), ^ flips it, and && is the logical and, true for any non-zero flags.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This should count the 1 bits in x, but it never finishes for some numbers. Click the line with the bug.
+CODE:
+int countBits(unsigned char x)
+{
+    int count = 0;
+    while (x != 0) {
+        if (x & 1)
+            count++;
+        x << 1;
+    }
+    return count;
+}
+END
+ANSWER: 7
+EXPLAIN: x << 1 works out a value and throws it away, so x never changes. It should shift right and store it: x >>= 1. Then the bits fall off the end until x is 0.

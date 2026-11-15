@@ -1,0 +1,58 @@
+# Smart pointers - unique_ptr (one owner, moved) and shared_ptr (a count of
+# owners), using the Book and Library classes from Noel's Smart Pointers notes.
+TITLE: Smart pointers delete for you
+TOPIC: smartptr
+TEXT: A smart pointer owns a heap object and deletes it for you when it goes out of scope. No delete, so no leaks and no double frees. They're in <memory>.
+TEXT: A unique_ptr is the only owner: it can be moved, never copied. A shared_ptr counts its owners, and the last one out deletes the object.
+
+CODE:
+int main() {
+    unique_ptr<Book> mine =
+        make_unique<Book>("C++ Guide");
+    unique_ptr<Book> yours = move(mine);
+    {
+        shared_ptr<Library> lib =
+            make_shared<Library>();
+        shared_ptr<Library> lib2 = lib;
+    }
+}
+END
+
+STEP: 3
+EXPLAIN: make_unique makes the Book on the heap, and mine owns it.
+MEM: main | mine | unique_ptr | 3000 | ->book | changed
+MEM: heap | book | Book | 9000 | C++ Guide | changed
+
+STEP: 4
+EXPLAIN: unique_ptr can't be copied: two owners would both delete it. move hands it over instead. yours owns the Book now, and mine is nullptr.
+MEM: main | mine | unique_ptr | 3000 | nullptr | changed
+MEM: main | yours | unique_ptr | 3008 | ->book | changed
+MEM: heap | book | Book | 9000 | C++ Guide
+
+STEP: 7
+EXPLAIN: make_shared makes the Library with a count of owners next to it. lib is the first owner, so the count is 1.
+MEM: main | mine | unique_ptr | 3000 | nullptr
+MEM: main | yours | unique_ptr | 3008 | ->book
+MEM: main | lib | shared_ptr | 3016 | ->lb.obj | changed
+MEM: heap | book | Book | 9000 | C++ Guide
+MEM: heap | lb.count | owners | 9040 | 1 | changed
+MEM: heap | lb.obj | Library | 9048 | open | changed
+
+STEP: 8
+EXPLAIN: Copying a shared_ptr is allowed: lib2 is a second owner of the same Library, and the count goes up to 2.
+MEM: main | mine | unique_ptr | 3000 | nullptr
+MEM: main | yours | unique_ptr | 3008 | ->book
+MEM: main | lib | shared_ptr | 3016 | ->lb.obj
+MEM: main | lib2 | shared_ptr | 3024 | ->lb.obj | changed
+MEM: heap | book | Book | 9000 | C++ Guide
+MEM: heap | lb.count | owners | 9040 | 2 | changed
+MEM: heap | lb.obj | Library | 9048 | open
+
+STEP: 9
+EXPLAIN: At the brace, lib2 and lib go out of scope. Each one takes 1 off the count; it reaches 0, so the Library is deleted. Nobody wrote delete.
+MEM: main | mine | unique_ptr | 3000 | nullptr
+MEM: main | yours | unique_ptr | 3008 | ->book
+MEM: heap | book | Book | 9000 | C++ Guide
+
+STEP: 10
+EXPLAIN: At the end of main, yours goes out of scope and deletes the Book. mine is nullptr, so it has nothing to delete. Every block was freed exactly once.

@@ -115,6 +115,38 @@ static void draw_boss(const std::string &look, Vector2 c, float size, float flas
         eyes({ a.x + 16 * s, a.y + 22 * s }, { a.x + 36 * s, a.y + 22 * s }, 4 * s, true, dark);
         DrawRectangleRoundedLinesEx(b, 0.25f, 6, 3 * s, col);
         eyes({ b.x + 30 * s, b.y + 36 * s }, { b.x + 44 * s, b.y + 36 * s }, 3.5f * s, false, col);
+    } else if (look == "impostor") {
+        // The Impostor: a Circle hiding behind a cardboard Shape mask, moustache and all
+        DrawCircleV({ c.x + 8 * s, c.y + 4 * s }, 36 * s, col);
+        Rectangle mask = { c.x - 38 * s, c.y - 22 * s, 58 * s, 40 * s };
+        DrawRectangleRounded(mask, 0.15f, 6, COL_SURFACE);
+        DrawRectangleRoundedLinesEx(mask, 0.15f, 6, 3 * s, col);
+        DrawLineEx({ mask.x + mask.width, mask.y + 8 * s }, { c.x + 40 * s, c.y - 12 * s }, 2 * s, col);   // the string
+        ui_text("Shape", mask.x + 8 * s, mask.y - 18 * s, 14 * s, col, FontKind::MonoBold);
+        for (float ex : { mask.x + 17 * s, mask.x + 41 * s }) {   // eye holes, with real eyes peering out
+            DrawCircleV({ ex, mask.y + 15 * s }, 6 * s, dark);
+            DrawCircleV({ ex + 2 * s, mask.y + 15 * s }, 2.5f * s, col);
+        }
+        Vector2 m = { mask.x + 29 * s, mask.y + 31 * s };
+        ui_triangle({ m.x, m.y }, { m.x - 15 * s, m.y + 5 * s }, { m.x - 4 * s, m.y - 3 * s }, col);
+        ui_triangle({ m.x, m.y }, { m.x + 4 * s, m.y - 3 * s }, { m.x + 15 * s, m.y + 5 * s }, col);
+    } else if (look == "invalidator") {
+        // The Invalidator: an iterator, pointing at an element that's been erased
+        Rectangle body = { c.x - 30 * s, c.y - 40 * s, 60 * s, 38 * s };
+        DrawRectangleRounded(body, 0.25f, 6, col);
+        ui_triangle({ c.x - 14 * s, body.y + body.height }, { c.x + 14 * s, body.y + body.height }, { c.x, body.y + body.height + 16 * s }, col);
+        eyes({ c.x - 12 * s, c.y - 24 * s }, { c.x + 12 * s, c.y - 24 * s }, 4.5f * s, true, dark);
+        ui_text("it", c.x - 7 * s, c.y - 16 * s, 13 * s, dark, FontKind::MonoBold);
+        for (int i = 0; i < 4; i++) {   // the vector it walks, one element erased
+            Rectangle cell = { c.x - 56 * s + i * 23 * s, c.y + 18 * s, 20 * s, 20 * s };
+            if (i == 2) {
+                dashed_rect(cell, 2 * s, col);
+                DrawLineEx({ cell.x + 4 * s, cell.y + 4 * s }, { cell.x + 16 * s, cell.y + 16 * s }, 2.5f * s, col);
+                DrawLineEx({ cell.x + 16 * s, cell.y + 4 * s }, { cell.x + 4 * s, cell.y + 16 * s }, 2.5f * s, col);
+            } else {
+                DrawRectangleRounded(cell, 0.2f, 4, Fade(col, 0.45f));
+            }
+        }
     } else {
         // The Off-By-One: a block with a "+1" it can't stop adding
         Rectangle body = { c.x - 34 * s, c.y - 24 * s, 68 * s, 56 * s };

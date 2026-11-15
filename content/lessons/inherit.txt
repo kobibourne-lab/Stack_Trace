@@ -1,0 +1,64 @@
+# Inheritance - a Car is a Vehicle with extra members, built base first, from
+# Noel's Classes and Polymorphism notes.
+TITLE: Inheritance: a Car is a Vehicle
+TOPIC: inherit
+TEXT: class Car : public Vehicle makes Car a derived class of Vehicle. A Car has everything a Vehicle has, plus its own members.
+TEXT: protected members are like private ones, except derived classes can use them too. Objects are built base first, and destroyed in reverse.
+
+CODE:
+class Vehicle {
+protected:
+    int wheels, maxSpeed;
+public:
+    Vehicle(int w, int s)
+        : wheels(w), maxSpeed(s) {}
+};
+class Car : public Vehicle {
+    int passengers;
+public:
+    Car(int w, int s, int p)
+        : Vehicle(w, s), passengers(p) {}
+};
+int main() {
+    Car c(4, 180, 5);
+}
+END
+
+STEP: 15
+EXPLAIN: Space for c is made on the stack: its Vehicle part first (wheels, maxSpeed), then Car's own passengers. Nothing is set yet.
+MEM: main | c.wheels | int | 3000 | ? | changed
+MEM: main | c.maxSpeed | int | 3004 | ? | changed
+MEM: main | c.passengers | int | 3008 | ? | changed
+
+STEP: 12
+EXPLAIN: Car's constructor is called with 4, 180 and 5. Before its own members, its initialiser list calls Vehicle(w, s): the base part has to be built first.
+MEM: main | c.wheels | int | 3000 | ?
+MEM: main | c.maxSpeed | int | 3004 | ?
+MEM: main | c.passengers | int | 3008 | ?
+MEM: Car(int, int, int) | this | Car* | 2960 | ->c.wheels | changed
+MEM: Car(int, int, int) | p | int | 2976 | 5 | changed
+
+STEP: 6
+EXPLAIN: Vehicle's constructor sets wheels and maxSpeed. Its this points at the same object: the Vehicle part is the start of the Car.
+MEM: main | c.wheels | int | 3000 | 4 | changed
+MEM: main | c.maxSpeed | int | 3004 | 180 | changed
+MEM: main | c.passengers | int | 3008 | ?
+MEM: Car(int, int, int) | this | Car* | 2960 | ->c.wheels
+MEM: Car(int, int, int) | p | int | 2976 | 5
+MEM: Vehicle(int, int) | this | Vehicle* | 2940 | ->c.wheels | changed
+MEM: Vehicle(int, int) | w | int | 2948 | 4 | changed
+MEM: Vehicle(int, int) | s | int | 2952 | 180 | changed
+
+STEP: 12
+EXPLAIN: Back in Car's constructor: now passengers(p) sets Car's own member. Base first, then derived.
+MEM: main | c.wheels | int | 3000 | 4
+MEM: main | c.maxSpeed | int | 3004 | 180
+MEM: main | c.passengers | int | 3008 | 5 | changed
+MEM: Car(int, int, int) | this | Car* | 2960 | ->c.wheels
+MEM: Car(int, int, int) | p | int | 2976 | 5
+
+STEP: 16
+EXPLAIN: c is a whole Car. Car's methods can use wheels because it's protected, but main can't. At the closing brace it's destroyed the other way round: ~Car, then ~Vehicle.
+MEM: main | c.wheels | int | 3000 | 4
+MEM: main | c.maxSpeed | int | 3004 | 180
+MEM: main | c.passengers | int | 3008 | 5

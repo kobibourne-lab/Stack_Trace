@@ -1,0 +1,65 @@
+# Bit manipulation - the bitwise operators and shifts, from Noel's C Bit
+# manipulation notes (A = 60, B = 13). Values are shown in binary, 8 bits each.
+TITLE: Bitwise operators, one bit at a time
+TOPIC: bits
+TEXT: The bitwise operators work on each bit separately: & keeps a bit only if it's 1 in both, | if it's 1 in either, and ^ if it's 1 in exactly one.
+TEXT: << and >> slide every bit left or right. Each place left doubles the number, each place right halves it.
+
+CODE:
+unsigned char a = 60;
+unsigned char b = 13;
+unsigned char both = a & b;
+unsigned char either = a | b;
+unsigned char diff = a ^ b;
+unsigned char left = a << 2;
+unsigned char right = a >> 2;
+END
+
+STEP: 1
+EXPLAIN: 60 in binary is 0011 1100: 32 + 16 + 8 + 4. An unsigned char is 8 bits, one byte.
+MEM: main | a | unsigned char | 3000 | 0011 1100 | changed
+
+STEP: 2
+EXPLAIN: 13 is 0000 1101: 8 + 4 + 1.
+MEM: main | a | unsigned char | 3000 | 0011 1100
+MEM: main | b | unsigned char | 3001 | 0000 1101 | changed
+
+STEP: 3
+EXPLAIN: a & b keeps the bits that are 1 in both: 0000 1100, which is 12. & is how you test a bit: x & 1 is 1 when x is odd.
+MEM: main | a | unsigned char | 3000 | 0011 1100
+MEM: main | b | unsigned char | 3001 | 0000 1101
+MEM: main | both | unsigned char | 3002 | 0000 1100 | changed
+
+STEP: 4
+EXPLAIN: a | b keeps the bits that are 1 in either: 0011 1101, which is 61. | is how you set a bit.
+MEM: main | a | unsigned char | 3000 | 0011 1100
+MEM: main | b | unsigned char | 3001 | 0000 1101
+MEM: main | both | unsigned char | 3002 | 0000 1100
+MEM: main | either | unsigned char | 3003 | 0011 1101 | changed
+
+STEP: 5
+EXPLAIN: a ^ b (XOR) keeps the bits that are 1 in one but not both: 0011 0001, which is 49. ^ flips bits.
+MEM: main | a | unsigned char | 3000 | 0011 1100
+MEM: main | b | unsigned char | 3001 | 0000 1101
+MEM: main | both | unsigned char | 3002 | 0000 1100
+MEM: main | either | unsigned char | 3003 | 0011 1101
+MEM: main | diff | unsigned char | 3004 | 0011 0001 | changed
+
+STEP: 6
+EXPLAIN: a << 2 slides every bit two places left, filling with 0s: 1111 0000, which is 240. Two places left is 60 x 4.
+MEM: main | a | unsigned char | 3000 | 0011 1100
+MEM: main | b | unsigned char | 3001 | 0000 1101
+MEM: main | both | unsigned char | 3002 | 0000 1100
+MEM: main | either | unsigned char | 3003 | 0011 1101
+MEM: main | diff | unsigned char | 3004 | 0011 0001
+MEM: main | left | unsigned char | 3005 | 1111 0000 | changed
+
+STEP: 7
+EXPLAIN: a >> 2 slides them two places right. The two bits on the end fall off: 0000 1111, which is 15, or 60 / 4. a itself never changed: the operators make new values.
+MEM: main | a | unsigned char | 3000 | 0011 1100
+MEM: main | b | unsigned char | 3001 | 0000 1101
+MEM: main | both | unsigned char | 3002 | 0000 1100
+MEM: main | either | unsigned char | 3003 | 0011 1101
+MEM: main | diff | unsigned char | 3004 | 0011 0001
+MEM: main | left | unsigned char | 3005 | 1111 0000
+MEM: main | right | unsigned char | 3006 | 0000 1111 | changed

@@ -1,0 +1,70 @@
+# Operator overloading - adding two Box objects with operator+, from Noel's
+# Operator Overloading notes (cut down to two sizes so it fits on screen).
+TITLE: Operator overloading: b1 + b2
+TOPIC: opover
+TEXT: An overloaded operator is a function with a special name: operator followed by the symbol. b1 + b2 is just a call to b1.operator+(b2).
+TEXT: As a member function, the left operand is this and the right one is the parameter. Most operators can be overloaded this way, like ++, == and <<.
+
+CODE:
+class Box {
+public:
+    double len, wid;
+    Box operator+(const Box &b) {
+        Box box;
+        box.len = len + b.len;
+        box.wid = wid + b.wid;
+        return box;
+    }
+};
+int main() {
+    Box b1{6, 7}, b2{12, 13};
+    Box b3 = b1 + b2;
+}
+END
+
+STEP: 12
+EXPLAIN: Two boxes on the stack, each with its own len and wid.
+MEM: main | b1.len | double | 3000 | 6 | changed
+MEM: main | b1.wid | double | 3008 | 7 | changed
+MEM: main | b2.len | double | 3016 | 12 | changed
+MEM: main | b2.wid | double | 3024 | 13 | changed
+
+STEP: 4
+EXPLAIN: b1 + b2 calls b1.operator+(b2). this points at b1, the left side. b is a reference to b2, the right side: no copy is made, and const means b2 can't be changed.
+MEM: main | b1.len | double | 3000 | 6
+MEM: main | b1.wid | double | 3008 | 7
+MEM: main | b2.len | double | 3016 | 12
+MEM: main | b2.wid | double | 3024 | 13
+MEM: Box::operator+ | this | Box* | 2960 | ->b1.len | changed
+MEM: Box::operator+ | b | const Box& | 2968 | ->b2.len | changed
+
+STEP: 6
+EXPLAIN: A new Box is made inside the function. len on its own means this->len, b1's: 6 + 12 is 18.
+MEM: main | b1.len | double | 3000 | 6
+MEM: main | b1.wid | double | 3008 | 7
+MEM: main | b2.len | double | 3016 | 12
+MEM: main | b2.wid | double | 3024 | 13
+MEM: Box::operator+ | this | Box* | 2960 | ->b1.len
+MEM: Box::operator+ | b | const Box& | 2968 | ->b2.len
+MEM: Box::operator+ | box.len | double | 2976 | 18 | changed
+MEM: Box::operator+ | box.wid | double | 2984 | ? | changed
+
+STEP: 7
+EXPLAIN: And 7 + 13 is 20. Neither b1 nor b2 changed: + makes a new value, like it does for ints.
+MEM: main | b1.len | double | 3000 | 6
+MEM: main | b1.wid | double | 3008 | 7
+MEM: main | b2.len | double | 3016 | 12
+MEM: main | b2.wid | double | 3024 | 13
+MEM: Box::operator+ | this | Box* | 2960 | ->b1.len
+MEM: Box::operator+ | b | const Box& | 2968 | ->b2.len
+MEM: Box::operator+ | box.len | double | 2976 | 18
+MEM: Box::operator+ | box.wid | double | 2984 | 20 | changed
+
+STEP: 13
+EXPLAIN: The result is returned by value into b3, and the function's frame is gone. Return a Box, not a Box&: a reference to box would dangle.
+MEM: main | b1.len | double | 3000 | 6
+MEM: main | b1.wid | double | 3008 | 7
+MEM: main | b2.len | double | 3016 | 12
+MEM: main | b2.wid | double | 3024 | 13
+MEM: main | b3.len | double | 3032 | 18 | changed
+MEM: main | b3.wid | double | 3040 | 20 | changed

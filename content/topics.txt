@@ -8,13 +8,17 @@
 # - lesson file / quiz file: inside content/, or - if not written yet.
 #
 # Exam 1 = C basics is a guess until Noel confirms it. Exam 2 = pointers and
-# linked lists comes from the "Coding Exam 2 Preparation" lab.
+# linked lists comes from the "Coding Exam 2 Preparation" lab. The C++ OOP and
+# Templates & STL rows come from Noel's later notes (operator overloading,
+# friends, classes and polymorphism, smart pointers, templates and STL, STL
+# lists and maps), and bits from his C Bit manipulation notes.
 
 basics    | I/O & types            | C basics          | Exam 1 | lessons/basics.txt    | quizzes/basics.txt
 control   | Control flow           | C basics          | Exam 1 | lessons/control.txt   | quizzes/control.txt
 arrays    | Arrays & 2D arrays     | C basics          | Exam 1 | lessons/arrays.txt    | quizzes/arrays.txt
 strings   | Strings & \0           | C basics          | Exam 1 | lessons/strings.txt   | quizzes/strings.txt
 functions | Functions & pass by value | C basics          | Exam 1 | lessons/functions.txt | quizzes/functions.txt
+bits      | Bit manipulation       | C basics          | -      | lessons/bits.txt      | quizzes/bits.txt
 
 pointers  | Pointers & addresses   | Pointers & memory | Exam 2 | lessons/pointers.txt | quizzes/pointers.txt
 arith     | Pointer arithmetic     | Pointers & memory | Exam 2 | lessons/arith.txt     | quizzes/arith.txt
@@ -26,6 +30,7 @@ funcptr   | Function pointers      | Pointers & memory | Exam 2 | lessons/funcpt
 
 sll       | Singly linked list     | Linked lists      | Exam 2 | lessons/sll.txt       | quizzes/sll.txt
 dll       | Doubly linked list     | Linked lists      | Exam 2 | lessons/dll.txt       | quizzes/dll.txt
+llclass   | Linked list class      | Linked lists      | -      | lessons/llclass.txt   | quizzes/llclass.txt
 
 classes   | Classes & methods      | C++ classes       | -      | lessons/classes.txt   | quizzes/classes.txt
 ctors     | Constructors           | C++ classes       | -      | lessons/ctors.txt     | quizzes/ctors.txt
@@ -33,3 +38,15 @@ copyctor  | Copy constructors      | C++ classes       | -      | lessons/copyct
 access    | Access & static        | C++ classes       | -      | lessons/access.txt    | quizzes/access.txt
 dtors     | Destructors            | C++ classes       | -      | lessons/dtors.txt     | quizzes/dtors.txt
 objarrays | Arrays of objects      | C++ classes       | -      | lessons/objarrays.txt | quizzes/objarrays.txt
+
+opover    | Operator overloading   | C++ OOP           | -      | lessons/opover.txt    | quizzes/opover.txt
+friends   | Friend functions       | C++ OOP           | -      | lessons/friends.txt   | quizzes/friends.txt
+inherit   | Inheritance            | C++ OOP           | -      | lessons/inherit.txt   | quizzes/inherit.txt
+poly      | Polymorphism & virtual | C++ OOP           | -      | lessons/poly.txt      | quizzes/poly.txt
+smartptr  | Smart pointers         | C++ OOP           | -      | lessons/smartptr.txt  | quizzes/smartptr.txt
+
+templates | Templates              | Templates & STL   | -      | lessons/templates.txt | quizzes/templates.txt
+vectors   | Vectors                | Templates & STL   | -      | lessons/vectors.txt   | quizzes/vectors.txt
+iters     | Iterators & algorithms | Templates & STL   | -      | lessons/iters.txt     | quizzes/iters.txt
+stllist   | STL list               | Templates & STL   | -      | lessons/stllist.txt   | quizzes/stllist.txt
+maps      | Maps                   | Templates & STL   | -      | lessons/maps.txt      | quizzes/maps.txt
