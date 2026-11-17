@@ -1,0 +1,80 @@
+# STL list - a doubly linked list where splice moves nodes between lists
+# without copying them, from Noel's STL Lists and Maps notes. Each node has a
+# prev pointer too; they're left out here to keep the picture readable.
+TITLE: std::list and splice
+TOPIC: stllist
+TEXT: std::list is a doubly linked list: every node points to the next and previous ones. There's no [ ]: you reach elements with iterators, front() and back().
+TEXT: Inserting in the middle is cheap, because only pointers change. splice goes further: it moves nodes from one list to another without copying anything.
+
+CODE:
+list<int> a = {1, 2};
+list<int> b = {10};
+auto it = a.begin();
+++it;
+a.splice(it, b);
+// a: 1 10 2    b: empty
+END
+
+STEP: 1
+EXPLAIN: a has two nodes on the heap, linked together. (Each also points back to the one before it: those arrows are left out here.)
+MEM: main | a.head | node* | 3000 | ->n1.val | changed
+MEM: main | a.size | size_t | 3008 | 2 | changed
+MEM: heap | n1.val | int | 9000 | 1 | changed
+MEM: heap | n1.next | node* | 9004 | ->n2.val | changed
+MEM: heap | n2.val | int | 9016 | 2 | changed
+MEM: heap | n2.next | node* | 9020 | end | changed
+
+STEP: 2
+EXPLAIN: b has one node, holding 10.
+MEM: main | a.head | node* | 3000 | ->n1.val
+MEM: main | a.size | size_t | 3008 | 2
+MEM: main | b.head | node* | 3016 | ->n3.val | changed
+MEM: main | b.size | size_t | 3024 | 1 | changed
+MEM: heap | n1.val | int | 9000 | 1
+MEM: heap | n1.next | node* | 9004 | ->n2.val
+MEM: heap | n2.val | int | 9016 | 2
+MEM: heap | n2.next | node* | 9020 | end
+MEM: heap | n3.val | int | 9032 | 10 | changed
+MEM: heap | n3.next | node* | 9036 | end | changed
+
+STEP: 4
+EXPLAIN: it starts on a's first node, and ++it follows next to the second. A list iterator can't jump: there's no it + 1 or a[1].
+MEM: main | a.head | node* | 3000 | ->n1.val
+MEM: main | a.size | size_t | 3008 | 2
+MEM: main | b.head | node* | 3016 | ->n3.val
+MEM: main | b.size | size_t | 3024 | 1
+MEM: main | it | iterator | 3032 | ->n2.val | changed
+MEM: heap | n1.val | int | 9000 | 1
+MEM: heap | n1.next | node* | 9004 | ->n2.val
+MEM: heap | n2.val | int | 9016 | 2
+MEM: heap | n2.next | node* | 9020 | end
+MEM: heap | n3.val | int | 9032 | 10
+MEM: heap | n3.next | node* | 9036 | end
+
+STEP: 5
+EXPLAIN: a.splice(it, b) moves all of b's nodes into a, in front of it. Only pointers change: the 10 is the same node at the same address, never copied. b is left empty.
+MEM: main | a.head | node* | 3000 | ->n1.val
+MEM: main | a.size | size_t | 3008 | 3 | changed
+MEM: main | b.head | node* | 3016 | end | changed
+MEM: main | b.size | size_t | 3024 | 0 | changed
+MEM: main | it | iterator | 3032 | ->n2.val
+MEM: heap | n1.val | int | 9000 | 1
+MEM: heap | n1.next | node* | 9004 | ->n3.val | changed
+MEM: heap | n2.val | int | 9016 | 2
+MEM: heap | n2.next | node* | 9020 | end
+MEM: heap | n3.val | int | 9032 | 10
+MEM: heap | n3.next | node* | 9036 | ->n2.val | changed
+
+STEP: 6
+EXPLAIN: it is still on the 2: nothing moved in memory. Use a list when you insert and erase in the middle a lot; a vector would shift every element after the gap. Check for empty with empty(), not size() == 0.
+MEM: main | a.head | node* | 3000 | ->n1.val
+MEM: main | a.size | size_t | 3008 | 3
+MEM: main | b.head | node* | 3016 | end
+MEM: main | b.size | size_t | 3024 | 0
+MEM: main | it | iterator | 3032 | ->n2.val
+MEM: heap | n1.val | int | 9000 | 1
+MEM: heap | n1.next | node* | 9004 | ->n3.val
+MEM: heap | n2.val | int | 9016 | 2
+MEM: heap | n2.next | node* | 9020 | end
+MEM: heap | n3.val | int | 9032 | 10
+MEM: heap | n3.next | node* | 9036 | ->n2.val

@@ -99,14 +99,16 @@ static Vector3 arc_point(Vector3 a, Vector3 b, float height, float t)
 
 static Color world_top(int w)
 {
-    static const Color tops[4] = { { 70, 160, 90, 255 }, { 120, 90, 190, 255 }, { 60, 120, 200, 255 }, { 190, 140, 70, 255 } };
-    return tops[w % 4];
+    static const Color tops[6] = { { 70, 160, 90, 255 }, { 120, 90, 190, 255 }, { 60, 120, 200, 255 }, { 190, 140, 70, 255 },
+                                   { 60, 150, 130, 255 }, { 150, 96, 120, 255 } };
+    return tops[w % 6];
 }
 
 static Color world_dirt(int w)
 {
-    static const Color dirt[4] = { { 60, 50, 40, 255 }, { 55, 45, 70, 255 }, { 40, 50, 70, 255 }, { 70, 55, 40, 255 } };
-    return dirt[w % 4];
+    static const Color dirt[6] = { { 60, 50, 40, 255 }, { 55, 45, 70, 255 }, { 40, 50, 70, 255 }, { 70, 55, 40, 255 },
+                                   { 40, 52, 46, 255 }, { 66, 46, 40, 255 } };
+    return dirt[w % 6];
 }
 
 // The island itself: a grassy slab over layers of rock that taper away below.
@@ -121,7 +123,7 @@ static void island(Vector3 c, int w, float bright)
 // What stands in the middle of each island.
 static void decor(Vector3 c, int w, float t, float bright)
 {
-    switch (w % 4) {
+    switch (w % 6) {
         case 0: {   // the Stack: a tower of call frames, the newest on top
             for (int i = 0; i < 5; i++) {
                 float s = 2.6f - i * 0.36f;
@@ -149,7 +151,7 @@ static void decor(Vector3 c, int w, float t, float bright)
             DrawCylinder({ c.x - 0.6f, c.y + 0.01f, c.z + 1.6f }, pool, pool, 0.04f, 18, Fade(shade({ 140, 210, 90, 255 }, bright), 0.85f));
             break;
         }
-        default: {   // Object Land: buildings (classes), windows lit
+        case 3: {   // Object Land: buildings (classes), windows lit
             const float bl[4][3] = { { -0.8f, -0.8f, 2.6f }, { 0.7f, -0.7f, 3.6f }, { -0.7f, 0.8f, 1.8f }, { 0.8f, 0.7f, 2.8f } };
             for (int i = 0; i < 4; i++) {
                 box({ c.x + bl[i][0], c.y + bl[i][2] / 2, c.z + bl[i][1] }, { 1.15f, bl[i][2], 1.15f }, shade({ 120, 92, 60, 255 }, bright));
@@ -161,6 +163,38 @@ static void decor(Vector3 c, int w, float t, float bright)
                         Fade(shade({ 255, 210, 120, 255 }, bright), lit ? 0.6f : 0.12f));
                 }
             }
+            break;
+        }
+        case 4: {   // Inheritance Grove: a base class tree, and two derived ones grown from it
+            Color trunk = shade({ 110, 80, 56, 255 }, bright), leaves = shade({ 110, 220, 180, 255 }, bright);
+            box({ c.x, c.y + 1.1f, c.z }, { 0.5f, 2.2f, 0.5f }, trunk);
+            box({ c.x, c.y + 2.6f, c.z }, { 1.9f, 1.1f, 1.9f }, leaves);
+            const float kid[2][2] = { { -1.6f, 1.3f }, { 1.5f, -1.3f } };
+            for (int i = 0; i < 2; i++) {
+                Vector3 k = { c.x + kid[i][0], c.y, c.z + kid[i][1] };
+                box({ k.x, k.y + 0.55f, k.z }, { 0.32f, 1.1f, 0.32f }, trunk);
+                box({ k.x, k.y + 1.4f, k.z }, { 1.15f, 0.7f, 1.15f }, shade(leaves, 0.85f));
+                arc({ c.x, c.y + 2.2f, c.z }, { k.x, k.y + 1.7f, k.z }, 0.6f, 0.05f, shade(COL_AMBER, bright), true);   // "is a"
+            }
+            for (int i = 0; i < 4; i++) {   // fireflies
+                float a = t * 0.8f + i * 1.57f;
+                DrawSphere({ c.x + cosf(a) * 2.4f, c.y + 1.6f + 0.4f * sinf(t * 2 + i), c.z + sinf(a) * 2.4f }, 0.07f, Fade(shade({ 230, 255, 150, 255 }, bright), 0.9f));
+            }
+            break;
+        }
+        default: {   // The Library: bookshelves full of containers, and a stack of books
+            Color wood = shade({ 112, 74, 50, 255 }, bright);
+            static const Color spines[] = { { 190, 80, 70, 255 }, { 80, 130, 190, 255 }, { 220, 180, 90, 255 }, { 100, 160, 100, 255 } };
+            for (int sh = 0; sh < 2; sh++) {
+                float z = c.z - 1.6f + sh * 3.2f;
+                box({ c.x, c.y + 1.3f, z }, { 3.6f, 2.6f, 0.7f }, wood);
+                for (int row = 0; row < 3; row++)
+                    for (int b = 0; b < 6; b++)
+                        box({ c.x - 1.45f + b * 0.58f, c.y + 0.5f + row * 0.8f, z + (sh == 0 ? 0.38f : -0.38f) }, { 0.42f, 0.55f, 0.06f },
+                            shade(spines[(b + row + sh) % 4], bright));
+            }
+            for (int i = 0; i < 3; i++)
+                box({ c.x + 1.0f, c.y + 0.12f + i * 0.24f, c.z }, { 0.9f - i * 0.12f, 0.22f, 0.65f }, shade(spines[i], bright));
             break;
         }
     }

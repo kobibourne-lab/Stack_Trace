@@ -1,0 +1,60 @@
+# STL list quiz.
+
+TITLE: STL list
+TOPIC: stllist
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+list<int> l;
+l.push_back(50);
+l.push_back(40);
+l.push_front(10);
+l.push_front(20);
+l.sort();
+for (int x : l) cout << x << " ";
+END
+OPTION: 20 10 50 40
+OPTION: 50 40 10 20
+OPTION: 10 20 40 50
+OPTION: 20 10 40 50
+ANSWER: 3
+EXPLAIN: Before sorting it's 20 10 50 40. A list sorts with its own l.sort(): std::sort needs random access, which a list doesn't have.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+list<int> a = {1, 2, 3, 4};
+list<int> b = {10, 20, 30};
+auto it = a.begin();
+++it;
+a.splice(it, b);
+cout << a.size() << " " << b.size() << " " << *it;
+END
+OPTION: 7 0 2
+OPTION: 7 3 2
+OPTION: 4 0 10
+OPTION: 7 0 10
+ANSWER: 1
+EXPLAIN: splice moves all three of b's nodes into a, in front of it. b is empty, and it is still on the 2: no node moved in memory.
+
+QUESTION: Choose
+PROMPT: Why choose a list over a vector?
+OPTION: Lots of reading by index, like v[500]
+OPTION: Sorting with std::sort
+OPTION: It uses less memory per element
+OPTION: Lots of inserting and erasing in the middle
+ANSWER: 4
+EXPLAIN: In a list only a few pointers change. In a vector every element after the gap has to shift. But a list can't jump to an index, and each node also stores two pointers.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This doesn't compile. Click the line the compiler rejects.
+CODE:
+list<int> l = {5, 6, 7};
+cout << l.front() << endl;
+cout << l.back() << endl;
+cout << l[1] << endl;
+END
+ANSWER: 4
+EXPLAIN: A list has no [ ]: it isn't random access. Walk to it with an iterator instead: auto it = l.begin(); ++it; cout << *it;

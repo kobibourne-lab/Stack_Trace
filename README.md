@@ -221,10 +221,13 @@ END
 ## Playing the campaign
 
 The campaign (`content/campaign.txt`) takes every topic on a journey through
-the machine's memory, in four regions: **The Stack** (C basics), **Address
-Space** (pointers), **The Heap** (memory bugs and linked lists) and **Object
-Land** (C++ classes). Play each topic's lesson and quiz; a topic is cleared at
-Familiar (50 points).
+the machine's memory, in six regions: **The Stack** (C basics and bits),
+**Address Space** (pointers), **The Heap** (memory bugs and linked lists),
+**Object Land** (C++ classes), **Inheritance Grove** (operator overloading,
+friends, inheritance, polymorphism and smart pointers) and **The Library**
+(templates and the STL). Four regions fit across the screen at a time; the map
+slides to follow the region you're in, or click the arrows at its edges. Play
+each topic's lesson and quiz; a topic is cleared at Familiar (50 points).
 
 Each region ends in a **boss**: one Exam prep problem under exam conditions.
 The boss is locked until every topic in its region is cleared, so it can only
@@ -242,8 +245,13 @@ be reached through the campaign.
 | Address Space | The Dangling Pointer | `make_array`: return an array that outlives the function (`content/practice/boss/`) |
 | The Heap | The Leaker | Exam 2 lab, insert into a doubly linked list at a position |
 | Object Land | The Shallow Copy | a deep copy constructor for a class that owns a heap array (`content/practice/boss/`) |
+| Inheritance Grove | The Impostor | `virtual_shapes`: make Shape's area and destructor virtual, so shapes called through a `Shape*` answer as themselves |
+| The Library | The Invalidator | `remove_value`: remove every copy of a value from a vector without using an iterator that erase has made invalid |
 
-The two problems written for bosses are in a `campaign` set in
+Beating each boss also catches its bug for the Bugdex and unlocks its skin
+for Mal in the wardrobe.
+
+The four problems written for bosses are in a `campaign` set in
 `content/practice/problems.txt`, so they don't show up in Exam prep or Versus.
 
 For a demo, progress can be set up in `progress.txt` by hand.
@@ -353,15 +361,17 @@ players need the same version of Stack Trace (the messages are version 2 now).
 
 ## Still to build
 
-- **Exam prep**: 38 problems (the 13 from the Coding Exam 2 Preparation lab,
-  23 from Lab 1, and 2 written for campaign bosses) can be solved, run,
+- **Exam prep**: 40 problems (the 13 from the Coding Exam 2 Preparation lab,
+  23 from Lab 1, and 4 written for campaign bosses) can be solved, run,
   submitted and timed. Still to do: problems
   for Exam 1 once it's confirmed, and a model answer to show after solving.
 - **Profile**: stats, pinned topics, the heatmap and recent activity already
   read `progress.txt`. Still to do: choosing a name (it uses the computer's user
   name for now), Edit profile, and the unlock rules for most badges ("No []
   allowed" unlocks when every "no []" Exam prep problem is solved).
-- **More content**: lessons and quizzes for the other topics.
+- **More content**: all 32 topics from Noel's notes have a lesson and a quiz.
+  Still to do: more questions per quiz, and the Memory Farm, which only has
+  room for 24 plots, so the last 8 topics don't grow a crop yet.
 - **Linked lists in the memory view.** Arrows from one heap block to another
   already work, but a block holds one value, and a node needs two (`data` and
   `next`, plus `prev` for a doubly linked list). `MEM` needs a way to list a

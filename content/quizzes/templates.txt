@@ -1,0 +1,73 @@
+# Templates quiz.
+
+TITLE: Templates
+TOPIC: templates
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+template <typename T>
+T biggest(T a, T b) {
+    return a > b ? a : b;
+}
+int main() {
+    cout << biggest(3, 7) << " ";
+    cout << biggest(2.5, 1.5) << " ";
+    cout << biggest('a', 'z');
+}
+END
+OPTION: 7 2.5 z
+OPTION: 7 2 z
+OPTION: 7 2.5 122
+OPTION: It doesn't compile: T can't be three types
+ANSWER: 1
+EXPLAIN: Each call makes its own copy: biggest<int>, biggest<double> and biggest<char>. T is worked out from the arguments each time.
+
+QUESTION: Choose
+PROMPT: Adder is a class template. How do you make an Adder of ints?
+OPTION: Adder a(int);
+OPTION: Adder<int> a;
+OPTION: Adder a;
+OPTION: template Adder<int> a;
+ANSWER: 2
+EXPLAIN: For a class template you name the type in angle brackets. Only function templates work out T from their arguments.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+template <typename S, typename A>
+A average(const S *arr, A n) {
+    S sum = 0;
+    for (int i = 0; i < n; i++)
+        sum += arr[i];
+    return (A)sum / n;
+}
+int main() {
+    int a[] = {1, 2, 3, 4};
+    cout << average(a, 4) << " ";
+    cout << average(a, 4.0f);
+}
+END
+OPTION: 2.5 2.5
+OPTION: 2 2
+OPTION: 2 2.5
+OPTION: 2.5 2
+ANSWER: 3
+EXPLAIN: With 4, A is int, so 10 / 4 is integer division: 2. With 4.0f, A is float, so it's 2.5. Same template, two different functions.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Adder's add is defined outside the class, but this doesn't compile. Click the line to fix.
+CODE:
+template <typename T>
+class Adder {
+    T m_sum = 0;
+public:
+    void add(T number);
+};
+void Adder<T>::add(T number) {
+    m_sum += number;
+}
+END
+ANSWER: 7
+EXPLAIN: Outside the class you're still writing a template, so it needs the template line again: template <typename T> void Adder<T>::add(T number).

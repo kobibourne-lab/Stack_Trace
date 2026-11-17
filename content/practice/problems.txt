@@ -51,3 +51,5 @@ lab1/q22_find_all_variables_in_scope.txt
 SET: boss | Boss fights | campaign
 boss/make_array.txt
 boss/shallow_copy.txt
+boss/virtual_shapes.txt
+boss/remove_value.txt

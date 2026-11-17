@@ -1,0 +1,60 @@
+# Polymorphism - calling the right draw() through a base class pointer, using
+# the object's hidden vtable pointer, from Noel's Classes and Polymorphism notes.
+TITLE: Virtual functions: the right draw()
+TOPIC: poly
+TEXT: A Shape* can point at any kind of Shape. If draw() is virtual, s->draw() calls the version for the object it really points at, not the pointer's type.
+TEXT: It works because every object with virtual functions carries a hidden pointer to its class's table of functions: the vtable.
+
+CODE:
+class Shape {
+public:
+    virtual void draw() {
+        cout << "shape";
+    }
+    virtual ~Shape() {}
+};
+class Circle : public Shape {
+public:
+    void draw() override {
+        cout << "circle";
+    }
+};
+int main() {
+    Shape *s = new Circle();
+    s->draw();
+    delete s;
+}
+END
+
+STEP: 15
+EXPLAIN: The Circle is made on the heap, and a Shape* points at it: a Circle is a Shape. Its hidden vptr points at Circle's vtable, which lists Circle's versions of the virtual functions.
+MEM: Circle's vtable | draw | slot | 500 | Circle | changed
+MEM: Circle's vtable | ~dtor | slot | 508 | Circle | changed
+MEM: main | s | Shape* | 3000 | ->obj.vptr | changed
+MEM: heap | obj.vptr | Circle | 9000 | Circle vt | changed
+
+STEP: 16
+EXPLAIN: s is a Shape*, but draw is virtual: the call follows the object's vptr, looks up draw in Circle's vtable, and calls Circle::draw.
+MEM: Circle's vtable | draw | slot | 500 | Circle
+MEM: Circle's vtable | ~dtor | slot | 508 | Circle
+MEM: main | s | Shape* | 3000 | ->obj.vptr
+MEM: heap | obj.vptr | Circle | 9000 | Circle vt
+MEM: Circle::draw | this | Circle* | 2980 | ->obj.vptr | changed
+
+STEP: 11
+EXPLAIN: It prints circle. override (line 10) asks the compiler to check that this really replaces a virtual function in Shape.
+MEM: Circle's vtable | draw | slot | 500 | Circle
+MEM: Circle's vtable | ~dtor | slot | 508 | Circle
+MEM: main | s | Shape* | 3000 | ->obj.vptr
+MEM: heap | obj.vptr | Circle | 9000 | Circle vt
+MEM: Circle::draw | this | Circle* | 2980 | ->obj.vptr
+
+STEP: 17
+EXPLAIN: delete s goes through the vtable too, because the destructor is virtual: ~Circle runs, then ~Shape, and the whole object is freed.
+MEM: Circle's vtable | draw | slot | 500 | Circle
+MEM: Circle's vtable | ~dtor | slot | 508 | Circle
+MEM: main | s | Shape* | 3000 | 9000 | changed
+
+STEP: 3
+EXPLAIN: Take virtual off line 3 and there's no vtable: s->draw() picks by the pointer's type and prints shape. A Circle answering as a plain Shape: that's The Impostor. Without a virtual destructor, delete s would only run ~Shape.
+MEM: main | s | Shape* | 3000 | 9000

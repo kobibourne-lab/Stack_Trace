@@ -88,6 +88,8 @@ static Color skin_color(const std::string &skin)
     if (skin == "tux")     return { 236, 239, 243, 255 };   // a white shirt; the jacket is drawn on
     if (skin == "offbyone") return COL_CORAL;
     if (skin == "shallow")  return COL_PURPLE;
+    if (skin == "impostor")    return { 110, 230, 200, 255 };   // Inheritance Grove's mint
+    if (skin == "invalidator") return { 245, 140, 180, 255 };   // the Library's rose
     return COL_GREEN;   // classic, glitch and leaker
 }
 
@@ -206,6 +208,8 @@ static std::string mal_address(const Mal &m)
 {
     if (m.skin == "offbyone") return "0x9001";                   // one byte off
     if (m.skin == "dangling") return "freed";
+    if (m.skin == "impostor") return "Shape?";                   // not who he says he is
+    if (m.skin == "invalidator") return "stale";
     if (m.skin == "glitch") {
         static const char *junk[] = { "0x9?0#", "0x9000", "0x#00?", "0x9000", "0xDEAD" };
         return junk[(int)(m.clock * 5) % 5];
@@ -469,6 +473,30 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
         }
         float k = fmodf(m.clock * 0.7f, 1.0f);   // a drop falling off
         DrawCircleV({ b.x + w * 0.7f, b.y + h * 0.5f + k * h * 0.5f }, size * 0.035f, Fade(GOO, 1 - k * 0.5f));
+    } else if (m.skin == "impostor") {
+        // A disguise: round glasses, a big nose and a moustache
+        Color frame = { 30, 33, 40, 255 };
+        for (float side : { -1.0f, 1.0f }) DrawRing({ feet.x + side * ex, ey }, er * 1.35f, er * 1.35f + line, 0, 360, 24, frame);
+        DrawLineEx({ feet.x - ex + er * 1.35f, ey }, { feet.x + ex - er * 1.35f, ey }, line, frame);
+        Vector2 nose = { feet.x, ey + er * 1.7f };
+        DrawCircleV(nose, er * 1.05f, { 240, 170, 150, 255 });
+        float my = nose.y + er * 1.0f, mw = w * 0.22f;
+        ui_triangle({ feet.x, my }, { feet.x - mw, my + er * 0.9f }, { feet.x - mw * 0.3f, my - er * 0.4f }, frame);
+        ui_triangle({ feet.x, my }, { feet.x + mw * 0.3f, my - er * 0.4f }, { feet.x + mw, my + er * 0.9f }, frame);
+    } else if (m.skin == "invalidator") {
+        // A stale iterator beside Mal, still pointing at where Mal used to be
+        if (size >= 50) {
+            bool flick = fmodf(m.clock, 1.9f) < 0.12f;
+            float jy = flick ? size * 0.03f : 0;
+            Vector2 tip = { b.x + w + size * 0.06f, b.y + h * 0.3f + jy };
+            Rectangle tag = { tip.x + size * 0.12f, tip.y - size * 0.085f, size * 0.28f, size * 0.17f };
+            DrawRectangleRounded(tag, 0.3f, 6, COL_SURFACE);
+            DrawRectangleRoundedLinesEx(tag, 0.3f, 6, line * 0.7f, body);
+            ui_text("it", tag.x + tag.width * 0.26f, tag.y + tag.height * 0.08f, tag.height * 0.8f, body, FontKind::MonoBold);
+            DrawLineEx({ tag.x, tip.y }, { tip.x + size * 0.05f, tip.y }, line * 0.7f, body);
+            ui_triangle({ tip.x + size * 0.06f, tip.y - size * 0.045f }, { tip.x + size * 0.06f, tip.y + size * 0.045f }, tip, body);
+        }
+        dashed_rect({ b.x - size * 0.04f, b.y - size * 0.04f, w + size * 0.08f, h + size * 0.08f }, fmaxf(1.0f, line * 0.6f), Fade(body, 0.6f));
     } else if (m.skin == "neon") {
         // Glowing tubes round the edge, flickering between cyan and pink like a sign
         bool flick = fmodf(m.clock, 3.1f) < 0.07f;

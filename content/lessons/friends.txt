@@ -1,0 +1,46 @@
+# Friend functions - a function that isn't a member but can still read the
+# private members, from Noel's Friend Functions and Friend Classes notes.
+TITLE: Friends: reading private members from outside
+TOPIC: friends
+TEXT: Private members can normally only be used by the class's own methods. A class can name a friend: a function (or a whole class) that's allowed in too.
+TEXT: A friend is declared inside the class but isn't a member. It has no this, so it's given the object to work on.
+
+CODE:
+class Box {
+    int length;
+public:
+    Box(int l) : length(l) {}
+    friend void printLength(Box box);
+};
+void printLength(Box box) {
+    cout << "Length: " << box.length;
+}
+int main() {
+    Box myBox(5);
+    printLength(myBox);
+}
+END
+
+STEP: 4
+EXPLAIN: Box myBox(5) runs the constructor. this points at myBox, and the initialiser list sets length to 5.
+MEM: main | myBox.length | int | 3000 | 5 | changed
+MEM: Box(int) | this | Box* | 2968 | ->myBox.length | changed
+MEM: Box(int) | l | int | 2976 | 5 | changed
+
+STEP: 12
+EXPLAIN: length is private: main can't read myBox.length. Writing that here wouldn't compile.
+MEM: main | myBox.length | int | 3000 | 5
+
+STEP: 7
+EXPLAIN: printLength isn't a member, so there's no this. It takes the Box by value, so box is a copy of myBox.
+MEM: main | myBox.length | int | 3000 | 5
+MEM: printLength | box.length | int | 2976 | 5 | changed
+
+STEP: 8
+EXPLAIN: It reads box.length, which is private. That compiles only because Box named printLength as a friend on line 5. It prints Length: 5.
+MEM: main | myBox.length | int | 3000 | 5
+MEM: printLength | box.length | int | 2976 | 5
+
+STEP: 13
+EXPLAIN: friend class BestFriend; would let every method of BestFriend in the same way. Use friends sparingly: two classes that work closely together, or tests.
+MEM: main | myBox.length | int | 3000 | 5

@@ -1,0 +1,54 @@
+# Linked list class quiz.
+
+TITLE: Linked list class
+TOPIC: llclass
+
+QUESTION: Predict the output
+PROMPT: list starts as 5 10 20. What does this print?
+CODE:
+list.deleteWithValue(5);
+list.insertAtBeginning(1);
+list.deleteWithValue(20);
+list.printList();
+END
+OPTION: 1 10
+OPTION: 10 1
+OPTION: 1 5 10
+OPTION: 1 10 20
+ANSWER: 1
+EXPLAIN: Deleting 5 leaves 10 20. Inserting 1 at the beginning gives 1 10 20, and deleting 20 leaves 1 10.
+
+QUESTION: Choose
+PROMPT: In deleteWithValue, the value is in the very first node. What has to change?
+OPTION: prev->next is set to cur->next
+OPTION: head moves to head->next, then the old first node is deleted
+OPTION: Nothing: deleting the node is enough
+OPTION: The last node's next is set to nullptr
+ANSWER: 2
+EXPLAIN: There's no node before the first one, so prev is nullptr. head itself has to skip it. prev->next would crash.
+
+QUESTION: Choose
+PROMPT: Why does LinkedList's destructor call clear()?
+OPTION: So head is set to nullptr before the list is used
+OPTION: So the copy constructor has something to copy
+OPTION: It doesn't need to: the nodes are freed with the list
+OPTION: So every node is deleted when the list goes out of scope
+ANSWER: 4
+EXPLAIN: The nodes were made with new, so only delete frees them. The list object only holds head: without the destructor, every node would leak.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: clear() should delete every node, but it reads freed memory. Click the line with the bug.
+CODE:
+void LinkedList::clear()
+{
+    Node *cur = head;
+    while (cur != nullptr) {
+        delete cur;
+        cur = cur->next;
+    }
+    head = nullptr;
+}
+END
+ANSWER: 6
+EXPLAIN: cur was deleted on line 5, so cur->next reads freed memory. Save the next node first: Node *temp = cur; cur = cur->next; delete temp;

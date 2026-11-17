@@ -1,0 +1,58 @@
+# Vectors quiz.
+
+TITLE: Vectors
+TOPIC: vectors
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+vector<int> v;
+v.push_back(10);
+v.push_back(20);
+v.push_back(30);
+v[0] = v[2];
+v.pop_back();
+cout << v.size() << " " << v[0];
+END
+OPTION: 3 30
+OPTION: 2 10
+OPTION: 2 30
+OPTION: 3 10
+ANSWER: 3
+EXPLAIN: v[0] = v[2] copies 30 over the 10, then pop_back removes the last one. That leaves 30 20: size 2.
+
+QUESTION: Choose
+PROMPT: A vector has size 10 and capacity 10. What happens on push_back?
+OPTION: It writes past the end of the array
+OPTION: A bigger array is made, everything is copied across, and the old one is freed
+OPTION: It throws an error: the vector is full
+OPTION: The last element is replaced
+ANSWER: 2
+EXPLAIN: That's the vector growing. It's slow-ish, and it invalidates every pointer and iterator into the old array. reserve() up front avoids it.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+vector<int> v(5, 0);
+v.reserve(20);
+cout << v.size() << " " << v.capacity();
+END
+OPTION: 20 20
+OPTION: 25 25
+OPTION: 5 5
+OPTION: 5 20
+ANSWER: 4
+EXPLAIN: v(5, 0) is five zeros. reserve(20) makes room for 20 but adds nothing, so size stays 5.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: The vector holds pointers to objects made with new. When it goes out of scope the objects leak. Click the line that leaks.
+CODE:
+void populate() {
+    vector<Monster *> vec;
+    for (int i = 0; i < 3; i++)
+        vec.push_back(new Monster());
+}
+END
+ANSWER: 5
+EXPLAIN: A vector frees its own array, but not what the pointers in it point at. Delete each one before the closing brace, or store unique_ptr<Monster> instead.

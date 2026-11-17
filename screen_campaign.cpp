@@ -1,11 +1,13 @@
 // screen_campaign.cpp - the campaign's world map: one column per region of
-// memory (The Stack, Address Space, The Heap, Object Land), a path that snakes
-// through every topic, and a boss at the end of each region. Mal stands on the
-// next thing to play. The rules (what's cleared, what's open) are in campaign.cpp.
+// memory (The Stack, Address Space, The Heap, Object Land, Inheritance Grove,
+// The Library), a path that snakes through every topic, and a boss at the end
+// of each region. Mal stands on the next thing to play. The rules (what's
+// cleared, what's open) are in campaign.cpp.
 //
 // Each region is drawn as its own themed world (worlds.cpp): hills, a cave, a
-// sea of islands, a castle city. Topics are raised platforms, and Mal hops
-// from stop to stop. Clearing a topic or opening a boss gets a burst.
+// sea of islands, a castle city, a forest of family trees and a library.
+// Topics are raised platforms, and Mal hops from stop to stop. Clearing a
+// topic or opening a boss gets a burst.
 //
 // Zoom out (scroll down, M, or the 3D city button) and the camera pulls back
 // to Memory City (memcity.cpp): the same campaign as floating 3D islands.
@@ -49,8 +51,34 @@ static std::string topic_title(const App &app, const std::string &id)
     return i < 0 ? id : app.topics[i].title;
 }
 
-static float column_width(const App &app) { return (SCREEN_W - 48.0f) / (float)app.campaign.size(); }
-static float column_centre(const App &app, int region) { return 24 + column_width(app) * (region + 0.5f); }
+// Up to four regions fit across the screen at a time. With more, the map
+// slides sideways (mapFirst is the leftmost column showing) to keep the region
+// being looked at in view, and arrows at the edges slide it by hand.
+const int COLUMNS_SHOWN = 4;
+static float mapFirst = 0;        // the leftmost column on screen, eased towards firstWanted
+static int firstWanted = 0;
+static int followedRegion = -1;   // the region the slide last followed
+static bool snapMap = true;       // jump straight there (opening the campaign), no slide
+
+static int columns_shown(const App &app) { return (int)app.campaign.size() < COLUMNS_SHOWN ? (int)app.campaign.size() : COLUMNS_SHOWN; }
+static float column_width(const App &app) { return (SCREEN_W - 48.0f) / (float)columns_shown(app); }
+static float column_centre(const App &app, int region) { return 24 + column_width(app) * (region + 0.5f - mapFirst); }
+
+// Once a frame: slide towards the region being looked at.
+static void follow_region(const App &app, float dt)
+{
+    int last = (int)app.campaign.size() - columns_shown(app);
+    if (snapMap) followedRegion = -1;
+    if (app.campaignRegion != followedRegion) {
+        followedRegion = app.campaignRegion;
+        if (app.campaignRegion < firstWanted) firstWanted = app.campaignRegion;
+        if (app.campaignRegion > firstWanted + columns_shown(app) - 1) firstWanted = app.campaignRegion - columns_shown(app) + 1;
+    }
+    firstWanted = firstWanted < 0 ? 0 : firstWanted > last ? last : firstWanted;
+    if (snapMap) { mapFirst = (float)firstWanted; snapMap = false; }
+    mapFirst += (firstWanted - mapFirst) * fminf(1.0f, dt * 8);
+    if (fabsf(firstWanted - mapFirst) < 0.001f) mapFirst = (float)firstWanted;
+}
 
 // Every node, in the order the path visits them. Even columns go up the
 // screen, odd ones come back down, so the path snakes from region to region.
@@ -429,6 +457,8 @@ void open_campaign(App &app)
     app.campaignRegion = r;
     app.campaignTopic = next_topic(app.campaign[r], app.progress);
     if (app.mal.mood == MalMood::Freed) mal_react(app.mal, MalMood::Idle, 0);
+    snapMap = true;
+    followedRegion = -1;
 }
 
 static void select_topic_for_lesson(App &app)
@@ -478,6 +508,7 @@ static bool world_keys(App &app, const std::vector<MapNode> &nodes)
 // Returns true if a click left the screen.
 static bool draw_world(App &app, const std::vector<MapNode> &nodes, bool live)
 {
+    ui_scissor(0, (int)MAP_TOP, SCREEN_W, 520);   // columns sliding in and out are cut off at the edges
     draw_bands(app);
 
     // The path: green between stops that are done (and on to the one being
@@ -522,8 +553,28 @@ static bool draw_world(App &app, const std::vector<MapNode> &nodes, bool live)
     for (const MapNode &n : nodes)
         if (is_selected(app, n)) {
             Vector2 feet = n.topic < 0 ? Vector2{ n.pos.x, n.pos.y - 30 } : Vector2{ n.pos.x, n.pos.y + 2 };
-            mal_draw_with_pet(app.mal, mal_hop(app, feet), 40);
+            float slid = column_width(app) * mapFirst;   // hop in unslid map space, so sliding doesn't restart the hop
+            Vector2 at = mal_hop(app, { feet.x + slid, feet.y });
+            mal_draw_with_pet(app.mal, { at.x - slid, at.y }, 40);
         }
+    EndScissorMode();
+
+    // Arrows at the edges when there are more regions that way
+    int last = (int)app.campaign.size() - columns_shown(app);
+    for (int side = 0; side < 2; side++) {
+        bool more = side == 0 ? mapFirst > 0.01f : mapFirst < last - 0.01f;
+        if (!more) continue;
+        Vector2 c = { side == 0 ? 24.0f : SCREEN_W - 24.0f, MAP_TOP + 300 };
+        bool hover = live && CheckCollisionPointCircle(GetMousePosition(), c, 20);
+        DrawCircleV(c, 20, hover ? COL_SURFACE_2 : COL_SURFACE);
+        DrawCircleLinesV(c, 20, hover ? COL_AMBER : COL_LINE);
+        float d = side == 0 ? -1.0f : 1.0f;
+        ui_triangle({ c.x + d * 7, c.y }, { c.x - d * 5, c.y - 9 }, { c.x - d * 5, c.y + 9 }, hover ? COL_AMBER : COL_TEXT);
+        if (hover) {
+            ui_want_hand();
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { firstWanted += side == 0 ? -1 : 1; sfx_play(Sfx::Click); }
+        }
+    }
 
     // ----- Bottom: Mal's dialogue and the selected stop -----
     float by = MAP_TOP + 520;
@@ -573,6 +624,7 @@ static void dive_in(App &app, int region, int topic)
     viewT = 0;
     diveRegion = region;
     app.campaignRegion = region;
+    snapMap = true;   // the 2D map comes back already showing this region
     if (topic == -2) {
         int next = next_topic(app.campaign[region], app.progress);
         topic = next;   // -1 (the boss) once every topic is cleared
@@ -899,6 +951,7 @@ void screen_campaign(App &app)
     }
     if (diveRegion >= (int)app.campaign.size()) diveRegion = 0;
 
+    follow_region(app, dt);
     std::vector<MapNode> nodes = build_nodes(app);
     int rc = (int)app.campaign.size();
 

@@ -1,0 +1,60 @@
+# Maps quiz.
+
+TITLE: Maps
+TOPIC: maps
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+map<string, int> m;
+m["pear"] = 3;
+m["apple"] = 5;
+m["pear"] = 9;
+for (auto it = m.begin(); it != m.end(); ++it)
+    cout << it->first << "=" << it->second << " ";
+END
+OPTION: pear=3 apple=5 pear=9
+OPTION: pear=9 apple=5
+OPTION: apple=5 pear=9
+OPTION: apple=5 pear=3
+ANSWER: 3
+EXPLAIN: Keys are unique, so the second "pear" replaces the 3. A map keeps its keys sorted, so apple comes first.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+map<string, int> m;
+m["one"] = 1;
+auto r = m.insert(make_pair("one", 7));
+cout << m["one"] << " " << r.second;
+END
+OPTION: 1 0
+OPTION: 7 1
+OPTION: 1 1
+OPTION: 7 0
+ANSWER: 1
+EXPLAIN: insert never replaces a key that's already there. Its result's second is false (printed as 0) to say it didn't insert.
+
+QUESTION: Choose
+PROMPT: How do you check if "carlow" is in map m without adding it?
+OPTION: m["carlow"] != 0
+OPTION: m.find("carlow") != m.end()
+OPTION: m.find("carlow") != nullptr
+OPTION: m.size("carlow") > 0
+ANSWER: 2
+EXPLAIN: Using m["carlow"] to read it adds "carlow" with a value of 0 if it wasn't there. find (or count) just looks.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This counts how often each digit appears, but it has a line that can crash. Click it.
+CODE:
+map<int, int> freq;
+int digits[] = {1, 2, 1};
+for (int d : digits) {
+    auto it = freq.find(d);
+    int count = it->second;
+    freq[d] = count + 1;
+}
+END
+ANSWER: 5
+EXPLAIN: The first time a digit is seen, find returns freq.end(), and it->second reads past the map. Check it != freq.end() first, or just write freq[d]++.

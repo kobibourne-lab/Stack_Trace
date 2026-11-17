@@ -1,0 +1,52 @@
+# Iterators and algorithms quiz.
+
+TITLE: Iterators & algorithms
+TOPIC: iters
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+vector<int> v = {4, 1, 3, 1, 2};
+v.erase(remove(v.begin(), v.end(), 1),
+        v.end());
+sort(v.begin(), v.end());
+for (auto it = v.begin(); it != v.end(); ++it)
+    cout << *it;
+END
+OPTION: 234
+OPTION: 1234
+OPTION: 432
+OPTION: 11234
+ANSWER: 1
+EXPLAIN: remove moves the keepers (4 3 2) to the front and returns where they end. erase cuts off the rest. Then sort gives 2 3 4.
+
+QUESTION: Choose
+PROMPT: What does v.end() point at?
+OPTION: The last element
+OPTION: One past the last element: it's not an element at all
+OPTION: nullptr
+OPTION: The first element, when the vector is empty
+ANSWER: 2
+EXPLAIN: That's why loops run while it != v.end(), and why *v.end() is never safe.
+
+QUESTION: Choose
+PROMPT: Which call removes every Particle whose time to live is 0, using the predicate isExpired?
+OPTION: v.erase(isExpired);
+OPTION: remove_if(v.begin(), v.end(), isExpired);
+OPTION: v.remove(isExpired);
+OPTION: v.erase(remove_if(v.begin(), v.end(), isExpired), v.end());
+ANSWER: 4
+EXPLAIN: remove_if only shuffles the keepers to the front and returns the new end. Without the erase, the vector is still the same size.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This should remove the 3s, but it uses an iterator after it's invalid. Click the line with the bug.
+CODE:
+vector<int> v = {3, 1, 3, 2};
+for (auto it = v.begin(); it != v.end(); ++it) {
+    if (*it == 3)
+        v.erase(it);
+}
+END
+ANSWER: 4
+EXPLAIN: erase invalidates it, then the loop does ++it on it anyway. erase returns the next valid iterator: it = v.erase(it), and only ++it when nothing was erased. Or use erase with remove.

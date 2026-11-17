@@ -1,0 +1,81 @@
+# Maps - std::map keeps key/value pairs in a sorted tree of nodes on the heap,
+# from the STL Maps part of Noel's STL Lists and Maps notes (the freq example).
+TITLE: Maps: looking up by key
+TOPIC: maps
+TEXT: A map links keys to values, like a dictionary: freq["one"] is the value stored under "one". Each key appears at most once.
+TEXT: std::map keeps its pairs in a tree sorted by key, so keys need < to compare them. find gives an iterator: it->first is the key and it->second the value.
+
+CODE:
+map<string, int> freq;
+freq["one"] = 1;
+freq["two"] = 2;
+freq["one"] = 134;
+auto it = freq.find("two");
+int n = it->second;
+freq.erase("one");
+END
+
+STEP: 1
+EXPLAIN: An empty map: no nodes yet.
+MEM: main | freq.root | node* | 3000 | nullptr | changed
+MEM: main | freq.size | size_t | 3008 | 0 | changed
+
+STEP: 2
+EXPLAIN: "one" isn't in the map, so freq["one"] makes a node for it, then the = 1 stores the value.
+MEM: main | freq.root | node* | 3000 | ->n1.key | changed
+MEM: main | freq.size | size_t | 3008 | 1 | changed
+MEM: heap | n1.key | string | 9000 | "one" | changed
+MEM: heap | n1.value | int | 9032 | 1 | changed
+MEM: heap | n1.right | node* | 9040 | nullptr | changed
+
+STEP: 3
+EXPLAIN: "two" sorts after "one", so its node goes to the right of it in the tree.
+MEM: main | freq.root | node* | 3000 | ->n1.key
+MEM: main | freq.size | size_t | 3008 | 2 | changed
+MEM: heap | n1.key | string | 9000 | "one"
+MEM: heap | n1.value | int | 9032 | 1
+MEM: heap | n1.right | node* | 9040 | ->n2.key | changed
+MEM: heap | n2.key | string | 9100 | "two" | changed
+MEM: heap | n2.value | int | 9132 | 2 | changed
+
+STEP: 4
+EXPLAIN: "one" is already there, so this replaces its value: the 1 is gone. insert() is the other way to add, and it won't replace a key that's already there.
+MEM: main | freq.root | node* | 3000 | ->n1.key
+MEM: main | freq.size | size_t | 3008 | 2
+MEM: heap | n1.key | string | 9000 | "one"
+MEM: heap | n1.value | int | 9032 | 134 | changed
+MEM: heap | n1.right | node* | 9040 | ->n2.key
+MEM: heap | n2.key | string | 9100 | "two"
+MEM: heap | n2.value | int | 9132 | 2
+
+STEP: 5
+EXPLAIN: find walks down the tree comparing keys, and gives an iterator on the pair it finds. If the key isn't there, it gives freq.end().
+MEM: main | freq.root | node* | 3000 | ->n1.key
+MEM: main | freq.size | size_t | 3008 | 2
+MEM: main | it | iterator | 3016 | ->n2.key | changed
+MEM: heap | n1.key | string | 9000 | "one"
+MEM: heap | n1.value | int | 9032 | 134
+MEM: heap | n1.right | node* | 9040 | ->n2.key
+MEM: heap | n2.key | string | 9100 | "two"
+MEM: heap | n2.value | int | 9132 | 2
+
+STEP: 6
+EXPLAIN: it->first is the key, "two", and it->second is its value, 2.
+MEM: main | freq.root | node* | 3000 | ->n1.key
+MEM: main | freq.size | size_t | 3008 | 2
+MEM: main | it | iterator | 3016 | ->n2.key
+MEM: main | n | int | 3024 | 2 | changed
+MEM: heap | n1.key | string | 9000 | "one"
+MEM: heap | n1.value | int | 9032 | 134
+MEM: heap | n1.right | node* | 9040 | ->n2.key
+MEM: heap | n2.key | string | 9100 | "two"
+MEM: heap | n2.value | int | 9132 | 2
+
+STEP: 7
+EXPLAIN: erase("one") deletes its node, and "two" becomes the root. it is still fine: erasing from a map only invalidates iterators to the erased pair.
+MEM: main | freq.root | node* | 3000 | ->n2.key | changed
+MEM: main | freq.size | size_t | 3008 | 1 | changed
+MEM: main | it | iterator | 3016 | ->n2.key
+MEM: main | n | int | 3024 | 2
+MEM: heap | n2.key | string | 9100 | "two"
+MEM: heap | n2.value | int | 9132 | 2

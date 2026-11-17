@@ -1,0 +1,57 @@
+# Smart pointers quiz.
+
+TITLE: Smart pointers
+TOPIC: smartptr
+
+QUESTION: Predict the output
+PROMPT: Library's constructor prints "open " and its destructor prints "closed". What does this print?
+CODE:
+int main() {
+    shared_ptr<Library> a;
+    {
+        auto b = make_shared<Library>();
+        a = b;
+        cout << a.use_count() << " ";
+    }
+    cout << a.use_count() << " ";
+}
+END
+OPTION: open 2 closed 1
+OPTION: open 1 1 closed
+OPTION: open 2 1 closed
+OPTION: open 2 0 closed
+ANSWER: 3
+EXPLAIN: a and b share it, so the count is 2. When b goes, the count drops to 1 and the Library stays open until a goes at the end of main.
+
+QUESTION: Choose
+PROMPT: p is a unique_ptr<Book>. Which line compiles?
+OPTION: unique_ptr<Book> q = move(p);
+OPTION: unique_ptr<Book> q = p;
+OPTION: shared_ptr<Book> q = p;
+OPTION: Book *q = p;
+ANSWER: 1
+EXPLAIN: A unique_ptr has one owner, so it can't be copied, only moved. After the move, p is nullptr.
+
+QUESTION: Choose
+PROMPT: When is the object a shared_ptr points at deleted?
+OPTION: When the first shared_ptr pointing at it goes away
+OPTION: At the end of main
+OPTION: Only when you call delete
+OPTION: When the last shared_ptr pointing at it goes away
+ANSWER: 4
+EXPLAIN: It counts its owners. Each one that goes takes 1 off, and the one that brings it to 0 deletes the object.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: This frees the Book twice. Click the line that causes it.
+CODE:
+int main() {
+    auto p = make_unique<Book>("Guide");
+    p->read();
+    Book *raw = p.get();
+    raw->read();
+    delete raw;
+}
+END
+ANSWER: 6
+EXPLAIN: p still owns the Book and deletes it when main ends. Deleting it by hand as well is a double free. With smart pointers, never delete yourself.

@@ -5,8 +5,10 @@
 //   1  a purple cave with floating memory addresses   (Address Space)
 //   2  a moonlit sea of islands joined by chains      (The Heap)
 //   3  a sunset city of castles                        (Object Land)
+//   4  a twilight forest of family trees and fireflies (Inheritance Grove)
+//   5  a candlelit hall of bookshelves                 (The Library)
 //
-// A fifth region would reuse the first look, and so on.
+// A seventh region would reuse the first look, and so on.
 
 #pragma once
 #include "raylib.h"

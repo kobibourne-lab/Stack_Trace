@@ -1,0 +1,77 @@
+# Inheritance quiz.
+
+TITLE: Inheritance
+TOPIC: inherit
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct Base {
+    Base() { cout << "B"; }
+    ~Base() { cout << "b"; }
+};
+struct Member {
+    Member() { cout << "M"; }
+    ~Member() { cout << "m"; }
+};
+struct Derived : Base {
+    Member m;
+    Derived() { cout << "D"; }
+    ~Derived() { cout << "d"; }
+};
+int main() { Derived d; }
+END
+OPTION: DMBbmd
+OPTION: BMDbmd
+OPTION: BMDdmb
+OPTION: MBDdbm
+ANSWER: 3
+EXPLAIN: Built base first, then members, then the derived class's own constructor: B M D. Destroyed in exactly the reverse order: d m b.
+
+QUESTION: Choose
+PROMPT: Vehicle has protected int wheels. Where can wheels be used?
+OPTION: In Vehicle's methods and in methods of classes derived from it
+OPTION: Anywhere, like public
+OPTION: Only in Vehicle's methods, like private
+OPTION: Only in main
+ANSWER: 1
+EXPLAIN: protected is private to the outside world, but derived classes like Car can use it.
+
+QUESTION: Predict the output
+PROMPT: What does this print?
+CODE:
+struct Vehicle {
+    void show() { cout << "V"; }
+};
+struct Car : Vehicle {
+    void show() {
+        Vehicle::show();
+        cout << "C";
+    }
+};
+int main() {
+    Car c;
+    c.show();
+}
+END
+OPTION: C
+OPTION: VC
+OPTION: V
+OPTION: CV
+ANSWER: 2
+EXPLAIN: Car's show replaces Vehicle's for a Car, but Vehicle::show() calls the base version on purpose first, as in Noel's display() example.
+
+QUESTION: Spot the bug
+KIND: line
+PROMPT: Vehicle has no default constructor, only Vehicle(int w, int s). This Car constructor doesn't compile. Click the line to fix.
+CODE:
+class Car : public Vehicle {
+    int passengers;
+public:
+    Car(int w, int s, int p) {
+        passengers = p;
+    }
+};
+END
+ANSWER: 4
+EXPLAIN: The base part is built before Car's body runs, so Vehicle needs its arguments in the initialiser list: Car(int w, int s, int p) : Vehicle(w, s), passengers(p) {}

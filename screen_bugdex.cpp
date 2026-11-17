@@ -205,6 +205,9 @@ static void draw_practice(App &app, float t)
         practising = false;
 }
 
+// How many cards go in each of the two rows.
+static int per_row(const std::vector<Bug> &bugs) { return ((int)bugs.size() + 1) / 2; }
+
 void screen_bugdex(App &app)
 {
     float t = (float)GetTime();
@@ -213,7 +216,8 @@ void screen_bugdex(App &app)
     if (!practising) {
         if (IsKeyPressed(KEY_RIGHT)) picked = (picked + 1) % (int)bugs.size();
         if (IsKeyPressed(KEY_LEFT)) picked = (picked + (int)bugs.size() - 1) % (int)bugs.size();
-        if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_UP)) picked = (picked + 7) % 14 < (int)bugs.size() ? (picked + 7) % 14 : picked;
+        int row = per_row(bugs);
+        if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_UP)) picked = (picked + row) % (2 * row) < (int)bugs.size() ? (picked + row) % (2 * row) : picked;
     }
 
     draw_frame(t);
@@ -222,12 +226,14 @@ void screen_bugdex(App &app)
             FontKind::Mono);
     if (!practising && ui_button("Back", { SCREEN_W - 70 - 110, 50, 110, 40 }, ButtonStyle::Outline, COL_TEXT)) { app.screen = app.returnTo; return; }
 
-    // The cards: two rows of seven
-    const float cw = 152, ch = 112, gap = 10, gx = 70, gy = 106;
+    // The cards: two rows, as wide as fit
+    const float ch = 112, gap = 10, gx = 70, gy = 106;
+    const int row = per_row(bugs);
+    const float cw = (SCREEN_W - 2 * gx - (row - 1) * gap) / row;
     Vector2 mouse = GetMousePosition();
     for (int i = 0; i < (int)bugs.size(); i++) {
         const Bug &b = bugs[i];
-        Rectangle c = { gx + (i % 7) * (cw + gap), gy + (i / 7) * (ch + gap), cw, ch };
+        Rectangle c = { gx + (i % row) * (cw + gap), gy + (i / row) * (ch + gap), cw, ch };
         bool caught = bug_caught(app.progress, b.id);
         bool hover = !practising && CheckCollisionPointRec(mouse, c);
         ui_panel(c, hover ? COL_SURFACE_2 : COL_SURFACE, i == picked ? COL_AMBER : COL_LINE, i == picked ? 2 : 1);
