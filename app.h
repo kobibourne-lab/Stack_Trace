@@ -282,6 +282,8 @@ void open_bugdex(App &app);
 void screen_bugdex(App &app);
 void open_farm(App &app);
 void screen_farm(App &app);
+// The Bit Garden, small, for the view out of Mal's window.
+void draw_garden_view(const App &app, Rectangle area, float t);
 void draw_bug(const Bug &bug, Vector2 centre, float size, float t, bool silhouette);
 // The code tree (a branch per region, a leaf per topic): Mal's room and the farm draw it.
 void draw_code_tree(const App &app, Rectangle area, float t, bool labels);

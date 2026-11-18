@@ -181,7 +181,7 @@ void draw_code_tree(const App &app, Rectangle a, float t, bool labels)
 // The room
 // ---------------------------------------------------------------------------
 
-enum class Thing { None, Computer, Wardrobe, Window, Mal, Door };
+enum class Thing { None, Computer, Wardrobe, Window, Mal };
 
 static void glow_outline(Rectangle r, float t)
 {
@@ -206,37 +206,14 @@ static void draw_room(App &app, float t, Thing hover)
     DrawCircleV({ 800, 360 }, 260, Fade(COL_AMBER, 0.05f));
     DrawCircleV({ 800, 400 }, 150, Fade(COL_AMBER, 0.05f));
 
-    // ----- The window, with the code tree outside -----
+    // ----- The window, looking out at the Bit Garden -----
     Rectangle win = { 80, 110, 250, 260 };
     if (hover == Thing::Window) glow_outline(win, t);
     DrawRectangleRec(win, { 70, 52, 38, 255 });
     Rectangle sky = { win.x + 12, win.y + 12, win.width - 24, win.height - 24 };
-    DrawRectangleGradientV((int)sky.x, (int)sky.y, (int)sky.width, (int)sky.height, { 10, 18, 36, 255 }, { 22, 38, 64, 255 });
-    for (int i = 0; i < 14; i++) {
-        float tw = 0.5f + 0.5f * sinf(t * 2 + i);
-        DrawCircleV({ sky.x + fmodf(i * 53.0f, sky.width), sky.y + fmodf(i * 31.0f, sky.height * 0.4f) + 6 }, 1.4f,
-                    Fade(WHITE, 0.3f + 0.5f * tw));
-    }
-    // Outside: the Memory Farm by moonlight, its plots in rows and the code tree in the middle
+    // Outside: today's Bit Garden, floating in its synthwave world (screen_farm.cpp draws it)
     ui_scissor((int)sky.x, (int)sky.y, (int)sky.width, (int)sky.height);
-    float ground = sky.y + sky.height * 0.62f;
-    DrawRectangle((int)sky.x, (int)ground, (int)sky.width, (int)(sky.y + sky.height - ground), { 30, 62, 40, 255 });
-    DrawRectangle((int)sky.x, (int)ground, (int)sky.width, 3, { 50, 92, 58, 255 });
-    {
-        std::string today = today_string();
-        int n = (int)app.topics.size();
-        for (int k = 0; k < n; k++) {
-            int row = k / 10, col = k % 10;
-            if (col >= 4) col++;   // a gap in the middle for the tree
-            float px = sky.x + 8 + col * (sky.width - 16) / 11.0f, py = ground + 12 + row * 22;
-            bool wilt = crop_wilting(app.progress, app.topics[k].id, today);
-            int stage = crop_stage(app.progress, app.topics[k].id);
-            DrawRectangle((int)px, (int)py, 14, 6, wilt ? Color{ 110, 84, 56, 255 } : Color{ 74, 52, 36, 255 });
-            if (stage > 0) DrawLineEx({ px + 7, py }, { px + 7, py - 3.0f * stage }, 2, wilt ? Color{ 150, 120, 60, 255 } : Color{ 100, 190, 110, 255 });
-            if (stage == 4 && !wilt) DrawCircleV({ px + 7, py - 12 }, 2.5f, COL_AMBER);
-        }
-    }
-    draw_code_tree(app, { sky.x + sky.width / 2 - 60, sky.y + 30, 120, ground - sky.y - 2 }, t, false);
+    draw_garden_view(app, sky, t);
     EndScissorMode();
     DrawRectangle((int)(win.x + win.width / 2 - 5), (int)win.y, 10, (int)win.height, { 70, 52, 38, 255 });   // the frame's bars
     DrawRectangle((int)win.x, (int)(win.y + win.height / 2 - 5), (int)win.width, 10, { 70, 52, 38, 255 });
@@ -314,18 +291,6 @@ static void draw_room(App &app, float t, Thing hover)
     DrawTriangle({ 812, 356 }, { 824, 392 }, { 850, 370 }, { 70, 74, 82, 255 });
     DrawTriangle({ 832, 383 }, { 900, 470 }, { 840, 470 }, Fade(COL_AMBER, 0.07f));
 
-    // ----- The door out to the Memory Farm -----
-    Rectangle door = { 1208, 236, 66, 284 };
-    if (hover == Thing::Door) glow_outline(door, t);
-    DrawRectangle((int)door.x - 6, (int)door.y - 8, (int)door.width + 12, (int)door.height + 8, { 54, 38, 28, 255 });
-    DrawRectangleRec(door, { 86, 62, 44, 255 });
-    DrawRectangle((int)door.x + 8, (int)door.y + 12, (int)door.width - 16, 110, { 98, 72, 52, 255 });
-    DrawRectangle((int)door.x + 8, (int)door.y + 136, (int)door.width - 16, 130, { 98, 72, 52, 255 });
-    DrawCircleV({ door.x + 14, door.y + 150 }, 4, COL_AMBER);
-    DrawRectangle((int)door.x, (int)(door.y + door.height - 3), (int)door.width, 3, Fade({ 255, 220, 150, 255 }, 0.5f + 0.2f * sinf(t * 2)));   // daylight under it
-    ui_panel({ door.x + 6, door.y + 42, door.width - 12, 22 }, { 40, 90, 50, 255 }, Fade(BLACK, 0), 0);
-    ui_text("FARM", door.x + 16, door.y + 47, 11, { 220, 250, 220, 255 }, FontKind::MonoBold);
-
     // ----- Mal -----
     Vector2 feet = { 680, 640 };
     if (hover == Thing::Mal) DrawEllipse((int)feet.x, (int)feet.y, 60, 14, Fade(COL_AMBER, 0.25f));
@@ -338,7 +303,6 @@ static Thing thing_at(Vector2 m)
     if (CheckCollisionPointRec(m, { 846, 280, 248, 186 })) return Thing::Computer;
     if (CheckCollisionPointRec(m, { 380, 170, 160, 390 })) return Thing::Wardrobe;
     if (CheckCollisionPointRec(m, { 70, 100, 270, 290 })) return Thing::Window;
-    if (CheckCollisionPointRec(m, { 1200, 228, 80, 296 })) return Thing::Door;
     if (CheckCollisionPointRec(m, { 620, 490, 120, 160 })) return Thing::Mal;
     return Thing::None;
 }
@@ -758,8 +722,7 @@ void screen_room(App &app)
         }
         const char *label = hover == Thing::Computer ? "Use the computer"
                           : hover == Thing::Wardrobe ? "Open the wardrobe"
-                          : hover == Thing::Window ? "Look out at the Memory Farm"
-                          : hover == Thing::Door ? "Go out to the Memory Farm"
+                          : hover == Thing::Window ? "Look out at the Bit Garden"
                           : hover == Thing::Mal ? "Poke Mal" : nullptr;
         if (label) {
             ui_want_hand();
@@ -772,7 +735,7 @@ void screen_room(App &app)
                 sfx_play(Sfx::Click);
                 if (hover == Thing::Computer) view = View::ZoomIn;
                 if (hover == Thing::Wardrobe) wardrobeOpen = true;
-                if (hover == Thing::Window || hover == Thing::Door) { open_farm(app); return; }
+                if (hover == Thing::Window) { open_farm(app); return; }
                 if (hover == Thing::Mal) {
                     static const char *lines[] = { "Hey! Personal space! I'm a heap block!", "Go on, sit at the computer. I dare you.",
                                                    "Have you tried the wardrobe? I look great in hats.", "My tree's growing. Thanks to you." };
@@ -782,7 +745,7 @@ void screen_room(App &app)
             }
         }
         DrawRectangle(0, SCREEN_H - FOOTER_H, SCREEN_W, FOOTER_H, Fade(COL_BG, 0.9f));
-        ui_footer_hints({ "click the computer: MAL-OS", "the wardrobe: dress Mal up", "the door: the Memory Farm", "ESC back" });
+        ui_footer_hints({ "click the computer: MAL-OS", "the wardrobe: dress Mal up", "the window: the Bit Garden", "ESC back" });
     }
     if (wardrobeOpen) draw_wardrobe(app, t);
     if (treeOpen) draw_tree_overlay(app, t);

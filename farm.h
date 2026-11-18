@@ -1,4 +1,6 @@
-// farm.h - the Memory Farm, through the door in Mal's room. Every topic is a
+// farm.h - the Bit Garden (the Memory Farm), out of the window in Mal's room.
+// A floating slab of memory cells in a synthwave world, with a different look
+// for each day of the week (the theme below). Every topic is a
 // crop: it grows with the topic's mastery (seed, sprout, plant, tall plant,
 // in fruit), and wilts if you haven't answered a question on it for a while,
 // so the farm shows what needs reviewing (spaced repetition, Duolingo style).
@@ -35,6 +37,12 @@ int crop_days_left(const Progress &p, const std::string &topic, const std::strin
 int crop_harvest_value(const Progress &p, const std::string &topic, const std::string &today);
 // Harvest it: adds the bytes and remembers the day. Returns the bytes (0 = not ready).
 int crop_harvest(Progress &p, const std::string &topic, const std::string &today);
+
+// The look of the garden changes every day of the week: 0 Monday (Midnight Ice)
+// to 6 Sunday (Aurora). Names for the header.
+const int GARDEN_THEMES = 7;
+int garden_theme_for(const std::string &date);
+const char *garden_theme_name(int theme);
 
 bool farm_has_drone(const Progress &p);
 bool farm_buy_drone(Progress &p, std::string &why);

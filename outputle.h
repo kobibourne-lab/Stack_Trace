@@ -1,4 +1,4 @@
-// outputle.h - Outputle: Wordle with C. One snippet a day (the same for
+// outputle.h - Codle (called Outputle in the code): Wordle with C. One snippet a day (the same for
 // everyone), and six tries to guess exactly what it prints. Each guess is
 // as long as the answer; a green square is the right character in the right
 // place, yellow is in the answer somewhere else, grey isn't in it at all.
@@ -44,5 +44,5 @@ int outputle_reward(int tries);
 // updated and bytesWon is what a win paid (0 otherwise).
 bool outputle_guess(Progress &p, const std::string &date, const std::string &guess, int &bytesWon, std::string &why);
 
-// The spoiler-free result to paste to a friend: "Outputle #3 4/6" and the squares.
+// The spoiler-free result to paste to a friend: "Codle #3 4/6" and the squares.
 std::string outputle_share(const Progress &p, const std::string &date);

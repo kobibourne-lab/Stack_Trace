@@ -1,4 +1,4 @@
-// screen_outputle.cpp - Outputle: today's C snippet, six tries to type exactly
+// screen_outputle.cpp - Codle (Outputle in the code): today's C snippet, six tries to type exactly
 // what it prints, Wordle colours, and bytes for solving it. The rules are in
 // outputle.cpp.
 
@@ -107,7 +107,7 @@ void screen_outputle(App &app)
 
     // ----- Title -----
     if (ui_button("Back", { SCREEN_W - MARGIN - 110, 22, 110, 40 }, ButtonStyle::Outline, COL_TEXT)) { app.screen = app.returnTo; return; }
-    std::string title = "OUTPUTLE  #" + std::to_string(outputle_number(today));
+    std::string title = "CODLE  #" + std::to_string(outputle_number(today));
     float tw = ui_text_width(title, 34, FontKind::MonoBold);
     ui_text(title, (SCREEN_W - tw) / 2, 28, 34, COL_TEXT, FontKind::MonoBold);
     const char *sub = "one snippet a day. guess exactly what it prints. six tries.";
@@ -203,7 +203,7 @@ void screen_outputle(App &app)
     const OutputleStats &s = app.progress.outputleStats;
     float sx = 1050, sy = 122;
     ui_text(std::to_string(s.streak), sx, sy, 48, COL_AMBER, FontKind::MonoBold);
-    ui_text("Outputle streak", sx, sy + 58, 14, COL_TEXT_SOFT);
+    ui_text("Codle streak", sx, sy + 58, 14, COL_TEXT_SOFT);
     ui_text("best " + std::to_string(s.best), sx, sy + 80, 13, COL_MUTED, FontKind::Mono);
     sy += 124;
     ui_text(std::to_string(s.played) + " played", sx, sy, 14, COL_TEXT, FontKind::MonoBold);
