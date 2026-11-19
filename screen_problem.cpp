@@ -403,8 +403,20 @@ void problem_draw_console(App &app, Rectangle r)
         for (size_t i = (size_t)w.consoleScroll; i < lines.size(); i++) {
             if (ly > body.y + body.height) break;
             Color c = lines[i].find("error") != std::string::npos ? COL_CORAL : COL_TEXT_SOFT;
-            if (res.status == RunStatus::NoCompiler) ly += ui_text_wrapped(lines[i], x, ly, body.width - 36, 13, c, FontKind::Mono);
-            else { ui_text(lines[i], x, ly, 13, c, FontKind::Mono); ly += 18; }
+            // Long lines wrap instead of running off the right-hand side. The font is
+            // fixed-width, so it breaks every N characters (keeping the spaces that
+            // line the ^ markers up under the code).
+            float charW = ui_text_width("M", 13, FontKind::Mono);
+            size_t perRow = charW > 0 ? (size_t)((body.width - 36) / charW) : 120;
+            if (perRow < 20) perRow = 20;
+            const std::string &line = lines[i];
+            size_t at = 0;
+            do {
+                size_t take = at == 0 ? perRow : perRow - 2;   // wrapped rows are indented two characters
+                ui_text(line.substr(at, take), at == 0 ? x : x + 2 * charW, ly, 13, c, FontKind::Mono);
+                ly += 18;
+                at += take;
+            } while (at < line.size());
         }
         EndScissorMode();
         return;

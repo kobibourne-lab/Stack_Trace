@@ -266,6 +266,7 @@ int main()
         const WardrobeItem *item = wardrobe_find(id);
         if (item && item->price > 0) app.progress.owned.insert(id);
     }
+    theme_apply(app.progress.theme);                             // the app theme they picked
     app.mal.hat = app.progress.hat;                              // Mal wears what was saved
     app.mal.skin = app.progress.skin;
     app.mal.pet = app.progress.pet;
@@ -300,6 +301,7 @@ int main()
         ClearBackground(COL_BG);
         BeginMode2D(fit);
         ui_begin_frame();
+        theme_background((float)GetTime());   // the app theme's backdrop (nothing for the normal look)
 
         switch (app.screen) {
             case Screen::Title:    screen_title(app); break;
@@ -324,6 +326,7 @@ int main()
         fx_draw();
         draw_level_up(app);
         draw_daily_overlays(app);
+        theme_overlay((float)GetTime(), app.screen == Screen::Title);
 
         ui_end_frame();
         EndMode2D();

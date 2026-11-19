@@ -44,6 +44,7 @@
 #include "../codex.h"
 #include "../bugdex.h"
 #include "../farm.h"
+#include "../apptheme.h"
 #include <chrono>
 #include <thread>
 
@@ -508,8 +509,7 @@ static void test_real_problems()
             CHECK(!p.prototype.empty());
             if (p.id == "lab1/q01_leap_year") leap = &p;
         }
-    std::printf("  (%d practice problems found)\n", count);
-    CHECK(count >= 10);   // however many the content folder has
+    CHECK(count == 40);   // 13 from the Exam 2 lab, 23 from Lab 1, 4 campaign bosses
     if (leap == nullptr) return;
 
     if (find_compiler().empty()) {
@@ -855,8 +855,7 @@ static void test_campaign()
     error.clear();
     CHECK(load_campaign("content/campaign.txt", real, error));
     CHECK(error.empty());
-    std::printf("  (%d campaign regions found)\n", (int)real.size());
-    CHECK(real.size() >= 1);
+    CHECK(real.size() == 6);
     std::vector<Topic> topics;
     CHECK(load_topics("content/topics.txt", topics, error));
     std::vector<ProblemSet> sets;
@@ -1608,6 +1607,55 @@ static void test_farm()
     CHECK(back.harvested["pointers"] == "2026-11-28" && farm_has_drone(back));
 }
 
+static void test_app_themes()
+{
+    CHECK(app_themes().size() == 5);
+    CHECK(app_theme_find("neon") && app_theme_find("neon")->price == 300);
+    CHECK(app_theme_find("nope") == nullptr);
+    Progress p;
+    p.bytes = 0;
+    std::string why;
+    // The normal look and Paper are free from the start; the rest are locked
+    CHECK(app_theme_unlocked(p, *app_theme_find("default")) && app_theme_unlocked(p, *app_theme_find("paper")));
+    CHECK(!app_theme_unlocked(p, *app_theme_find("phosphor")));
+    CHECK(!app_theme_unlocked(p, *app_theme_find("neon")) && app_theme_earned(p, *app_theme_find("neon")));
+    CHECK(!app_theme_unlocked(p, *app_theme_find("blueprint")));
+    CHECK(app_theme_requirement(*app_theme_find("phosphor")) == "Reach level 5");
+    CHECK(app_theme_requirement(*app_theme_find("blueprint")) == "Beat 3 bosses");
+
+    CHECK(!app_theme_use(p, "phosphor", why) && p.theme == "default");
+    CHECK(app_theme_use(p, "paper", why) && p.theme == "paper");
+
+    // Neon Night costs 300 bytes
+    p.bytes = 120;
+    CHECK(!app_theme_buy(p, "neon", why) && why == "Need 180 more bytes" && p.bytes == 120);
+    p.bytes = 350;
+    CHECK(app_theme_buy(p, "neon", why) && p.bytes == 50 && p.owned.count("theme_neon"));
+    CHECK(!app_theme_buy(p, "neon", why));   // already got it
+    CHECK(app_theme_use(p, "neon", why) && p.theme == "neon");
+    CHECK(!app_theme_buy(p, "paper", why));  // free ones aren't bought
+
+    // Phosphor at level 5 (500 XP: three bosses with a star each is 525)
+    CHECK(level_for_xp(progress_xp(p)) < 5);
+    p.bosses["a"] = BossRecord{ "2026-11-10", 300, 1 };
+    p.bosses["b"] = BossRecord{ "2026-11-11", 300, 1 };
+    CHECK(!app_theme_unlocked(p, *app_theme_find("blueprint")));   // two bosses isn't enough
+    p.bosses["c"] = BossRecord{ "2026-11-12", 300, 1 };
+    CHECK(app_theme_unlocked(p, *app_theme_find("blueprint")));
+    CHECK(level_for_xp(progress_xp(p)) >= 5 && app_theme_unlocked(p, *app_theme_find("phosphor")));
+    CHECK(app_theme_use(p, "phosphor", why));
+
+    // The theme in use is saved
+    std::string error;
+    CHECK(progress_save("test_theme_progress.txt", p, error));
+    Progress back;
+    CHECK(progress_load("test_theme_progress.txt", back, error));
+    CHECK(back.theme == "phosphor" && back.owned.count("theme_neon"));
+    std::remove("test_theme_progress.txt");
+    Progress fresh;
+    CHECK(fresh.theme == "default");
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -1636,6 +1684,7 @@ int main()
     run("the C Codex: entries, unlocking, search", test_codex);
     run("the Bugdex: quick fixes, bosses, catching", test_bugdex);
     run("the Memory Farm: growing, wilting, harvest, drone", test_farm);
+    run("app themes: unlocking, buying, switching, saving", test_app_themes);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

@@ -464,8 +464,12 @@ static std::string footer(int seconds)
 {
     std::string s = R"ST(
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX   // (g++ 15 already defines it: defining it twice filled the errors box with warnings)
+#endif
 #include <windows.h>
 static DWORD WINAPI st_watchdog(LPVOID)
 {

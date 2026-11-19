@@ -22,8 +22,9 @@
 #include <vector>
 #include <algorithm>
 
-const int GRID = 5;                         // 5 x 5 cells, the middle one is the tree
-const float TILE_W = 150, TILE_H = 75;      // a cell's diamond
+const int GRID = 6;                         // 6 x 6 cells, the middle 2 x 2 is the tree
+const int PLOTS = GRID * GRID - 4;          // 32: one for every topic
+const float TILE_W = 126, TILE_H = 63;      // a cell's diamond
 const Vector2 CENTRE = { 620, 455 };        // the middle of the slab (the tree)
 const float SLAB_DEPTH = 40;
 const float HORIZON = 340;
@@ -289,12 +290,35 @@ static void draw_tree(Vector2 base, const GardenTheme &th, float t)
 // The slab and its cells
 // ---------------------------------------------------------------------------
 
-// Cell k (skipping the middle) in the grid, and its centre on screen.
+// The tree stands on the middle 2 x 2 cells.
+static bool tree_cell(int gx, int gy)
+{
+    return (gx == GRID / 2 - 1 || gx == GRID / 2) && (gy == GRID / 2 - 1 || gy == GRID / 2);
+}
+
+// Cell k (skipping the tree's cells) in the grid, row by row.
 static void plot_cell(int k, int &gx, int &gy)
 {
-    int cell = k < (GRID * GRID) / 2 ? k : k + 1;
-    gx = cell % GRID;
-    gy = cell / GRID;
+    int n = 0;
+    for (int y = 0; y < GRID; y++)
+        for (int x = 0; x < GRID; x++) {
+            if (tree_cell(x, y)) continue;
+            if (n++ == k) { gx = x; gy = y; return; }
+        }
+    gx = gy = 0;
+}
+
+// The plot number of a cell (-1 for the tree's cells).
+static int plot_index(int gx, int gy)
+{
+    if (tree_cell(gx, gy)) return -1;
+    int n = 0;
+    for (int y = 0; y < GRID; y++)
+        for (int x = 0; x < GRID; x++) {
+            if (x == gx && y == gy) return n;
+            if (!tree_cell(x, y)) n++;
+        }
+    return -1;
 }
 
 static Vector2 cell_centre(int gx, int gy)
@@ -321,6 +345,8 @@ static Color track_colour(const std::string &track)
     if (track.find("basics") != std::string::npos) return COL_BLUE;
     if (track.find("Pointer") != std::string::npos) return COL_PURPLE;
     if (track.find("Linked") != std::string::npos) return COL_CORAL;
+    if (track.find("classes") != std::string::npos) return COL_GREEN;
+    if (track.find("Templates") != std::string::npos) return Color{ 86, 214, 214, 255 };
     return COL_AMBER;
 }
 
@@ -332,8 +358,8 @@ static GardenHover draw_slab(const App &app, const GardenTheme &th, float t, con
 {
     GardenHover hover;
     std::string today = today_string();
-    int count = (int)app.topics.size() < 24 ? (int)app.topics.size() : 24;
-    float half = 2.85f;
+    int count = (int)app.topics.size() < PLOTS ? (int)app.topics.size() : PLOTS;
+    float half = GRID / 2.0f + 0.35f;
     Vector2 top = { CENTRE.x, CENTRE.y - half * TILE_H }, right = { CENTRE.x + half * TILE_W, CENTRE.y },
             bot = { CENTRE.x, CENTRE.y + half * TILE_H }, left = { CENTRE.x - half * TILE_W, CENTRE.y };
     Color edge = hex(th.edge);
@@ -368,22 +394,24 @@ static GardenHover draw_slab(const App &app, const GardenTheme &th, float t, con
     struct Tag { Vector2 at; int value; bool rot; int k; float h; };
     std::vector<Tag> tags;
     Color plotFill = shade(hex(th.slab), 1.35f);
+    Vector2 treeAt = CENTRE;
     for (int d = 0; d <= 2 * (GRID - 1); d++) {
+        if (d == GRID) draw_tree(treeAt, th, t);   // after the cells behind it, before those in front
         for (int gx = 0; gx < GRID; gx++) {
             int gy = d - gx;
             if (gy < 0 || gy >= GRID) continue;
             Vector2 c = cell_centre(gx, gy);
             bool over = mouse && (CheckCollisionPointTriangle(*mouse, { c.x, c.y - TILE_H / 2 }, { c.x + TILE_W / 2, c.y }, { c.x, c.y + TILE_H / 2 }) ||
                                   CheckCollisionPointTriangle(*mouse, { c.x, c.y - TILE_H / 2 }, { c.x, c.y + TILE_H / 2 }, { c.x - TILE_W / 2, c.y }));
-            if (gx == GRID / 2 && gy == GRID / 2) {   // the middle: the tree
-                diamond(c, TILE_W - 18, TILE_H - 10, plotFill);
-                diamond_lines(c, TILE_W - 18, TILE_H - 10, 1.5f, hex(th.canopy, 0.8f));
-                if (mouse && (over || CheckCollisionPointRec(*mouse, { c.x - 70, c.y - 160, 140, 150 }))) hover.tree = true;
-                draw_tree(c, th, t);
+            if (tree_cell(gx, gy)) {   // the middle 2 x 2: one big plot for the tree
+                if (gx == GRID / 2 - 1 && gy == GRID / 2 - 1) {
+                    diamond(treeAt, TILE_W * 2 - 18, TILE_H * 2 - 10, plotFill);
+                    diamond_lines(treeAt, TILE_W * 2 - 18, TILE_H * 2 - 10, 1.5f, hex(th.canopy, 0.8f));
+                }
+                if (mouse && (over || CheckCollisionPointRec(*mouse, { treeAt.x - 70, treeAt.y - 160, 140, 150 }))) hover.tree = true;
                 continue;
             }
-            int k = gy * GRID + gx;
-            k = k > (GRID * GRID) / 2 ? k - 1 : k;
+            int k = plot_index(gx, gy);
             if (k >= count) {   // a spare cell
                 diamond(c, TILE_W - 18, TILE_H - 10, plotFill);
                 diamond_lines(c, TILE_W - 18, TILE_H - 10, 1, hex(th.edge, 0.15f));
@@ -493,7 +521,7 @@ void screen_farm(App &app)
 {
     float t = (float)GetTime(), dt = GetFrameTime();
     std::string today = today_string();
-    int count = (int)app.topics.size() < 24 ? (int)app.topics.size() : 24;
+    int count = (int)app.topics.size() < PLOTS ? (int)app.topics.size() : PLOTS;
     int themeIndex = previewTheme >= 0 ? previewTheme : theme_today();
     const GardenTheme &th = THEMES[themeIndex];
     Color accent = hex(th.accent);

@@ -8,6 +8,7 @@
 // one leaf per topic, gold when mastered.
 
 #include "app.h"
+#include "apptheme.h"
 #include "theme.h"
 #include "ui.h"
 #include "fx.h"
@@ -494,6 +495,56 @@ static void draw_editor(App &app, float t)
 // The wardrobe and tree overlays
 // ---------------------------------------------------------------------------
 
+// The THEMES tab: a card for each app theme, with a little preview of it
+static void draw_theme_cards(App &app, float gx, float gy, float t)
+{
+    Vector2 mouse = GetMousePosition();
+    const float cw = 255, ch = 176, gap = 12;
+    int i = 0;
+    for (const AppTheme &th : app_themes()) {
+        Rectangle c = { gx + (i % 3) * (cw + gap), gy + (i / 3) * (ch + gap), cw, ch };
+        i++;
+        bool open = app_theme_unlocked(app.progress, th), earned = app_theme_earned(app.progress, th);
+        bool inUse = app.progress.theme == th.id || (th.id == "default" && app.progress.theme.empty());
+        bool forSale = !open && earned && th.price > 0, canBuy = forSale && app.progress.bytes >= th.price;
+        bool hover = CheckCollisionPointRec(mouse, c);
+        ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, inUse ? COL_GREEN : hover ? (forSale ? COL_PURPLE : COL_TEXT_SOFT) : COL_LINE, inUse || hover ? 2 : 1);
+        Rectangle pic = { c.x + 8, c.y + 8, cw - 16, 112 };
+        theme_preview(th.id, pic, t);
+        if (!open) DrawRectangleRec(pic, Fade(COL_BG, 0.55f));
+        ui_text(th.name, c.x + 12, c.y + 128, 15, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
+        std::string state = inUse ? "in use" : open ? (hover ? "click to use" : "unlocked")
+                          : forSale ? (canBuy ? std::to_string(th.price) + " bytes: click to buy" : "need " + std::to_string(th.price - app.progress.bytes) + " more bytes")
+                          : app_theme_requirement(th) + (th.price > 0 ? ", then " + std::to_string(th.price) + " bytes" : "");
+        Color sc = inUse ? COL_GREEN : open ? COL_TEXT_SOFT : forSale ? COL_PURPLE : COL_AMBER;
+        ui_text(state, c.x + 12, c.y + 150, 12, sc, FontKind::Mono);
+        if (!hover) continue;
+        ui_want_hand();
+        if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) continue;
+        std::string why;
+        Vector2 mid = { c.x + cw / 2, c.y + ch / 2 };
+        if (forSale) {
+            if (app_theme_buy(app.progress, th.id, why)) {
+                sfx_play(Sfx::Combo);
+                fx_float_text("-" + std::to_string(th.price) + " bytes", { mid.x, c.y - 6 }, 18, COL_PURPLE);
+            } else {
+                sfx_play(Sfx::Wrong);
+                fx_float_text(why, { mid.x, c.y - 6 }, 16, COL_CORAL);
+                continue;
+            }
+        }
+        if (app_theme_use(app.progress, th.id, why)) {
+            theme_apply(th.id);
+            save_progress(app);
+            sfx_play(Sfx::Click);
+            fx_burst(mid, 30, COL_GREEN, COL_AMBER);
+        } else {
+            sfx_play(Sfx::Wrong);
+            fx_float_text(why, { mid.x, c.y - 6 }, 16, COL_CORAL);
+        }
+    }
+}
+
 static void draw_wardrobe(App &app, float t)
 {
     DrawRectangle(0, 0, SCREEN_W, SCREEN_H, Fade(BLACK, 0.6f));
@@ -515,12 +566,12 @@ static void draw_wardrobe(App &app, float t)
 
     // Tabs: hats, skins, pets, and the shop (things bought with bytes)
     static int tab = 0;
-    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS", "SHOP" };
-    const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet, WearKind::Hat };
-    const bool shop = tab == 3;
+    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS", "SHOP", "THEMES" };
+    const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet, WearKind::Hat, WearKind::Hat };
+    const bool shop = tab == 3, themes = tab == 4;
     float gx = p.x + 300, gy = p.y + 86;
     Vector2 mouse = GetMousePosition();
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         Rectangle tr = { gx + i * 150.0f, gy, 140, 34 };
         bool on = tab == i, hov = CheckCollisionPointRec(mouse, tr);
         ui_panel(tr, on ? COL_AMBER : (hov ? COL_SURFACE_2 : COL_BG), on ? COL_AMBER : COL_LINE, 1);
@@ -528,18 +579,21 @@ static void draw_wardrobe(App &app, float t)
         ui_text(tabs[i], tr.x + (tr.width - tw) / 2, tr.y + 10, 12, on ? COL_BG : COL_TEXT_SOFT, FontKind::MonoBold);
         if (hov) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { tab = i; sfx_play(Sfx::Click); } }
     }
-    if (IsKeyPressed(KEY_TAB)) tab = (tab + 1) % 4;
+    if (IsKeyPressed(KEY_TAB)) tab = (tab + 1) % 5;
     const char *hint = tab == 0 ? "Reach the level, then buy it with bytes. Boss and mastery rewards are free."
                      : tab == 1 ? "Level skins cost bytes. Beat a boss and its look is yours for free."
                      : tab == 2 ? "Pets follow Mal around. Reach the level, then buy them with bytes."
-                     : "Extras, just for bytes. Earn them from daily quests, MAL-OS high scores and Versus predictions.";
+                     : tab == 3 ? "Extras, just for bytes. Earn them from daily quests, MAL-OS high scores and Versus predictions."
+                     : "Themes change the look of the whole app. Click one to use it.";
     ui_text(hint, gx, gy + 44, 13, COL_MUTED);
     gy += 72;
 
     UnlockInfo u = unlock_info(app);
     const float cw = 116, ch = 124, gap = 10;
     int col = 0;
+    if (themes) draw_theme_cards(app, gx, gy, t);
     for (const WardrobeItem &item : wardrobe_items()) {
+        if (themes) break;
         bool shopOnly = item.price > 0 && item.level == 0;
         if (shop ? !shopOnly : (item.kind != kinds[tab] || shopOnly)) continue;   // shop-only items are in the SHOP tab
         if (col == 6) { col = 0; gy += ch + gap; }
