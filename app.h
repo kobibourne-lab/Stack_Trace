@@ -1,6 +1,8 @@
 // app.h - everything the screens share, and the functions that move between them.
 
 #pragma once
+#include <atomic>
+#include <memory>
 #include <string>
 #include <vector>
 #include "content.h"
@@ -22,6 +24,14 @@
 #include "farm.h"
 
 enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm };
+
+// A run of the code on another thread, so the window never freezes while it
+// compiles and runs. The screen draws progress.log as it fills up.
+struct RunJob {
+    RunProgress progress;
+    RunResult result;
+    std::atomic<bool> finished{ false };   // result is ready
+};
 
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
@@ -45,7 +55,10 @@ struct Workspace {
     bool newBest = false;              // faster than the last time
     int solveSeconds = 0, bestSeconds = 0;
 
-    int runPhase = 0;                  // 0 idle, 1 showing "Running", 2 running now
+    int runPhase = 0;                  // 0 idle, 1 running (on another thread: see job)
+    std::shared_ptr<RunJob> job;       // the run going on now
+    int consoleTab = 0;                // 0 tests, 1 terminal, 2 problems (compile errors)
+    float termScroll = 0;              // the terminal tab's scroll, in lines from the bottom
     bool submitting = false;           // Submit (counts if accepted) rather than Run
     bool hasResult = false;
     RunResult result;

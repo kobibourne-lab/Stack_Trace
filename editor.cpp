@@ -148,6 +148,14 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
         if (key_repeat(KEY_PAGE_DOWN)) { for (int i = 0; i < visibleRows - 1; i++) eb_down(b); input = true; }
     }
 
+    // Jump to a line (clicking a problem in the Problems list)
+    if (v.jumpRow >= 0) {
+        eb_move_to(b, v.jumpRow, v.jumpCol);
+        v.jumpRow = -1;
+        input = true;
+        if (b.row >= visibleRows / 2) v.scrollRow = b.row - visibleRows / 2;   // put it in the middle
+    }
+
     // Mouse: click to place the cursor, wheel to scroll
     Vector2 mouse = GetMousePosition();
     if (CheckCollisionPointRec(mouse, r)) {
@@ -184,10 +192,28 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
         float y = text.y + i * LINE_H;
 
         if (row == b.row && focused) DrawRectangle((int)text.x - 6, (int)y, (int)text.width + 6, (int)LINE_H, COL_SURFACE);
+        const EditorMark *mark = nullptr;
+        for (const EditorMark &m : v.marks)
+            if (m.row == row && m.lineText == b.lines[row] && (!mark || (m.error && !mark->error))) mark = &m;
+        Color mc = mark && mark->error ? COL_CORAL : COL_AMBER;
+        if (mark) DrawRectangle((int)text.x - 6, (int)y, (int)text.width + 6, (int)LINE_H, Fade(mc, 0.12f));
         std::string num = std::to_string(row + 1);
         float nw = ui_text_width(num, 13, FontKind::Mono);
-        ui_text(num, r.x + GUTTER - 16 - nw, y + 4, 13, row == b.row ? COL_TEXT_SOFT : COL_MUTED, FontKind::Mono);
+        ui_text(num, r.x + GUTTER - 16 - nw, y + 4, 13, mark ? mc : row == b.row ? COL_TEXT_SOFT : COL_MUTED, FontKind::Mono);
         editor_draw_code_line(b.lines[row], text.x, y + 3, CODE_SIZE, v.scrollCol, visibleCols + 1);
+        if (mark) {
+            DrawCircleV({ r.x + 8, y + LINE_H / 2 }, 4, mc);   // a dot in the margin
+            // a wavy line under the code, then the message after it
+            int first = 0, last = (int)b.lines[row].size();
+            while (first < last && b.lines[row][first] == ' ') first++;
+            float x0 = text.x + (first - v.scrollCol) * cw, x1 = text.x + (last - v.scrollCol) * cw;
+            if (x1 <= x0) x1 = x0 + cw * 3;
+            float uy = y + LINE_H - 3;
+            for (float x = fmaxf(x0, text.x); x < x1; x += 4)
+                DrawLineEx({ x, uy + (((int)(x / 4)) % 2 ? 1.5f : -1.5f) }, { x + 4, uy + (((int)(x / 4)) % 2 ? -1.5f : 1.5f) }, 1.2f, mc);
+            float mx = x1 + cw * 3;
+            if (mx < text.x + text.width - 60) ui_text(mark->message, mx, y + 5, 12, Fade(mc, 0.85f), FontKind::Mono);
+        }
     }
 
     // The cursor: solid while typing, blinking otherwise

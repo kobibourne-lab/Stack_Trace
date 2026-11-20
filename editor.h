@@ -5,12 +5,26 @@
 // End / Page Up / Page Down move, Ctrl+V (Cmd+V on Mac) pastes, Ctrl+Z undoes.
 
 #pragma once
+#include <string>
+#include <vector>
 #include "raylib.h"
 #include "editbuf.h"
+
+// A compiler error or warning on a line, drawn VS Code style: the line tinted,
+// a wavy underline, a dot in the margin and the message after the code. It
+// disappears once the line is changed.
+struct EditorMark {
+    int row = 0;               // 0-based
+    bool error = true;         // false: a warning (amber)
+    std::string message;
+    std::string lineText;      // the line when it was marked
+};
 
 struct EditorView {
     int scrollRow = 0, scrollCol = 0;  // the first line and column shown
     double lastInput = 0;              // the cursor stays solid just after typing
+    std::vector<EditorMark> marks;
+    int jumpRow = -1, jumpCol = 0;     // set to move the cursor there (and scroll to it) next frame
 };
 
 // Handles input (when focused and not read-only) and draws the editor in r.

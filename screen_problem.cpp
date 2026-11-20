@@ -13,6 +13,7 @@
 #include <cmath>
 #include <fstream>
 #include <filesystem>
+#include <thread>
 
 const char *WORK_DIR = "practice_build";   // the generated test program (safe to delete)
 
@@ -72,21 +73,48 @@ static void leave(App &app)
 // Running
 // ---------------------------------------------------------------------------
 
+// The last run started (it may belong to a problem that's been left): a new
+// one waits until it's finished, as they share the practice_build folder.
+static std::shared_ptr<RunJob> lastJob;
+
 void problem_start_run(App &app, bool submit)
 {
     Workspace &w = app.work;
     if (w.runPhase != 0) return;
-    w.runPhase = 1;          // this frame shows "Running"; the next frame runs it
+    if (lastJob && !lastJob->finished) return;
+    save_draft(app);
+    w.runPhase = 1;
     w.submitting = submit;
+    w.consoleTab = 1;   // watch it run in the terminal
+    w.termScroll = 0;
+    w.view.marks.clear();
+    // Compile and run on another thread, so the window keeps going
+    std::shared_ptr<RunJob> job = std::make_shared<RunJob>();
+    w.job = lastJob = job;
+    Problem p = current(app);
+    std::string code = eb_text(w.code);
+    std::thread([job, p, code]() {
+        job->result = run_answer(p, code, WORK_DIR, &job->progress);
+        job->finished = true;
+    }).detach();
 }
 
-static void do_run(App &app)
+// The run finished: show its results
+static void finish_run(App &app)
 {
     Workspace &w = app.work;
     const Problem &p = current(app);
-    save_draft(app);
-    w.result = run_answer(p, eb_text(w.code), WORK_DIR);
+    w.result = w.job->result;
+    w.job.reset();
     w.hasResult = true;
+    // Compile errors: marked on their lines in the editor, and the Problems tab opens
+    for (const CompileProblem &cp : w.result.problems) {
+        if (cp.line <= 0 || cp.line > (int)w.code.lines.size()) continue;
+        w.view.marks.push_back({ cp.line - 1, cp.error, cp.message, w.code.lines[cp.line - 1] });
+    }
+    w.consoleTab = w.result.status == RunStatus::CompileError ? 2 : w.result.status == RunStatus::NoCompiler ? 1 : 0;
+    for (const CompileProblem &cp : w.result.problems)   // show the first error in the editor
+        if (cp.error && cp.line > 0 && !cp.inTests) { w.view.jumpRow = cp.line - 1; w.view.jumpCol = cp.col > 0 ? cp.col - 1 : 0; break; }
     w.runCount++;
     if (w.result.status == RunStatus::Crashed) w.hadCrash = true;
     if (w.result.status == RunStatus::TimedOut) w.hadTimeout = true;
@@ -95,10 +123,12 @@ static void do_run(App &app)
     w.consoleScroll = 0;
     w.detailScroll = 0;
 
-    // Show the first failing test's details, or the first test
-    w.selectedTest = 0;
-    for (int i = 0; i < (int)w.result.tests.size(); i++)
-        if (!w.result.tests[i].passed) { w.selectedTest = i; break; }
+    // Show the first failing test's details (a crash first), or the first test
+    w.selectedTest = w.result.crashedAt >= 0 ? w.result.crashedAt : 0;
+    if (w.result.crashedAt < 0) {
+        for (int i = 0; i < (int)w.result.tests.size(); i++)
+            if (!w.result.tests[i].passed) { w.selectedTest = i; break; }
+    }
 
     if (w.submitting && run_accepted(w.result) && !w.accepted) {
         w.accepted = true;
@@ -320,17 +350,132 @@ static float draw_value(const std::string &label, const std::string &value, floa
     return 18 + h + 10;
 }
 
-static void draw_tick(float x, float y, bool ok)
+// A round icon for a test: a tick, a cross, ! for a crash, a clock for a hang, - for not run
+static void draw_outcome(float x, float y, TestOutcome o)
 {
-    if (ok) {
-        DrawCircleV({ x, y }, 7, COL_GREEN);
-        DrawLineEx({ x - 3.5f, y }, { x - 1, y + 2.5f }, 2, COL_BG);
-        DrawLineEx({ x - 1, y + 2.5f }, { x + 3.5f, y - 2.5f }, 2, COL_BG);
-    } else {
-        DrawCircleV({ x, y }, 7, COL_CORAL);
-        DrawLineEx({ x - 2.5f, y - 2.5f }, { x + 2.5f, y + 2.5f }, 2, COL_BG);
-        DrawLineEx({ x + 2.5f, y - 2.5f }, { x - 2.5f, y + 2.5f }, 2, COL_BG);
+    Color c = o == TestOutcome::Passed ? COL_GREEN : o == TestOutcome::TimedOut ? COL_AMBER : o == TestOutcome::NotRun ? COL_MUTED : COL_CORAL;
+    DrawCircleV({ x, y }, 7, c);
+    switch (o) {
+        case TestOutcome::Passed:
+            DrawLineEx({ x - 3.5f, y }, { x - 1, y + 2.5f }, 2, COL_BG);
+            DrawLineEx({ x - 1, y + 2.5f }, { x + 3.5f, y - 2.5f }, 2, COL_BG);
+            break;
+        case TestOutcome::Failed:
+            DrawLineEx({ x - 2.5f, y - 2.5f }, { x + 2.5f, y + 2.5f }, 2, COL_BG);
+            DrawLineEx({ x + 2.5f, y - 2.5f }, { x - 2.5f, y + 2.5f }, 2, COL_BG);
+            break;
+        case TestOutcome::Crashed:
+            DrawLineEx({ x, y - 4 }, { x, y + 1 }, 2, COL_BG);
+            DrawCircleV({ x, y + 3.5f }, 1.2f, COL_BG);
+            break;
+        case TestOutcome::TimedOut:
+            DrawCircleLines((int)x, (int)y, 4.5f, COL_BG);
+            DrawLineEx({ x, y }, { x, y - 3 }, 1.5f, COL_BG);
+            DrawLineEx({ x, y }, { x + 2.5f, y }, 1.5f, COL_BG);
+            break;
+        case TestOutcome::NotRun:
+            DrawLineEx({ x - 3, y }, { x + 3, y }, 2, COL_BG);
+            break;
     }
+}
+
+
+static TestOutcome outcome_of_state(int s)
+{
+    switch (s) {
+        case 1: return TestOutcome::Passed;
+        case 2: return TestOutcome::Failed;
+        case 3: return TestOutcome::Crashed;
+        case 4: return TestOutcome::TimedOut;
+        default: return TestOutcome::NotRun;
+    }
+}
+
+// The colour of a terminal line, from how it starts
+static Color term_colour(const std::string &line)
+{
+    if (line.compare(0, 1, "$") == 0) return COL_BLUE;
+    if (line.compare(0, 6, "  PASS") == 0) return COL_GREEN;
+    if (line.compare(0, 6, "  FAIL") == 0 || line.compare(0, 7, "  CRASH") == 0 || line.compare(0, 7, "  error") == 0) return COL_CORAL;
+    if (line.compare(0, 6, "  TIME") == 0) return COL_AMBER;
+    if (line.compare(0, 3, "  |") == 0) return COL_TEXT;
+    if (line.compare(0, 5, "Done:") == 0 || line.compare(0, 5, "Didn'") == 0) return COL_TEXT;
+    return COL_MUTED;
+}
+
+// The terminal: every line of the run, newest at the bottom (it follows the
+// end unless scrolled up). Long lines wrap.
+static void draw_terminal(Workspace &w, const std::vector<std::string> &log, Rectangle body, bool running)
+{
+    const float lineH = 16, size = 13;
+    float charW = ui_text_width("M", size, FontKind::Mono);
+    int perRow = charW > 0 ? (int)((body.width - 30) / charW) : 100;
+    if (perRow < 20) perRow = 20;
+    // Wrapped rows
+    std::vector<std::pair<std::string, Color>> rows;
+    for (const std::string &line : log) {
+        Color c = term_colour(line);
+        size_t at = 0;
+        do {
+            rows.push_back({ (at > 0 ? "    " : "") + line.substr(at, at == 0 ? perRow : perRow - 4), c });
+            at += at == 0 ? perRow : perRow - 4;
+        } while (at < line.size());
+    }
+    if (running) {
+        static const char *spin[] = { "|", "/", "-", "\\" };
+        rows.push_back({ std::string(spin[(int)(GetTime() * 10) % 4]) + " ", COL_AMBER });
+    }
+    int shown = (int)((body.height - 12) / lineH);
+    int maxScroll = (int)rows.size() - shown;
+    if (maxScroll < 0) maxScroll = 0;
+    if (CheckCollisionPointRec(GetMousePosition(), body)) w.termScroll += GetMouseWheelMove() * 3;
+    if (w.termScroll > maxScroll) w.termScroll = (float)maxScroll;
+    if (w.termScroll < 0) w.termScroll = 0;
+    int first = maxScroll - (int)w.termScroll;
+    DrawRectangleRec(body, COL_BG);
+    ui_scissor((int)body.x, (int)body.y, (int)body.width, (int)body.height);
+    for (int i = 0; i < shown + 1 && first + i < (int)rows.size(); i++)
+        ui_text(rows[first + i].first, body.x + 16, body.y + 8 + i * lineH, size, rows[first + i].second, FontKind::Mono);
+    EndScissorMode();
+}
+
+// The Problems tab: each compiler error, click to jump to its line
+static void draw_problems(App &app, const RunResult &res, Rectangle body)
+{
+    Workspace &w = app.work;
+    float x = body.x + 16, y = body.y + 8;
+    ui_scissor((int)body.x, (int)body.y, (int)body.width, (int)body.height);
+    bool tests = false;
+    for (const CompileProblem &cp : res.problems) if (cp.inTests) tests = true;
+    if (tests) {
+        y += ui_text_wrapped("The tests couldn't call your code: check the function's name and parameters match the prototype: " +
+                             current(app).prototype, x, y, body.width - 32, 13, COL_AMBER) + 6;
+    }
+    if (res.problems.empty()) {
+        ui_text_wrapped("The compiler didn't say where. See the Terminal tab for what it printed.", x, y, body.width - 32, 13, COL_MUTED);
+    }
+    for (const CompileProblem &cp : res.problems) {
+        if (y > body.y + body.height) break;
+        Rectangle row = { body.x + 6, y - 2, body.width - 12, 22 };
+        bool canJump = cp.line > 0 && !cp.inTests;
+        bool hover = canJump && CheckCollisionPointRec(GetMousePosition(), row);
+        if (hover) {
+            DrawRectangleRounded(row, 0.3f, 4, COL_SURFACE_2);
+            ui_want_hand();
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { w.view.jumpRow = cp.line - 1; w.view.jumpCol = cp.col > 0 ? cp.col - 1 : 0; }
+        }
+        Color c = cp.error ? COL_CORAL : COL_AMBER;
+        DrawCircleV({ x + 6, y + 9 }, 6, c);
+        ui_text(cp.error ? "x" : "!", x + 3, y + 1, 11, COL_BG, FontKind::MonoBold);
+        std::string where = cp.inTests ? "tests" : cp.line > 0 ? "line " + std::to_string(cp.line) + (cp.col > 0 ? ":" + std::to_string(cp.col) : "") : "";
+        ui_text(where, x + 20, y + 2, 13, COL_MUTED, FontKind::Mono);
+        std::string msg = cp.message;
+        float mx = x + 20 + 90, room = body.x + body.width - 16 - mx;
+        while (msg.size() > 4 && ui_text_width(msg, 13, FontKind::Mono) > room) msg = msg.substr(0, msg.size() - 4) + "...";
+        ui_text(msg, mx, y + 2, 13, COL_TEXT, FontKind::Mono);
+        y += 24;
+    }
+    EndScissorMode();
 }
 
 void problem_draw_console(App &app, Rectangle r)
@@ -339,18 +484,72 @@ void problem_draw_console(App &app, Rectangle r)
     const RunResult &res = w.result;
     ui_panel(r, COL_SURFACE, COL_LINE, 1);
     float x = r.x + 18, y = r.y + 12;
+    bool running = w.runPhase > 0 && w.job;
+    Rectangle body = { r.x + 1, r.y + 41, r.width - 2, r.height - 42 };
 
-    ui_text("Test results", x, y, 14, COL_TEXT, FontKind::UiBold);
+    // Tabs, top left: Tests, Terminal, and Problems when it didn't compile
+    bool hasProblems = w.hasResult && !running && res.status == RunStatus::CompileError;
+    int errors = 0;
+    for (const CompileProblem &cp : res.problems) if (cp.error) errors++;
+    std::vector<std::string> tabs = { "Tests", "Terminal" };
+    if (hasProblems) tabs.push_back("Problems " + std::to_string(errors > 0 ? errors : (int)res.problems.size()));
+    if (!hasProblems && w.consoleTab == 2) w.consoleTab = 0;
+    float tx = x - 6;
+    for (int i = 0; i < (int)tabs.size(); i++) {
+        float tw = ui_text_width(tabs[i], 14, FontKind::UiBold) + 20;
+        Rectangle tr = { tx, r.y + 6, tw, 30 };
+        bool on = w.consoleTab == i, hov = CheckCollisionPointRec(GetMousePosition(), tr);
+        Color tc = i == 2 ? COL_CORAL : on ? COL_TEXT : (hov ? COL_TEXT_SOFT : COL_MUTED);
+        ui_text(tabs[i], tx + 10, y, 14, tc, FontKind::UiBold);
+        if (on) DrawRectangle((int)tx + 6, (int)(r.y + 38), (int)tw - 12, 2, i == 2 ? COL_CORAL : COL_AMBER);
+        if (hov) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { w.consoleTab = i; w.termScroll = 0; } }
+        tx += tw + 4;
+    }
     DrawLine((int)r.x + 1, (int)(r.y + 40), (int)(r.x + r.width - 1), (int)(r.y + 40), COL_LINE_SOFT);
 
-    if (w.runPhase > 0) {
-        ui_text(w.submitting ? "Submitting: compiling and running every test..." : "Compiling and running the tests...",
-                x, r.y + 58, 15, COL_AMBER, FontKind::Mono);
+    // ----- Running: what it's doing, a box per test filling in, and the terminal -----
+    if (running) {
+        std::vector<std::string> log;
+        std::vector<int> state;
+        std::string phase;
+        {
+            std::lock_guard<std::mutex> g(w.job->progress.lock);
+            log = w.job->progress.log;
+            state = w.job->progress.state;
+            phase = w.job->progress.phase;
+        }
+        if (phase.empty()) phase = "Starting";
+        float bx = r.x + r.width - 18;
+        for (int i = (int)state.size() - 1; i >= 0; i--) {   // the boxes, right to left
+            bx -= 14;
+            Color c = state[i] == 1 ? COL_GREEN : state[i] == 2 || state[i] == 3 ? COL_CORAL : state[i] == 4 ? COL_AMBER : state[i] == 5 ? COL_MUTED : COL_LINE;
+            DrawRectangleRounded({ bx, y + 2, 11, 14 }, 0.3f, 4, c);
+        }
+        std::string ph = (w.submitting ? "Submitting: " : "") + phase + "...";
+        ui_text(ph, bx - 14 - ui_text_width(ph, 13, FontKind::Mono), y + 2, 13, COL_AMBER, FontKind::Mono);
+        if (w.consoleTab == 0) {
+            // the tests so far, live
+            ui_scissor((int)body.x, (int)body.y, (int)body.width, (int)body.height);
+            float ry = body.y + 8;
+            for (int i = 0; i < (int)state.size() && ry < body.y + body.height; i++, ry += 22) {
+                if (state[i] == 0) {
+                    DrawCircleLines((int)(body.x + 20), (int)(ry + 9), 7, COL_LINE);
+                    ui_text("Test " + std::to_string(i + 1), body.x + 34, ry + 1, 13, COL_MUTED);
+                } else {
+                    draw_outcome(body.x + 20, ry + 9, outcome_of_state(state[i]));
+                    ui_text("Test " + std::to_string(i + 1), body.x + 34, ry + 1, 13, COL_TEXT_SOFT);
+                }
+            }
+            EndScissorMode();
+        } else {
+            draw_terminal(w, log, body, true);
+        }
         return;
     }
     if (!w.hasResult) {
-        ui_text_wrapped("Run your code to see the results here. Run checks your code against the tests; "
-                        "Submit does the same and marks the problem solved when every test passes.",
+        ui_text_wrapped("Run your code to see the results here (Ctrl+Enter or F5). Run checks your code against the tests; "
+                        "Submit does the same and marks the problem solved when every test passes. Each test is run on its own, "
+                        "so a crash or an endless loop only stops the test it's in.",
                         x, r.y + 56, r.width - 36, 14, COL_MUTED);
         return;
     }
@@ -358,8 +557,9 @@ void problem_draw_console(App &app, Rectangle r)
     // The verdict, top right of the console
     std::string verdict, detail;
     Color vc = COL_CORAL;
-    int total = res.passed + res.failed;
+    int total = (int)res.tests.size();
     std::string count = std::to_string(res.passed) + " / " + std::to_string(total) + " tests passed";
+    std::string where = res.crashedAt >= 0 ? "test " + std::to_string(res.crashedAt + 1) : "a test";
     switch (res.status) {
         case RunStatus::Passed:
             if (!res.ruleProblems.empty()) { verdict = "Rule broken"; vc = COL_AMBER; detail = count + ", but the code breaks a rule"; }
@@ -367,12 +567,9 @@ void problem_draw_console(App &app, Rectangle r)
             else { verdict = "All tests passed"; vc = COL_GREEN; detail = "Submit to mark it solved"; }
             break;
         case RunStatus::Failed:       verdict = "Wrong answer"; detail = count; break;
-        case RunStatus::CompileError: verdict = "Compile error"; detail = "fix the first error, then run again"; break;
-        case RunStatus::Crashed:
-            verdict = "Runtime error";
-            detail = total == 0 ? "it crashed before any test finished" : "it crashed after " + std::to_string(total) + (total == 1 ? " test" : " tests");
-            break;
-        case RunStatus::TimedOut:     verdict = "Time limit exceeded"; detail = "stopped after 5 seconds: a loop that never ends?"; break;
+        case RunStatus::CompileError: verdict = "Compile error"; detail = std::to_string(errors) + (errors == 1 ? " error" : " errors") + ": click one to go to its line"; break;
+        case RunStatus::Crashed:      verdict = "Runtime error"; detail = "crashed in " + where + ", " + count; break;
+        case RunStatus::TimedOut:     verdict = "Time limit exceeded"; vc = COL_AMBER; detail = where + " never finished, " + count; break;
         case RunStatus::NoCompiler:   verdict = "No compiler"; detail = ""; break;
     }
     float vw = ui_text_width(verdict, 16, FontKind::UiBold);
@@ -380,45 +577,12 @@ void problem_draw_console(App &app, Rectangle r)
     ui_text(detail, r.x + r.width - 18 - dw, y + 2, 13, COL_TEXT_SOFT);
     ui_text(verdict, r.x + r.width - 18 - dw - 14 - vw, y, 16, vc, FontKind::UiBold);
 
-    Rectangle body = { r.x + 1, r.y + 41, r.width - 2, r.height - 42 };
-
-    // Compiler errors (or no compiler): show what the compiler said
+    if (w.consoleTab == 1) { draw_terminal(w, res.log, body, false); return; }
+    if (w.consoleTab == 2) { draw_problems(app, res, body); return; }
     if (res.status == RunStatus::CompileError || res.status == RunStatus::NoCompiler) {
-        if (CheckCollisionPointRec(GetMousePosition(), body)) w.consoleScroll -= GetMouseWheelMove() * 3;
-        if (w.consoleScroll < 0) w.consoleScroll = 0;
-        ui_scissor((int)body.x, (int)body.y, (int)body.width, (int)body.height);
-        float ly = body.y + 10;
-        if (res.compilerOutput.find("tests:") != std::string::npos) {
-            ly += ui_text_wrapped("The tests couldn't call your code. Check the function's name and parameters match the "
-                                  "prototype: " + current(app).prototype, x, ly, body.width - 36, 13, COL_AMBER) + 6;
-        }
-        std::vector<std::string> lines;
-        size_t start = 0;
-        while (start < res.compilerOutput.size()) {
-            size_t nl = res.compilerOutput.find('\n', start);
-            if (nl == std::string::npos) nl = res.compilerOutput.size();
-            lines.push_back(res.compilerOutput.substr(start, nl - start));
-            start = nl + 1;
-        }
-        for (size_t i = (size_t)w.consoleScroll; i < lines.size(); i++) {
-            if (ly > body.y + body.height) break;
-            Color c = lines[i].find("error") != std::string::npos ? COL_CORAL : COL_TEXT_SOFT;
-            // Long lines wrap instead of running off the right-hand side. The font is
-            // fixed-width, so it breaks every N characters (keeping the spaces that
-            // line the ^ markers up under the code).
-            float charW = ui_text_width("M", 13, FontKind::Mono);
-            size_t perRow = charW > 0 ? (size_t)((body.width - 36) / charW) : 120;
-            if (perRow < 20) perRow = 20;
-            const std::string &line = lines[i];
-            size_t at = 0;
-            do {
-                size_t take = at == 0 ? perRow : perRow - 2;   // wrapped rows are indented two characters
-                ui_text(line.substr(at, take), at == 0 ? x : x + 2 * charW, ly, 13, c, FontKind::Mono);
-                ly += 18;
-                at += take;
-            } while (at < line.size());
-        }
-        EndScissorMode();
+        ui_text_wrapped(res.status == RunStatus::NoCompiler ? res.compilerOutput
+                        : "It didn't compile, so no tests ran. The Problems tab lists the errors, and they're marked on their lines in the editor.",
+                        x, body.y + 12, body.width - 36, 14, COL_TEXT_SOFT);
         return;
     }
 
@@ -439,16 +603,12 @@ void problem_draw_console(App &app, Rectangle r)
         bool hover = CheckCollisionPointRec(GetMousePosition(), row);
         if (hover) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { w.selectedTest = i; w.detailScroll = 0; } }
         if (i == w.selectedTest) DrawRectangleRounded(row, 0.3f, 4, COL_SURFACE_2);
-        draw_tick(row.x + 14, row.y + 11, res.tests[i].passed);
-        std::string label = "Test " + std::to_string(i + 1) + "  " + res.tests[i].description;
+        const TestResult &t = res.tests[i];
+        draw_outcome(row.x + 14, row.y + 11, t.outcome);
+        std::string label = "Test " + std::to_string(i + 1) + "  " + t.description;
         while (label.size() > 4 && ui_text_width(label, 13) > listW - 50) label = label.substr(0, label.size() - 4) + "...";
-        ui_text(label, row.x + 28, row.y + 3, 13, i == w.selectedTest ? COL_TEXT : COL_TEXT_SOFT);
-    }
-    if (res.status == RunStatus::Crashed || res.status == RunStatus::TimedOut) {
-        float ry = list.y + 6 + ((int)res.tests.size() - (int)w.consoleScroll) * 24;
-        draw_tick(list.x + 20, ry + 11, false);
-        ui_text(res.status == RunStatus::Crashed ? "the next test crashed" : "the next test never finished",
-                list.x + 34, ry + 3, 13, COL_CORAL);
+        Color lc = i == w.selectedTest ? COL_TEXT : t.outcome == TestOutcome::NotRun ? COL_MUTED : COL_TEXT_SOFT;
+        ui_text(label, row.x + 28, row.y + 3, 13, lc);
     }
     EndScissorMode();
     DrawLine((int)(list.x + listW), (int)list.y, (int)(list.x + listW), (int)(list.y + list.height), COL_LINE_SOFT);
@@ -468,19 +628,44 @@ void problem_draw_console(App &app, Rectangle r)
     if (w.selectedTest < (int)res.tests.size()) {
         const TestResult &t = res.tests[w.selectedTest];
         dy += ui_text_wrapped(t.description, dx, dy, dw2, 14, COL_TEXT, FontKind::UiBold) + 8;
-        if (t.passed) {
+        if (t.outcome == TestOutcome::Passed) {
             ui_text("Passed", dx, dy, 14, COL_GREEN);
             dy += 26;
-        } else {
+        } else if (t.outcome == TestOutcome::Failed) {
             // Expected and got side by side, so patterns and grids line up
             float colW = (dw2 - 12) / 2;
             float h1 = draw_value("Expected", t.expected, dx, dy, colW, COL_GREEN);
             float h2 = draw_value("Your code gave", t.got, dx + colW + 12, dy, colW, COL_CORAL);
             dy += (h1 > h2 ? h1 : h2);
+        } else {
+            // Crashed, hung or not run: what happened, why it usually happens, and what the test was doing
+            bool hung = t.outcome == TestOutcome::TimedOut, notRun = t.outcome == TestOutcome::NotRun;
+            Color c = hung ? COL_AMBER : notRun ? COL_MUTED : COL_CORAL;
+            std::string head = hung ? "Never finished (stopped after " + std::to_string(TEST_SECONDS) + " seconds)"
+                             : notRun ? "Not run: the code before it crashed or hung every time"
+                             : "Crashed: " + t.crash;
+            ui_text(head, dx, dy, 14, c, FontKind::UiBold);
+            dy += 22;
+            if (!notRun) dy += ui_text_wrapped(crash_explanation(t.crash), dx, dy, dw2, 13, COL_TEXT_SOFT) + 10;
+            if (!t.code.empty()) {
+                ui_text("What the test was doing (the last line is the check):", dx, dy, 12, COL_MUTED, FontKind::UiBold);
+                dy += 18;
+                std::vector<std::string> lines;
+                size_t at = 0;
+                while (at <= t.code.size()) {
+                    size_t nl = t.code.find('\n', at);
+                    lines.push_back(t.code.substr(at, nl == std::string::npos ? std::string::npos : nl - at));
+                    if (nl == std::string::npos) break;
+                    at = nl + 1;
+                }
+                float h = lines.size() * 19 + 12;
+                ui_panel({ dx, dy, dw2, h }, COL_BG, Fade(c, 0.6f), 1);
+                int cols = (int)((dw2 - 20) / ui_text_width("M", 13, FontKind::Mono));
+                for (size_t i = 0; i < lines.size(); i++)
+                    editor_draw_code_line(lines[i], dx + 10, dy + 6 + i * 19, 13, 0, cols);
+                dy += h + 10;
+            }
         }
-    } else if (res.tests.empty() && res.status == RunStatus::Crashed) {
-        dy += ui_text_wrapped("Your code crashed before the first test finished. A pointer to nothing (nullptr), "
-                              "or reading past the end of an array, are the usual causes.", dx, dy, dw2, 14, COL_TEXT_SOFT) + 8;
     }
     if (!res.programOutput.empty()) {
         std::string out = res.programOutput;
@@ -510,17 +695,18 @@ void problem_draw_editor(App &app, Rectangle editorBox, bool locked)
     editor_update_draw(w.code, w.view, editArea, w.runPhase == 0, locked);
 }
 
-// Runs happen in two frames, so "Running" is on screen while the (blocking)
-// compile and run happens: call this at the start of the frame...
+// Call every frame: picks up the run's results once it's finished.
 void problem_run_pending(App &app)
 {
-    if (app.work.runPhase == 2) do_run(app);
+    Workspace &w = app.work;
+    if (w.runPhase == 1 && w.job && w.job->finished) finish_run(app);
+    else if (w.runPhase == 1 && !w.job) w.runPhase = 0;
 }
 
-// ...and this at the end.
+// (Runs used to block the window for a frame; nothing to do at the end now.)
 void problem_end_frame(App &app)
 {
-    if (app.work.runPhase == 1) app.work.runPhase = 2;
+    (void)app;
 }
 
 // ---------------------------------------------------------------------------

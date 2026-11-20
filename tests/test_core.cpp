@@ -525,6 +525,44 @@ static void test_real_problems()
     RunResult broken = run_answer(*leap, "bool isLeapYear(int y) { return y % 4 == 0 }\n", "practice_build");
     CHECK(broken.status == RunStatus::CompileError);
     CHECK(broken.compilerOutput.find("solution.cpp:1") != std::string::npos);   // the student's own line number
+    CHECK(!broken.problems.empty() && broken.problems[0].line == 1 && broken.problems[0].error);
+
+    // Crashes and endless loops: the test it happened in is marked, and the
+    // rest still run (Insert at Position, without the out-of-range checks)
+    const Problem *pos = nullptr;
+    for (const ProblemSet &s : sets) for (const Problem &p : s.problems) if (p.id == "exam2/13_insert_at_position") pos = &p;
+    CHECK(pos != nullptr);
+    if (pos == nullptr) return;
+    std::vector<CheckInfo> checks = split_checks(*pos);
+    CHECK(checks.size() == 7 && checks[6].description == "positions 10 and -1 change nothing");
+    CHECK(checks[6].code.find("InsertAtPosition(9, 10)") != std::string::npos);   // what it was doing
+    std::string head = "#include <iostream>\nusing namespace std;\nclass DoublyLinkedNode { public: int data; DoublyLinkedNode *prevPointer, *nextPointer;\n"
+                       "  DoublyLinkedNode(int v) { data = v; prevPointer = nextPointer = nullptr; } };\n"
+                       "class DoublyLinkedList { public: DoublyLinkedNode *head = nullptr;\n  void InsertAtPosition(int value, int position) {\n"
+                       "    DoublyLinkedNode *n = new DoublyLinkedNode(value);\n"
+                       "    if (position == 0) { n->nextPointer = head; if (head) head->prevPointer = n; head = n; return; }\n";
+    std::string walk = "    DoublyLinkedNode *p = head;\n    for (int i = 0; i < position - 1; i++) p = p->nextPointer;\n"
+                       "    n->nextPointer = p->nextPointer; n->prevPointer = p; if (p->nextPointer) p->nextPointer->prevPointer = n; p->nextPointer = n;\n  } };\n";
+    RunProgress live;
+    RunResult crash = run_answer(*pos, head + walk, "practice_build", &live);
+    CHECK(crash.status == RunStatus::Crashed);
+    CHECK(crash.tests.size() == 7 && crash.passed == 6 && crash.crashedAt == 6);
+    CHECK(crash.tests.size() == 7 && crash.tests[6].outcome == TestOutcome::Crashed && crash.tests[6].crash == "segmentation fault");
+    CHECK(live.done && live.state.size() == 7 && live.state[6] == 3 && !live.log.empty());
+
+    // An endless loop in the third test's setup: that test is stopped, and the
+    // ones after it (which run the same setup) can't run, so they say so
+    std::string hang = "    if (position == 1 && head && head->nextPointer) { while (true) {} }\n";
+    RunResult loop = run_answer(*pos, head + hang + walk, "practice_build");
+    CHECK(loop.status == RunStatus::Crashed);   // timed out, then the rest not run
+    CHECK(loop.tests.size() == 7 && loop.tests[0].passed && loop.tests[1].passed);
+    CHECK(loop.tests.size() == 7 && loop.tests[2].outcome == TestOutcome::TimedOut);
+    CHECK(loop.tests.size() == 7 && loop.tests[3].outcome == TestOutcome::NotRun && loop.tests[6].outcome == TestOutcome::NotRun);
+
+    // A wrong answer in one test and a crash in a later one: both are reported
+    std::string bad = "    if (position == 1 && head && !head->nextPointer) { n->nextPointer = nullptr; head->nextPointer = n; n->prevPointer = head; n->data = 99; return; }\n";
+    RunResult mixed = run_answer(*pos, head + bad + walk, "practice_build");
+    CHECK(mixed.tests.size() == 7 && mixed.tests[1].outcome == TestOutcome::Failed && mixed.tests[6].outcome == TestOutcome::Crashed);
 }
 
 static RunResult fake_run(RunStatus status, int passed, int failed)
