@@ -52,15 +52,15 @@ struct OutputleStats {
     int dist[6] = { 0, 0, 0, 0, 0, 0 };   // wins in 1..6 tries
 };
 
-// The Exam question of the day: today's answer, and the stats over every day (examq.cpp).
-struct ExamQAnswer {
-    std::string date;        // the day it was answered
-    int choice = 0;          // the option (or line) picked, 1 = first
-    bool correct = false;
+// The Daily question: today's Exam prep problem solved or not, and the stats over every day (dailyq.cpp).
+struct DailyQRecord {
+    std::string date;        // the day it was solved
+    bool solved = false;
+    int seconds = 0;         // how long the solve took
 };
-struct ExamQStats {
-    int played = 0, correct = 0, streak = 0, best = 0;   // streak: days in a row answered right
-    std::string lastCorrect;                              // the last day it was answered right
+struct DailyQStats {
+    int solved = 0, streak = 0, best = 0;   // days solved, and days in a row
+    std::string lastSolved;                 // the last day it was solved
 };
 
 // The Bugdex: a bug caught (bugdex.cpp).
@@ -88,8 +88,8 @@ struct Progress {
 
     OutputleGame outputle;                        // OUTPUTLE: today's guesses
     OutputleStats outputleStats;                  // OUTPUTLE_STATS
-    ExamQAnswer examq;                            // EXAMQ: today's exam question, answered
-    ExamQStats examqStats;                        // EXAMQ_STATS
+    DailyQRecord dailyq;                          // DAILYQ: today's daily question
+    DailyQStats dailyqStats;                      // DAILYQ_STATS
     std::map<std::string, BugRecord> bugs;        // BUG: the Bugdex
     std::map<std::string, int> bugFixes;          // BUGFIX: a bug's quick fixes done, as bits
     std::map<std::string, std::string> harvested; // HARVEST: farm crop (topic) -> the day it was last harvested

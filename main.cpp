@@ -254,8 +254,6 @@ int main()
     }
     if (!load_problem_sets("content/practice", app.practice, app.practiceError))
         TraceLog(LOG_WARNING, "PRACTICE: %s", app.practiceError.c_str());
-    if (!examq_load(app.topics, "content", app.examPool, app.examPoolError))
-        TraceLog(LOG_WARNING, "EXAMQ: %s", app.examPoolError.c_str());
     if (!load_campaign("content/campaign.txt", app.campaign, app.campaignError))
         TraceLog(LOG_WARNING, "CAMPAIGN: %s", app.campaignError.c_str());
     if (!progress_load(app.progressPath, app.progress, error))
@@ -321,7 +319,7 @@ int main()
             case Screen::Game:     screen_games(app); break;
             case Screen::Daily:    screen_daily(app); break;
             case Screen::Outputle: screen_outputle(app); break;
-            case Screen::ExamQ:    screen_examq(app); break;
+            case Screen::DailyQ:   screen_dailyq(app); break;
             case Screen::Codex:    screen_codex(app); break;
             case Screen::Bugdex:   screen_bugdex(app); break;
             case Screen::Farm:     screen_farm(app); break;

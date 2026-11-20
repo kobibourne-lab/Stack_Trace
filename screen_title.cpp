@@ -161,7 +161,7 @@ void screen_title(App &app)
     if (IsKeyPressed(KEY_P)) { app.screen = Screen::Profile; return; }
     if (IsKeyPressed(KEY_D)) { open_daily(app); return; }
     if (IsKeyPressed(KEY_O)) { open_outputle(app); return; }
-    if (IsKeyPressed(KEY_Q)) { open_examq(app); return; }
+    if (IsKeyPressed(KEY_Q)) { open_dailyq(app); return; }
     if (IsKeyPressed(KEY_X)) { open_codex(app); return; }
     if (IsKeyPressed(KEY_B)) { open_bugdex(app); return; }
     if (IsKeyPressed(KEY_ESCAPE)) { app.quit = true; return; }
@@ -195,9 +195,8 @@ void screen_title(App &app)
     std::string outLabel = "Codle #" + std::to_string(outputle_number(today)) +
                            (outputle_won(app.progress, today) ? "  solved" : outputle_over(app.progress, today) ? "  done" : "");
     if (ui_button(outLabel, { x, y, bw, bh }, ButtonStyle::Outline, COL_GREEN)) { open_outputle(app); return; }
-    std::string eqLabel = "Exam Q #" + std::to_string(examq_number(today)) +
-                          (examq_answered(app.progress, today) ? (examq_correct(app.progress, today) ? "  right" : "  done") : "");
-    if (ui_button(eqLabel, { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_AMBER)) { open_examq(app); return; }
+    std::string dqLabel = "Daily question #" + std::to_string(dailyq_number(today)) + (dailyq_solved(app.progress, today) ? "  solved" : "");
+    if (ui_button(dqLabel, { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_AMBER)) { open_dailyq(app); return; }
     y += bh + gap;
     float sw = (2 * bw + gap - 3 * gap) / 4;
     if (ui_button("Profile", { x, y, sw, bh }, ButtonStyle::Outline, COL_PURPLE)) { app.screen = Screen::Profile; return; }
@@ -218,7 +217,7 @@ void screen_title(App &app)
     // Along the bottom: who made it, and the keys
     float fy = SCREEN_H - FOOTER_H;
     DrawLine(0, (int)fy, SCREEN_W, (int)fy, COL_LINE_SOFT);
-    ui_text("ENTER campaign  T topics  E exam  V versus  D daily  O codle  Q exam-q  X codex  B bugdex  P profile  ESC quit", MARGIN, fy + 20, 13,
+    ui_text("ENTER campaign  T topics  E exam  V versus  D daily  O codle  Q daily-q  X codex  B bugdex  P profile  ESC quit", MARGIN, fy + 20, 13,
             COL_MUTED, FontKind::Mono);
     const char *credit = "Advanced Programming, SETU  |  Ryan Mulcahy & Kobi Bourne";
     ui_text(credit, SCREEN_W - MARGIN - ui_text_width(credit, 13), fy + 19, 13, COL_MUTED);

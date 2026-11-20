@@ -22,9 +22,9 @@
 #include "codex.h"
 #include "bugdex.h"
 #include "farm.h"
-#include "examq.h"
+#include "dailyq.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm, ExamQ };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm, DailyQ };
 
 // A run of the code on another thread, so the window never freezes while it
 // compiles and runs. The screen draws progress.log as it fills up.
@@ -69,6 +69,10 @@ struct Workspace {
     int selectedTest = 0;              // the test whose details are shown
     int runCount = 0;                  // goes up after every run (Versus watches it)
     bool hadCrash = false, hadTimeout = false;   // for the Bugdex: fixing these catches a Segfault / Infinite Loop
+
+    bool fromDaily = false;            // opened from the Daily question screen (Back goes there)
+    bool dailyDone = false;            // this submit solved today's daily question
+    int dailyBytes = 0, dailyStreak = 0;
 
     int hintsShown = 0;
     float descScroll = 0, descHeight = 0;
@@ -184,9 +188,6 @@ struct App {
     VersusState vs;              // Versus mode
     WatchState watch;            // watching a Versus match
 
-    std::vector<ExamQ> examPool;        // every quiz question, for the exam question of the day
-    std::string examPoolError;
-
     std::vector<Region> campaign;       // content/campaign.txt
     std::string campaignError;
     bool inCampaign = false;     // lessons and quizzes go back to the campaign map, not the topic map
@@ -299,12 +300,9 @@ void screen_codex(App &app);
 void open_bugdex(App &app);
 void screen_bugdex(App &app);
 void open_farm(App &app);
-// The exam question of the day: one question from all the material, one go.
-void open_examq(App &app);
-void screen_examq(App &app);
-// A quiz answer button (screen_quiz.cpp), shared with the exam question's screen.
-// age is the seconds since it was answered, for the pop and shake.
-bool quiz_option_button(const std::string &label, int number, Rectangle r, bool answered, int chosen, int answerNo, float age);
+// The daily question: one Exam prep problem a day, from all the sets.
+void open_dailyq(App &app);
+void screen_dailyq(App &app);
 void screen_farm(App &app);
 // The Bit Garden, small, for the view out of Mal's window.
 void draw_garden_view(const App &app, Rectangle area, float t);

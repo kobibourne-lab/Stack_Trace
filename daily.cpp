@@ -43,7 +43,7 @@ static const std::vector<Quest> &pile(int which)
         { "run", 3, "Run your code 3 times in Exam prep", 15, false },
         { "answer", 8, "Answer 8 quiz questions", 15, false },
         { "outputle", 1, "Solve today's Codle", 15, false },
-        { "examq", 1, "Answer today's exam question", 15, false },
+        { "dailyq", 1, "Solve today's daily question", 15, false },
     };
     static const std::vector<Quest> push = {
         { "correct", 15, "Get 15 answers right", 25, false },
