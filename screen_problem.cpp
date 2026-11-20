@@ -54,7 +54,7 @@ void save_draft(App &app)
     Workspace &w = app.work;
     if (w.draftPath.empty() || !w.code.changed) return;
     std::error_code ec;
-    std::filesystem::create_directories("saves", ec);
+    std::filesystem::create_directories(std::filesystem::path(w.draftPath).parent_path(), ec);
     std::ofstream f(w.draftPath);
     if (f) {
         f << eb_text(w.code);

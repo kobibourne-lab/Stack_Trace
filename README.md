@@ -307,8 +307,11 @@ not just one lab; the campaign's boss problems are left out). It's the same for
 everyone on that date, so you can compare with a friend, and it changes at
 midnight, every 24 hours.
 
-- **Start** opens it on the normal problem screen (hints, saved code, Run and
-  Submit). There's no limit on tries until midnight. Solving it anywhere counts.
+- **Start** opens it on the normal problem screen (hints, Run and Submit). It
+  always starts clean, from the problem's starter code, never from a draft you
+  wrote in Exam prep. Today's code is kept in `saves/daily/<date>/`, so you can
+  leave and come back today, and a new day starts clean. There's no limit on
+  tries until midnight. Solving it anywhere counts.
 - Solving it pays 30 bytes, plus 5 more for each day already in your streak (up
   to 25 extra), once a day. The "Solved!" card shows what it paid.
 - The streak counts days in a row solved; a missed day ends it. **Copy result**

@@ -136,8 +136,7 @@ void screen_dailyq(App &app)
     std::string label = solved ? "Open it again" : "Start";
     if (ui_button(label, { rx + 24, ry + card.height - 66, 180, 46 }, ButtonStyle::Primary, solved ? COL_GREEN : COL_AMBER) ||
         (IsKeyPressed(KEY_ENTER) && !solved)) {
-        open_problem(app, ref.set, ref.problem, false);
-        app.work.fromDaily = true;
+        open_problem(app, ref.set, ref.problem, false, true);
         return;
     }
     bool copied = GetTime() - copiedAt < 1.5;

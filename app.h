@@ -223,7 +223,9 @@ void open_lesson(App &app);
 void open_quiz(App &app);
 void open_exam_prep(App &app);
 // Opens a problem on the problem screen. examMode starts the timer and hides hints.
-void open_problem(App &app, int set, int problem, bool examMode);
+// daily: the daily question. It starts from the problem's starter code (never an old draft from
+// Exam prep), and keeps today's code in saves/daily/<date>/, so a new day starts clean.
+void open_problem(App &app, int set, int problem, bool examMode, bool daily = false);
 
 // Records an answer for the topic and saves progress.txt straight away.
 void record_answer(App &app, const std::string &topic, bool correct);
