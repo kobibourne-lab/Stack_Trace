@@ -15,6 +15,12 @@
 #include <cmath>
 
 // Animation timers for this screen. They only change how things look.
+// a + (b - a) * k: a theme colour tinted towards another
+static Color mix_col(Color a, Color b, float k)
+{
+    return { (unsigned char)(a.r + (b.r - a.r) * k), (unsigned char)(a.g + (b.g - a.g) * k), (unsigned char)(a.b + (b.b - a.b) * k), 255 };
+}
+
 static float answeredAt = -100;   // GetTime() when the current question was answered
 static float shownProgress = 0;   // the progress bar's fill, easing towards the real value
 static int comboShown = 0;        // the combo the badge last showed, to pop it when it grows
@@ -72,18 +78,20 @@ static void answer(App &app, int choice, Vector2 at)
 
 // An option: a chunky button that pops green when it's the answer, and shakes
 // when it was picked wrongly.
-bool quiz_option_button(const std::string &label, int number, Rectangle r, bool answered, int chosen, int answerNo, float age)
+static bool option_button(const std::string &label, int number, Rectangle r, const QuizSession &s, const Question &q)
 {
     Color border = COL_LINE, fill = COL_SURFACE, text = COL_TEXT, base = COL_LINE;
-    bool clickable = !answered;
+    bool clickable = !s.answered;
     bool hover = clickable && CheckCollisionPointRec(GetMousePosition(), r);
     bool held = hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    float age = since_answer();
 
-    bool isAnswer = answered && number == answerNo;
-    bool isWrongPick = answered && number == chosen && !isAnswer;
-    if (isAnswer) { border = COL_GREEN; text = COL_GREEN; fill = { 29, 58, 38, 255 }; base = { 47, 107, 58, 255 }; }
-    else if (isWrongPick) { border = COL_CORAL; text = COL_CORAL; fill = { 58, 30, 30, 255 }; base = { 110, 48, 45, 255 }; }
-    else if (answered) text = COL_MUTED;
+    bool isAnswer = s.answered && number == q.answer;
+    bool isWrongPick = s.answered && number == s.chosen && !isAnswer;
+    // Tints mixed from the theme's colours, so they read on light themes too
+    if (isAnswer) { border = COL_GREEN; text = COL_GREEN; fill = mix_col(COL_SURFACE, COL_GREEN, 0.16f); base = mix_col(COL_SURFACE, COL_GREEN, 0.4f); }
+    else if (isWrongPick) { border = COL_CORAL; text = COL_CORAL; fill = mix_col(COL_SURFACE, COL_CORAL, 0.16f); base = mix_col(COL_SURFACE, COL_CORAL, 0.4f); }
+    else if (s.answered) text = COL_MUTED;
     else if (hover) { fill = COL_SURFACE_2; border = COL_TEXT_SOFT; base = COL_TEXT_SOFT; ui_want_hand(); }
 
     // Pop: the right answer swells and settles. Shake: the wrong pick wobbles.
@@ -114,11 +122,6 @@ bool quiz_option_button(const std::string &label, int number, Rectangle r, bool 
 
     bool clicked = hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     return clicked;
-}
-
-static bool option_button(const std::string &label, int number, Rectangle r, const QuizSession &s, const Question &q)
-{
-    return quiz_option_button(label, number, r, s.answered, s.chosen, q.answer, since_answer());
 }
 
 static void draw_status(App &app)
@@ -221,7 +224,7 @@ static void draw_question(App &app, const Question &q)
     float textH = ui_text_wrapped_height(q.explain, textW, 15);
     float boxH = fmaxf(textH + 140, 190);
     Rectangle box = { rx, ry + (1 - slide) * 40, rw, boxH };
-    Color tint = s.lastCorrect ? Color{ 22, 38, 28, 255 } : Color{ 40, 24, 26, 255 };
+    Color tint = mix_col(COL_SURFACE, vc, 0.1f);
     ui_panel(box, tint, vc, 1.5f);
     mal_draw(app.mal, { box.x + 62, box.y + boxH - 22 }, 80);
     ui_text(verdict, textX, box.y + 18, 21, vc, FontKind::UiBold);
