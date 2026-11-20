@@ -27,6 +27,10 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "purple",     "Heap purple",     WearKind::Skin, 6,  0, false, 0, 60 },
         { "blue",       "Pointer blue",    WearKind::Skin, 8,  0, false, 0, 80 },
         { "tux",        "Tuxedo",          WearKind::Skin, 10, 0, false, 0, 100 },
+        { "lime",       "Volatile lime",   WearKind::Skin, 12, 0, false, 0, 120 },
+        { "lava",       "Stack overflow",  WearKind::Skin, 14, 0, false, 0, 140 },   // molten, with glowing cracks
+        { "ice",        "Frozen const",    WearKind::Skin, 16, 0, false, 0, 160 },   // frost and snowflakes
+        { "rgb",        "RGB",             WearKind::Skin, 18, 0, false, 0, 200 },   // every colour, cycling
         // Boss skins: beat a boss and you can wear its look
         { "offbyone",   "The Off-By-One",  WearKind::Skin, 0,  1, false },   // an extra eye, 0x9001
         { "dangling",   "Dangling Pointer",WearKind::Skin, 0,  2, false },   // half freed, flickers
@@ -34,7 +38,7 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "shallow",    "Shallow Copy",    WearKind::Skin, 0,  4, false },   // a ghost copy, one array
         { "impostor",   "The Impostor",    WearKind::Skin, 0,  5, false },   // glasses, nose and moustache
         { "invalidator","The Invalidator", WearKind::Skin, 0,  6, false },   // a stale iterator over Mal
-        { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  4, false },
+        { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  6, false },   // every boss beaten
         { "diamond",    "Diamond",         WearKind::Skin, 0,  0, true  },
         // The shop: bought with bytes (price last), only in the SHOP tab
         { "beanie",     "Beanie",          WearKind::Hat,  0,  0, false, 0, 40 },   // a knitted hat with a bobble
@@ -46,6 +50,8 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "cat",        "const cat",       WearKind::Pet,  4,  0, false, 0, 40 },   // never moves
         { "dog",        "static dog",      WearKind::Pet,  8,  0, false, 0, 80 },   // remembers you
         { "bird",       "volatile bird",   WearKind::Pet,  10, 0, false, 0, 100 },   // changes when you're not looking
+        { "ghost",      "void* ghost",     WearKind::Pet,  12, 0, false, 0, 120 },   // points at nothing, fades in and out
+        { "snake",      "linked list snake", WearKind::Pet, 0, 3, false },          // beat The Heap (the 3rd boss)
     };
     return items;
 }

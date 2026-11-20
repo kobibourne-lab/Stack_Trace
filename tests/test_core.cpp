@@ -44,6 +44,7 @@
 #include "../codex.h"
 #include "../bugdex.h"
 #include "../farm.h"
+#include "../apptheme.h"
 #include <chrono>
 #include <thread>
 
@@ -409,6 +410,36 @@ static void test_editor()
     CHECK(b.row == 2 && b.col == 9);
     eb_home(b);
     CHECK(b.col == 0);
+
+    // Selecting: shift-moves, copy, typing over it, deleting it, select all
+    EditBuffer sel;
+    eb_set_text(sel, "int a = 1;\nint b = 2;\nint c = 3;\n");
+    size_t lines = sel.lines.size();
+    eb_move_to(sel, 0, 4);
+    CHECK(!eb_has_selection(sel));
+    eb_start_selection(sel);
+    eb_move_to(sel, 1, 5);
+    CHECK(eb_has_selection(sel) && eb_selected_text(sel) == "a = 1;\nint b");
+    int f, t;
+    eb_selection_on_row(sel, 0, f, t);
+    CHECK(f == 4 && t == 11);
+    eb_selection_on_row(sel, 2, f, t);
+    CHECK(f == t);
+    eb_type(sel, 'x');   // typing replaces it
+    CHECK(sel.lines[0] == "int x = 2;" && sel.lines.size() == lines - 1 && !eb_has_selection(sel));
+    eb_undo(sel);
+    eb_undo(sel);
+    CHECK(sel.lines[0] == "int a = 1;" && sel.lines[1] == "int b = 2;");
+    eb_move_to(sel, 2, 9);   // backwards selections work too
+    sel.selRow = 2; sel.selCol = 9;
+    eb_move_to(sel, 2, 4);
+    CHECK(eb_selected_text(sel) == "c = 3");
+    eb_backspace(sel);
+    CHECK(sel.lines[2] == "int ;");
+    eb_select_all(sel);
+    CHECK(eb_selected_text(sel).find("int a = 1;\nint b = 2;\nint ;") == 0);
+    eb_paste(sel, "done");
+    CHECK(sel.lines.size() == 1 && sel.lines[0] == "done");
 }
 
 static void test_practice()
@@ -524,6 +555,46 @@ static void test_real_problems()
     RunResult broken = run_answer(*leap, "bool isLeapYear(int y) { return y % 4 == 0 }\n", "practice_build");
     CHECK(broken.status == RunStatus::CompileError);
     CHECK(broken.compilerOutput.find("solution.cpp:1") != std::string::npos);   // the student's own line number
+    CHECK(!broken.problems.empty() && broken.problems[0].line == 1 && broken.problems[0].error);
+    CHECK(exam_reward("Easy", true, false) == 10 && exam_reward("Hard", true, false) == 30 && exam_reward("Medium", true, false) == 20);
+    CHECK(exam_reward("Hard", false, true) == 15 && exam_reward("Medium", false, false) == 0);
+
+    // Crashes and endless loops: the test it happened in is marked, and the
+    // rest still run (Insert at Position, without the out-of-range checks)
+    const Problem *pos = nullptr;
+    for (const ProblemSet &s : sets) for (const Problem &p : s.problems) if (p.id == "exam2/13_insert_at_position") pos = &p;
+    CHECK(pos != nullptr);
+    if (pos == nullptr) return;
+    std::vector<CheckInfo> checks = split_checks(*pos);
+    CHECK(checks.size() == 7 && checks[6].description == "positions 10 and -1 change nothing");
+    CHECK(checks[6].code.find("InsertAtPosition(9, 10)") != std::string::npos);   // what it was doing
+    std::string head = "#include <iostream>\nusing namespace std;\nclass DoublyLinkedNode { public: int data; DoublyLinkedNode *prevPointer, *nextPointer;\n"
+                       "  DoublyLinkedNode(int v) { data = v; prevPointer = nextPointer = nullptr; } };\n"
+                       "class DoublyLinkedList { public: DoublyLinkedNode *head = nullptr;\n  void InsertAtPosition(int value, int position) {\n"
+                       "    DoublyLinkedNode *n = new DoublyLinkedNode(value);\n"
+                       "    if (position == 0) { n->nextPointer = head; if (head) head->prevPointer = n; head = n; return; }\n";
+    std::string walk = "    DoublyLinkedNode *p = head;\n    for (int i = 0; i < position - 1; i++) p = p->nextPointer;\n"
+                       "    n->nextPointer = p->nextPointer; n->prevPointer = p; if (p->nextPointer) p->nextPointer->prevPointer = n; p->nextPointer = n;\n  } };\n";
+    RunProgress live;
+    RunResult crash = run_answer(*pos, head + walk, "practice_build", &live);
+    CHECK(crash.status == RunStatus::Crashed);
+    CHECK(crash.tests.size() == 7 && crash.passed == 6 && crash.crashedAt == 6);
+    CHECK(crash.tests.size() == 7 && crash.tests[6].outcome == TestOutcome::Crashed && crash.tests[6].crash == "segmentation fault");
+    CHECK(live.done && live.state.size() == 7 && live.state[6] == 3 && !live.log.empty());
+
+    // An endless loop in the third test's setup: that test is stopped, and the
+    // ones after it (which run the same setup) can't run, so they say so
+    std::string hang = "    if (position == 1 && head && head->nextPointer) { while (true) {} }\n";
+    RunResult loop = run_answer(*pos, head + hang + walk, "practice_build");
+    CHECK(loop.status == RunStatus::Crashed);   // timed out, then the rest not run
+    CHECK(loop.tests.size() == 7 && loop.tests[0].passed && loop.tests[1].passed);
+    CHECK(loop.tests.size() == 7 && loop.tests[2].outcome == TestOutcome::TimedOut);
+    CHECK(loop.tests.size() == 7 && loop.tests[3].outcome == TestOutcome::NotRun && loop.tests[6].outcome == TestOutcome::NotRun);
+
+    // A wrong answer in one test and a crash in a later one: both are reported
+    std::string bad = "    if (position == 1 && head && !head->nextPointer) { n->nextPointer = nullptr; head->nextPointer = n; n->prevPointer = head; n->data = 99; return; }\n";
+    RunResult mixed = run_answer(*pos, head + bad + walk, "practice_build");
+    CHECK(mixed.tests.size() == 7 && mixed.tests[1].outcome == TestOutcome::Failed && mixed.tests[6].outcome == TestOutcome::Crashed);
 }
 
 static RunResult fake_run(RunStatus status, int passed, int failed)
@@ -998,6 +1069,8 @@ static void test_wardrobe_snake_scores()
     CHECK(wardrobe_unlocked(*wardrobe_find("glitch"), u));
     CHECK(wardrobe_requirement(*wardrobe_find("glitch")) == "Crash a MAL-OS game");
     CHECK(wardrobe_find("bird") && wardrobe_find("bird")->kind == WearKind::Pet);
+    CHECK(wardrobe_find("ghost") && wardrobe_find("ghost")->kind == WearKind::Pet && wardrobe_find("ghost")->level == 12 && wardrobe_find("ghost")->price == 120);
+    CHECK(wardrobe_find("snake") && wardrobe_find("snake")->kind == WearKind::Pet && wardrobe_find("snake")->bosses == 3);
     CHECK(wardrobe_find("afro") && wardrobe_find("mohawk"));
     CHECK(wardrobe_rename("tophat") == "helicopter" && wardrobe_rename("gold") == "diamond" && wardrobe_rename("afro") == "afro");
     CHECK(!wardrobe_unlocked(*wardrobe_find("diamond"), UnlockInfo()));
@@ -1114,9 +1187,9 @@ static void test_spectators()
     // A whole match as a spectator sees it
     VsSpectate s;
     double t = 100;
-    vs_spectate_apply(s, "P 0 HELLO 2 Ryan", t);
+    vs_spectate_apply(s, "P 0 HELLO " + std::to_string(VERSUS_VERSION) + " Ryan", t);
     vs_spectate_apply(s, "P 0 STATS 7 21", t);
-    vs_spectate_apply(s, "P 1 HELLO 2 Kobi", t);
+    vs_spectate_apply(s, "P 1 HELLO " + std::to_string(VERSUS_VERSION) + " Kobi", t);
     vs_spectate_apply(s, "P 0 SETTINGS exam2 Easy 10", t);
     vs_spectate_apply(s, "ROOM Aoife:-1:0 Cian:1:60", t);
     CHECK(s.side[0].them.name == "Ryan" && s.side[1].them.name == "Kobi");
@@ -1166,12 +1239,16 @@ static void test_spectators()
     NetConn a, b, inA, inB;
     CHECK(net_join(a, "127.0.0.1", port, 0));
     CHECK(net_join(b, "127.0.0.1", port, 0));
+    // Give the connections real time to arrive (up to 2 seconds): on Windows a
+    // connection on this computer can take a few milliseconds, so spinning without
+    // waiting could give up before it got there.
     int accepted = 0;
-    for (int i = 0; i < 200 && accepted < 2; i++) {
+    for (int i = 0; i < 400 && accepted < 2; i++) {
         net_update(a, 0);
         net_update(b, 0);
         if (accepted == 0 && net_server_accept(server, inA)) accepted++;
         if (accepted == 1 && net_server_accept(server, inB)) accepted++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     CHECK(accepted == 2);
     CHECK(inA.state == NetState::Connected && inB.state == NetState::Connected);
@@ -1179,11 +1256,12 @@ static void test_spectators()
     net_send(inA, "ROOM Aoife:-1:0");
     net_send(inB, "ROOM Aoife:-1:0");
     std::string got, gotA, gotB;
-    for (int i = 0; i < 200 && (got.empty() || gotA.empty() || gotB.empty()); i++) {
+    for (int i = 0; i < 400 && (got.empty() || gotA.empty() || gotB.empty()); i++) {
         net_update(a, 0); net_update(b, 0); net_update(inA, 0); net_update(inB, 0);
         if (got.empty()) net_receive(inA, got);
         if (gotA.empty()) net_receive(a, gotA);
         if (gotB.empty()) net_receive(b, gotB);
+        if (got.empty() || gotA.empty() || gotB.empty()) std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     CHECK(got == "WATCH 2 Aoife");
     CHECK(gotA == "ROOM Aoife:-1:0" && gotB == "ROOM Aoife:-1:0");
@@ -1455,7 +1533,7 @@ static void test_outputle()
     CHECK(!outputle_guess(p, day, answer, won, why));         // over for today
     CHECK(p.outputleStats.played == 1 && p.outputleStats.won == 1 && p.outputleStats.streak == 1 && p.outputleStats.dist[2] == 1);
     std::string share = outputle_share(p, day);
-    CHECK(share.find("Outputle #8 3/6") == 0);
+    CHECK(share.find("Codle #8 3/6") == 0);
     CHECK(share.find(answer) == std::string::npos || answer.size() < 2);   // no spoilers
 
     // The next day, solved first time: the streak goes up. Then a lost day resets it.
@@ -1579,6 +1657,15 @@ static void test_farm()
     p.points["arith"] = 80;
     CHECK(crop_stage(p, "arith") == 3 && crop_harvest_value(p, "arith", today) == 4);
 
+    // A different look every weekday: 16 Nov 2026 is a Monday, the 22nd a Sunday
+    CHECK(garden_theme_for("2026-11-16") == 0 && std::string(garden_theme_name(0)) == "Midnight Ice");
+    CHECK(garden_theme_for("2026-11-20") == 4 && std::string(garden_theme_name(4)) == "Outrun");
+    CHECK(garden_theme_for("2026-11-22") == 6 && std::string(garden_theme_name(6)) == "Aurora");
+    CHECK(garden_theme_for("2026-11-23") == 0);
+    std::set<int> themes;
+    for (int d = 0; d < 7; d++) themes.insert(garden_theme_for(date_add_days("2026-11-16", d)));
+    CHECK(themes.size() == 7);
+
     std::string why;
     CHECK(!farm_buy_drone(p, why) && !farm_has_drone(p));
     p.bytes = 200;
@@ -1590,6 +1677,71 @@ static void test_farm()
     Progress back;
     CHECK(progress_load("test_progress.txt", back, error));
     CHECK(back.harvested["pointers"] == "2026-11-28" && farm_has_drone(back));
+}
+
+static void test_app_themes()
+{
+    CHECK(app_themes().size() == 8);
+    CHECK(app_theme_find("neon") && app_theme_find("neon")->price == 300);
+    CHECK(app_theme_find("nope") == nullptr);
+    Progress p;
+    p.bytes = 0;
+    std::string why;
+    // The normal look and Paper are free from the start; the rest are locked
+    CHECK(app_theme_unlocked(p, *app_theme_find("default")) && app_theme_unlocked(p, *app_theme_find("paper")));
+    CHECK(!app_theme_unlocked(p, *app_theme_find("phosphor")));
+    CHECK(!app_theme_unlocked(p, *app_theme_find("neon")) && app_theme_earned(p, *app_theme_find("neon")));
+    CHECK(!app_theme_unlocked(p, *app_theme_find("blueprint")));
+    CHECK(app_theme_requirement(*app_theme_find("phosphor")) == "Reach level 5");
+    CHECK(app_theme_requirement(*app_theme_find("blueprint")) == "Beat 3 bosses");
+
+    CHECK(!app_theme_use(p, "phosphor", why) && p.theme == "default");
+    CHECK(app_theme_use(p, "paper", why) && p.theme == "paper");
+
+    // Neon Night costs 300 bytes
+    p.bytes = 120;
+    CHECK(!app_theme_buy(p, "neon", why) && why == "Need 180 more bytes" && p.bytes == 120);
+    p.bytes = 350;
+    CHECK(app_theme_buy(p, "neon", why) && p.bytes == 50 && p.owned.count("theme_neon"));
+    CHECK(!app_theme_buy(p, "neon", why));   // already got it
+    CHECK(app_theme_use(p, "neon", why) && p.theme == "neon");
+    CHECK(!app_theme_buy(p, "paper", why));  // free ones aren't bought
+
+    // Phosphor at level 5 (500 XP: three bosses with a star each is 525)
+    CHECK(level_for_xp(progress_xp(p)) < 5);
+    p.bosses["a"] = BossRecord{ "2026-11-10", 300, 1 };
+    p.bosses["b"] = BossRecord{ "2026-11-11", 300, 1 };
+    CHECK(!app_theme_unlocked(p, *app_theme_find("blueprint")));   // two bosses isn't enough
+    p.bosses["c"] = BossRecord{ "2026-11-12", 300, 1 };
+    CHECK(app_theme_unlocked(p, *app_theme_find("blueprint")));
+    CHECK(level_for_xp(progress_xp(p)) >= 5 && app_theme_unlocked(p, *app_theme_find("phosphor")));
+    CHECK(app_theme_use(p, "phosphor", why));
+
+    // The theme in use is saved
+    std::string error;
+    CHECK(progress_save("test_theme_progress.txt", p, error));
+    Progress back;
+    CHECK(progress_load("test_theme_progress.txt", back, error));
+    CHECK(back.theme == "phosphor" && back.owned.count("theme_neon"));
+    std::remove("test_theme_progress.txt");
+    Progress fresh;
+    CHECK(fresh.theme == "default");
+
+    // Retro OS for bytes, Pocket for 10 Codle wins, Deep Sea for 10 topics mastered
+    Progress q;
+    q.bytes = 500;
+    CHECK(app_theme_requirement(*app_theme_find("pocket")) == "Win 10 Codles");
+    CHECK(app_theme_requirement(*app_theme_find("deepsea")) == "Master 10 topics");
+    CHECK(app_theme_buy(q, "retro", why) && q.bytes == 300 && app_theme_use(q, "retro", why));
+    CHECK(!app_theme_unlocked(q, *app_theme_find("pocket")));
+    q.outputleStats.won = 9;
+    CHECK(!app_theme_use(q, "pocket", why));
+    q.outputleStats.won = 10;
+    CHECK(app_theme_use(q, "pocket", why) && q.theme == "pocket");
+    for (int i = 0; i < 9; i++) q.points["topic" + std::to_string(i)] = POINTS_MAX;
+    CHECK(!app_theme_unlocked(q, *app_theme_find("deepsea")));
+    q.points["topic9"] = POINTS_MAX;
+    CHECK(app_theme_unlocked(q, *app_theme_find("deepsea")));
 }
 
 int main()
@@ -1616,10 +1768,11 @@ int main()
     run("Versus: Mal's look for players and the crowd", test_versus_looks);
     run("the wardrobe shop: buying with bytes", test_wardrobe_shop);
     run("daily loop: streak, const freezes, quests, chests", test_daily);
-    run("Outputle: puzzles, colours, guesses, streak", test_outputle);
+    run("Codle (Outputle): puzzles, colours, guesses, streak", test_outputle);
     run("the C Codex: entries, unlocking, search", test_codex);
     run("the Bugdex: quick fixes, bosses, catching", test_bugdex);
     run("the Memory Farm: growing, wilting, harvest, drone", test_farm);
+    run("app themes: unlocking, buying, switching, saving", test_app_themes);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

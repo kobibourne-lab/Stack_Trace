@@ -191,7 +191,7 @@ void screen_title(App &app)
     if (ui_button("Versus", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_CORAL)) { open_versus(app); return; }
     y += bh + gap;
     std::string today = today_string();
-    std::string outLabel = "Outputle #" + std::to_string(outputle_number(today)) +
+    std::string outLabel = "Codle #" + std::to_string(outputle_number(today)) +
                            (outputle_won(app.progress, today) ? "  solved" : outputle_over(app.progress, today) ? "  done" : "");
     if (ui_button(outLabel, { x, y, bw, bh }, ButtonStyle::Outline, COL_GREEN)) { open_outputle(app); return; }
     if (ui_button("Profile", { x + bw + gap, y, bw, bh }, ButtonStyle::Outline, COL_AMBER)) { app.screen = Screen::Profile; return; }
@@ -214,7 +214,7 @@ void screen_title(App &app)
     // Along the bottom: who made it, and the keys
     float fy = SCREEN_H - FOOTER_H;
     DrawLine(0, (int)fy, SCREEN_W, (int)fy, COL_LINE_SOFT);
-    ui_text("ENTER campaign  T topics  E exam  V versus  D daily  O outputle  X codex  B bugdex  P profile  ESC quit", MARGIN, fy + 20, 13,
+    ui_text("ENTER campaign  T topics  E exam  V versus  D daily  O codle  X codex  B bugdex  P profile  ESC quit", MARGIN, fy + 20, 13,
             COL_MUTED, FontKind::Mono);
     const char *credit = "Advanced Programming, SETU  |  Ryan Mulcahy & Kobi Bourne";
     ui_text(credit, SCREEN_W - MARGIN - ui_text_width(credit, 13), fy + 19, 13, COL_MUTED);

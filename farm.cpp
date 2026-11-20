@@ -61,6 +61,18 @@ int crop_harvest(Progress &p, const std::string &topic, const std::string &today
     return bytes;
 }
 
+int garden_theme_for(const std::string &date)
+{
+    int d = date_weekday(date);   // 0 = Monday
+    return d < 0 ? 0 : d % GARDEN_THEMES;
+}
+
+const char *garden_theme_name(int theme)
+{
+    static const char *names[GARDEN_THEMES] = { "Midnight Ice", "Vaporwave", "Toxic Lime", "Gold Hour", "Outrun", "Synthwave", "Aurora" };
+    return names[theme < 0 || theme >= GARDEN_THEMES ? 0 : theme];
+}
+
 bool farm_has_drone(const Progress &p)
 {
     return p.owned.count("drone") > 0;

@@ -172,7 +172,7 @@ std::string outputle_share(const Progress &p, const std::string &date)
 {
     const std::vector<std::string> &g = outputle_guesses(p, date);
     const std::string &answer = outputle_puzzles()[outputle_index(date)].answer;
-    std::string out = "Outputle #" + std::to_string(outputle_number(date)) + " " +
+    std::string out = "Codle #" + std::to_string(outputle_number(date)) + " " +
                       (outputle_won(p, date) ? std::to_string(g.size()) : "X") + "/" + std::to_string(OUTPUTLE_TRIES) + "\n";
     for (const std::string &guess : g) {
         for (int c : outputle_grade(guess, answer)) out += c == 2 ? "\xF0\x9F\x9F\xA9" : c == 1 ? "\xF0\x9F\x9F\xA8" : "\xE2\xAC\x9B";

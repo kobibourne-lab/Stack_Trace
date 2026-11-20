@@ -1,6 +1,8 @@
 // app.h - everything the screens share, and the functions that move between them.
 
 #pragma once
+#include <atomic>
+#include <memory>
 #include <string>
 #include <vector>
 #include "content.h"
@@ -23,6 +25,14 @@
 
 enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm };
 
+// A run of the code on another thread, so the window never freezes while it
+// compiles and runs. The screen draws progress.log as it fills up.
+struct RunJob {
+    RunProgress progress;
+    RunResult result;
+    std::atomic<bool> finished{ false };   // result is ready
+};
+
 // The problem being solved (the LeetCode-style screen).
 struct Workspace {
     int set = 0, problem = 0;          // indexes into App::practice
@@ -44,8 +54,12 @@ struct Workspace {
     bool firstSolve = false;           // the first time this problem was solved (XP!)
     bool newBest = false;              // faster than the last time
     int solveSeconds = 0, bestSeconds = 0;
+    int bytesWon = 0;                  // exam mode: bytes for a first solve or a new best
 
-    int runPhase = 0;                  // 0 idle, 1 showing "Running", 2 running now
+    int runPhase = 0;                  // 0 idle, 1 running (on another thread: see job)
+    std::shared_ptr<RunJob> job;       // the run going on now
+    int consoleTab = 0;                // 0 tests, 1 terminal, 2 problems (compile errors)
+    float termScroll = 0;              // the terminal tab's scroll, in lines from the bottom
     bool submitting = false;           // Submit (counts if accepted) rather than Run
     bool hasResult = false;
     RunResult result;
@@ -282,6 +296,8 @@ void open_bugdex(App &app);
 void screen_bugdex(App &app);
 void open_farm(App &app);
 void screen_farm(App &app);
+// The Bit Garden, small, for the view out of Mal's window.
+void draw_garden_view(const App &app, Rectangle area, float t);
 void draw_bug(const Bug &bug, Vector2 centre, float size, float t, bool silhouette);
 // The code tree (a branch per region, a leaf per topic): Mal's room and the farm draw it.
 void draw_code_tree(const App &app, Rectangle area, float t, bool labels);

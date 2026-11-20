@@ -184,9 +184,11 @@ static float roundness_for(Rectangle r, float radius)
 // on every raylib version (DrawRectangleRoundedLines changed between 5.0 and 5.5).
 void ui_panel(Rectangle r, Color fill, Color border, float borderWidth)
 {
+    theme_panel_under(r, fill, border);   // the app theme's glow or shadow (big panels only)
     if (borderWidth > 0) DrawRectangleRounded(r, roundness_for(r, 8), 8, border);
     Rectangle inner = { r.x + borderWidth, r.y + borderWidth, r.width - 2 * borderWidth, r.height - 2 * borderWidth };
     DrawRectangleRounded(inner, roundness_for(inner, 8 - borderWidth), 8, fill);
+    theme_panel_over(r, fill, border);    // tape, pencil, measurements
 }
 
 void ui_triangle(Vector2 a, Vector2 b, Vector2 c, Color color)

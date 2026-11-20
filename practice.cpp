@@ -7,8 +7,11 @@
 //   2. run_answer() compiles it with the computer's C++ compiler and runs it.
 //   3. The test program prints one line per test, starting @@PASS or @@FAIL,
 //      and parse_test_output() turns those back into results.
-// A watchdog in the test program stops it after a few seconds, so an endless
-// loop shows "Time limit exceeded" instead of freezing the app.
+// Before each check it prints @@AT and the check's number, and restarts a
+// watchdog that stops it if that one test takes more than TEST_SECONDS. A
+// crash prints @@CRASH and what kind. Either way run_answer() marks that test
+// and runs the program again from the next check (the program skips the
+// checks before it), so every test still gets a result.
 
 #include "practice.h"
 #include "content.h"   // trim, split_fields
@@ -19,6 +22,9 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <functional>
+#include <cstring>
+#include <algorithm>
 
 #ifdef _WIN32
     #define ST_POPEN _popen
@@ -29,7 +35,8 @@
     #define ST_PCLOSE pclose
 #endif
 
-const int TIME_LIMIT_SECONDS = 5;
+// Stop rerunning after this long, and mark what's left "not run"
+const double RUN_BUDGET_SECONDS = 25;
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -305,6 +312,7 @@ static const char *HELPERS = R"ST(
 #undef puts
 
 static int st_passed = 0, st_failed = 0;
+static void st_tick();   // restarts the watchdog: each test gets its own time
 
 // Results go out on one line each, so newlines and tabs inside them are swapped
 static std::string st_line(std::string s)
@@ -320,6 +328,7 @@ static void st_result(bool ok, const std::string &desc, const std::string &expec
     if (ok) { st_passed++; printf("\n@@PASS\t%s\n", st_line(desc).c_str()); }
     else { st_failed++; printf("\n@@FAIL\t%s\t%s\t%s\n", st_line(desc).c_str(), st_line(expected).c_str(), st_line(got).c_str()); }
     fflush(stdout);
+    st_tick();   // the setup for the next test gets a fresh time limit too
 }
 
 static void checkBool(bool got, bool expected, const char *d)
@@ -459,41 +468,131 @@ template <typename F> static void checkOutputColumns(F f, const char *expected, 
 
 )ST";
 
-// The end: a watchdog so endless loops stop, then main().
+// Before the tests: every check goes through st_begin(), which says which
+// check is next, restarts the watchdog, and skips the checks before the one
+// to start from (without running their code: the arguments aren't evaluated).
+static const char *CHECKS = R"ST(
+static int st_at = -1, st_from = 0;
+static bool st_begin()
+{
+    st_at++;
+    printf("\n@@AT\t%d\n", st_at);
+    fflush(stdout);
+    st_tick();
+    return st_at >= st_from;
+}
+#define checkBool(...) do { if (st_begin()) checkBool(__VA_ARGS__); } while (0)
+#define checkInt(...) do { if (st_begin()) checkInt(__VA_ARGS__); } while (0)
+#define checkArray(...) do { if (st_begin()) checkArray(__VA_ARGS__); } while (0)
+#define checkString(...) do { if (st_begin()) checkString(__VA_ARGS__); } while (0)
+#define checkText(...) do { if (st_begin()) checkText(__VA_ARGS__); } while (0)
+#define checkGrid(...) do { if (st_begin()) checkGrid(__VA_ARGS__); } while (0)
+#define checkOutput(...) do { if (st_begin()) checkOutput(__VA_ARGS__); } while (0)
+#define checkOutputColumns(...) do { if (st_begin()) checkOutputColumns(__VA_ARGS__); } while (0)
+)ST";
+
+// The end: the watchdog (one test at a time), crash reports, then main().
 static std::string footer(int seconds)
 {
     std::string s = R"ST(
+#include <exception>
+#include <csignal>
+static void st_say(const char *m);
+static void st_crashed(const char *what)
+{
+    st_say("\n@@CRASH\t");
+    st_say(what);
+    st_say("\n");
+}
+static void st_on_terminate()
+{
+    st_crashed("uncaught exception");
+    std::_Exit(134);
+}
+static void st_on_abort(int) { st_crashed("abort"); std::_Exit(134); }
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX   // (g++ 15 already defines it: defining it twice filled the errors box with warnings)
+#endif
 #include <windows.h>
+static void st_say(const char *m)
+{
+    DWORD n;
+    WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), m, (DWORD)strlen(m), &n, NULL);
+}
+static volatile ULONGLONG st_deadline = 0;
+static void st_tick() { st_deadline = GetTickCount64() + ST_LIMIT * 1000; }
 static DWORD WINAPI st_watchdog(LPVOID)
 {
-    Sleep(ST_LIMIT * 1000);
-    printf("\n@@TIMEOUT\n");
-    fflush(stdout);
-    ExitProcess(124);
+    for (;;) {
+        Sleep(30);
+        if (GetTickCount64() > st_deadline) {
+            st_say("\n@@TIMEOUT\n");
+            ExitProcess(124);
+        }
+    }
     return 0;
 }
-static void st_start_watchdog() { CreateThread(NULL, 0, st_watchdog, NULL, 0, NULL); }
-#else
-#include <signal.h>
-#include <unistd.h>
-static void st_on_alarm(int)
+static LONG WINAPI st_on_exception(EXCEPTION_POINTERS *e)
 {
-    const char m[] = "\n@@TIMEOUT\n";
-    if (write(1, m, sizeof m - 1) < 0) {}
-    _exit(124);
+    DWORD c = e->ExceptionRecord->ExceptionCode;
+    st_crashed(c == EXCEPTION_ACCESS_VIOLATION ? "segmentation fault" :
+               c == EXCEPTION_STACK_OVERFLOW ? "stack overflow" :
+               c == EXCEPTION_INT_DIVIDE_BY_ZERO ? "divide by zero" :
+               c == EXCEPTION_ARRAY_BOUNDS_EXCEEDED ? "array out of bounds" :
+               c == EXCEPTION_ILLEGAL_INSTRUCTION ? "illegal instruction" : "crash");
+    ExitProcess(139);
+    return EXCEPTION_EXECUTE_HANDLER;
 }
-static void st_start_watchdog() { signal(SIGALRM, st_on_alarm); alarm(ST_LIMIT); }
+static void st_start_watchdog()
+{
+    st_tick();
+    SetUnhandledExceptionFilter(st_on_exception);
+    CreateThread(NULL, 0, st_watchdog, NULL, 0, NULL);
+}
+#else
+#include <unistd.h>
+static void st_say(const char *m) { if (write(1, m, strlen(m)) < 0) {} }
+static void st_on_alarm(int) { st_say("\n@@TIMEOUT\n"); _exit(124); }
+static void st_tick() { alarm(ST_LIMIT); }
+static void st_on_signal(int sig)
+{
+    st_crashed(sig == SIGSEGV ? "segmentation fault" : sig == SIGBUS ? "bus error" :
+               sig == SIGFPE ? "divide by zero" : sig == SIGILL ? "illegal instruction" : "crash");
+    _exit(139);
+}
+static void st_start_watchdog()
+{
+    // The crash handler gets its own stack, so a stack overflow can still be reported
+    static char altStack[65536];
+    stack_t ss = {};
+    ss.ss_sp = altStack;
+    ss.ss_size = sizeof altStack;
+    sigaltstack(&ss, NULL);
+    struct sigaction sa = {};
+    sa.sa_handler = st_on_signal;
+    sa.sa_flags = SA_ONSTACK;
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
+    sigaction(SIGFPE, &sa, NULL);
+    sigaction(SIGILL, &sa, NULL);
+    signal(SIGALRM, st_on_alarm);
+    st_tick();
+}
 #endif
 
-int main()
+int main(int argc, char **argv)
 {
     setvbuf(stdout, NULL, _IONBF, 0);   // so nothing is lost if the code crashes
+    if (argc > 1) st_from = atoi(argv[1]);   // start from this check (after a crash)
+    std::set_terminate(st_on_terminate);
+    signal(SIGABRT, st_on_abort);
     st_start_watchdog();
     st_tests();
-    printf("\n@@SUMMARY\t%d\t%d\n", st_passed, st_failed);
+    printf("\n@@SUMMARY\t%d\t%d\t%d\n", st_passed, st_failed, st_at + 1);
     return 0;
 }
 )ST";
@@ -511,6 +610,7 @@ std::string build_test_program(const Problem &p, const std::string &code, int ti
     if (!code.empty() && code.back() != '\n') out += "\n";
     out += "#line 1 \"stacktrace_helpers\"\n";
     out += HELPERS;
+    out += CHECKS;
     out += "#line 1 \"tests\"\n";
     out += "static void st_tests()\n{\n";
     for (const std::string &line : p.tests) out += line + "\n";
@@ -559,6 +659,8 @@ void parse_test_output(const std::string &output, RunResult &r)
             summary = true;
         } else if (line == "@@TIMEOUT") {
             timeout = true;
+        } else if (line.compare(0, 4, "@@AT") == 0 || line.compare(0, 7, "@@CRASH") == 0) {
+            // which check is running, and how it crashed: run_answer() reads these
         } else if (!line.empty()) {
             r.programOutput += line + "\n";
         }
@@ -579,19 +681,36 @@ bool run_accepted(const RunResult &r)
 // ---------------------------------------------------------------------------
 
 // Runs a shell command, returning its output (stdout and stderr) and exit code.
-static int run_command(const std::string &command, std::string &output)
+// onLine (optional) sees each line as it comes, for a live view. A program
+// killed by a signal returns 128 + the signal's number.
+static int run_command(const std::string &command, std::string &output,
+                       const std::function<void(const std::string &)> &onLine = nullptr)
 {
     output.clear();
     std::string full = command + " 2>&1";
     FILE *pipe = ST_POPEN(full.c_str(), "r");
     if (pipe == nullptr) return -1;
     char buf[1024];
+    std::string partial;
     while (fgets(buf, sizeof buf, pipe) != nullptr) {
         if (output.size() < 200000) output += buf;
+        if (onLine) {
+            partial += buf;
+            if (!partial.empty() && partial.back() == '\n') {
+                partial.pop_back();
+                if (!partial.empty() && partial.back() == '\r') partial.pop_back();
+                onLine(partial);
+                partial.clear();
+            } else if (partial.size() > 4000) {   // a very long line: pass it on in pieces
+                onLine(partial);
+                partial.clear();
+            }
+        }
     }
+    if (onLine && !partial.empty()) onLine(partial);
     int status = ST_PCLOSE(pipe);
 #ifndef _WIN32
-    if (status != -1) status = WIFEXITED(status) ? WEXITSTATUS(status) : 128;
+    if (status != -1) status = WIFEXITED(status) ? WEXITSTATUS(status) : (WIFSIGNALED(status) ? 128 + WTERMSIG(status) : 128);
 #endif
     return status;
 }
@@ -627,17 +746,216 @@ const std::string &find_compiler()
     return found;
 }
 
-RunResult run_answer(const Problem &p, const std::string &code, const std::string &workDir)
+// ---------------------------------------------------------------------------
+// The tests' checks, read before running (for names and context of crashes)
+// ---------------------------------------------------------------------------
+
+static const char *CHECK_NAMES[] = { "checkBool", "checkInt", "checkArray", "checkString", "checkText",
+                                     "checkGrid", "checkOutputColumns", "checkOutput" };
+
+// How many checks start on this line (a call like checkInt( ...)
+static int checks_on_line(const std::string &line)
+{
+    int n = 0;
+    for (const char *name : CHECK_NAMES) {
+        size_t len = strlen(name);
+        for (size_t at = line.find(name); at != std::string::npos; at = line.find(name, at + len)) {
+            bool startOfWord = at == 0 || !(isalnum((unsigned char)line[at - 1]) || line[at - 1] == '_');
+            size_t end = at + len;
+            if (end < line.size() && (isalnum((unsigned char)line[end]) || line[end] == '_')) continue;   // checkOutput vs checkOutputColumns
+            while (end < line.size() && line[end] == ' ') end++;
+            if (startOfWord && end < line.size() && line[end] == '(') n++;
+        }
+    }
+    return n;
+}
+
+// The last "string literal" on the line: a check's description
+static std::string last_string(const std::string &line)
+{
+    std::string last, cur;
+    bool in = false;
+    for (size_t i = 0; i < line.size(); i++) {
+        char c = line[i];
+        if (in) {
+            if (c == '\\' && i + 1 < line.size()) { cur += line[++i]; continue; }
+            if (c == '"') { in = false; last = cur; continue; }
+            cur += c;
+        } else if (c == '"') { in = true; cur.clear(); }
+        else if (c == '\'' && i + 2 < line.size()) i += (line[i + 1] == '\\') ? 3 : 2;   // skip 'x' and '\n'
+    }
+    return last;
+}
+
+std::vector<CheckInfo> split_checks(const Problem &p)
+{
+    std::vector<CheckInfo> out;
+    std::vector<std::string> setup;   // lines since the last check
+    for (const std::string &raw : p.tests) {
+        std::string line = trim(raw);
+        int n = checks_on_line(line);
+        if (n == 0) {
+            if (!line.empty()) setup.push_back(line);
+            continue;
+        }
+        // Only the few lines just before it (and none that are whole helper lambdas)
+        std::string code;
+        int start = (int)setup.size() - 3;
+        if (start < 0) start = 0;
+        for (int i = start; i < (int)setup.size(); i++) {
+            const std::string &s = setup[i];
+            if (s.find("auto ") == 0 || s == "};" || s.find("return ") == 0 || s.find("for (") == 0 || s == "}") continue;
+            code += s + "\n";
+        }
+        code += line;
+        for (int k = 0; k < n; k++) out.push_back({ last_string(line), code });
+        setup.clear();
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Compiler messages and crashes, explained
+// ---------------------------------------------------------------------------
+
+std::vector<CompileProblem> parse_compile_problems(const std::string &compilerOutput)
+{
+    // Lines like  solution.cpp:12:5: error: expected ';' before '}' token
+    std::vector<CompileProblem> out;
+    std::stringstream ss(compilerOutput);
+    std::string line;
+    while (std::getline(ss, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        size_t kind = std::string::npos;
+        bool error = true;
+        for (const char *k : { ": error: ", ": fatal error: ", ": warning: " }) {
+            size_t at = line.find(k);
+            if (at != std::string::npos) { kind = at; error = std::string(k).find("warning") == std::string::npos; break; }
+        }
+        if (kind == std::string::npos) continue;
+        CompileProblem cp;
+        cp.error = error;
+        cp.message = line.substr(line.find(':', kind + 2) + 2);
+        std::string where = line.substr(0, kind);   // file:line:col
+        size_t c2 = where.rfind(':');
+        size_t c1 = c2 == std::string::npos || c2 == 0 ? std::string::npos : where.rfind(':', c2 - 1);
+        std::string file = where;
+        if (c1 != std::string::npos) {
+            file = where.substr(0, c1);
+            cp.line = std::atoi(where.substr(c1 + 1, c2 - c1 - 1).c_str());
+            cp.col = std::atoi(where.substr(c2 + 1).c_str());
+        } else if (c2 != std::string::npos) {
+            file = where.substr(0, c2);
+            cp.line = std::atoi(where.substr(c2 + 1).c_str());
+        }
+        size_t slash = file.find_last_of("/\\");
+        if (slash != std::string::npos) file = file.substr(slash + 1);
+        if (file == "tests") cp.inTests = true;
+        else if (file != "solution.cpp") cp.line = 0;   // somewhere else (a header): no line of theirs to point at
+        if (!cp.error && file != "solution.cpp") continue;   // warnings in our own code aren't theirs to fix
+        out.push_back(cp);
+        if (out.size() >= 50) break;
+    }
+    return out;
+}
+
+int exam_reward(const std::string &difficulty, bool firstSolve, bool newBest)
+{
+    int base = difficulty == "Easy" ? 10 : difficulty == "Hard" ? 30 : 20;
+    if (firstSolve) return base;
+    if (newBest) return base / 2;
+    return 0;
+}
+
+std::string crash_explanation(const std::string &crash)
+{
+    if (crash == "segmentation fault" || crash == "bus error" || crash == "array out of bounds")
+        return "Your code used memory it doesn't own: following a pointer to nothing (nullptr), going past the end "
+               "of a list or array, or using memory after it was deleted.";
+    if (crash == "stack overflow")
+        return "A function kept calling itself and never stopped (recursion with no base case), or a huge array was "
+               "made inside a function.";
+    if (crash == "divide by zero") return "Something was divided by zero, or % 0 was used.";
+    if (crash == "uncaught exception") return "Something threw an exception that nothing caught (for example .at() past the end).";
+    if (crash == "abort") return "The program stopped itself: a failed assert, or a delete of memory that wasn't new'd.";
+    if (crash == "timeout") return "This test never finished: usually a loop whose condition never becomes false, "
+                                   "or a pointer that never moves on to the next node.";
+    return "Your code stopped part way through this test.";
+}
+
+// A crash with no @@CRASH line (the program was killed): name it from the exit code
+static std::string crash_from_exit(int status)
+{
+#ifdef _WIN32
+    unsigned int code = (unsigned int)status;
+    if (code == 0xC0000005u) return "segmentation fault";
+    if (code == 0xC00000FDu) return "stack overflow";
+    if (code == 0xC0000094u) return "divide by zero";
+    if (code == 3) return "abort";
+#else
+    if (status == 128 + 11) return "segmentation fault";
+    if (status == 128 + 8) return "divide by zero";
+    if (status == 128 + 6) return "abort";
+    if (status == 128 + 7) return "bus error";
+#endif
+    return "crash";
+}
+
+// ---------------------------------------------------------------------------
+// Running an answer
+// ---------------------------------------------------------------------------
+
+static void live_log(RunProgress *live, const std::string &line, std::vector<std::string> &log)
+{
+    log.push_back(line);
+    if (!live) return;
+    std::lock_guard<std::mutex> g(live->lock);
+    live->log.push_back(line);
+}
+
+static void live_phase(RunProgress *live, const std::string &phase)
+{
+    if (!live) return;
+    std::lock_guard<std::mutex> g(live->lock);
+    live->phase = phase;
+}
+
+static void live_state(RunProgress *live, int test, int state)
+{
+    if (!live || test < 0) return;
+    std::lock_guard<std::mutex> g(live->lock);
+    if (test >= (int)live->state.size()) live->state.resize(test + 1, 0);
+    live->state[test] = state;
+    if (test >= live->total) live->total = test + 1;
+}
+
+static std::string seconds_text(double s)
+{
+    char buf[32];
+    snprintf(buf, sizeof buf, "%.1f s", s);
+    return buf;
+}
+
+RunResult run_answer(const Problem &p, const std::string &code, const std::string &workDir, RunProgress *live)
 {
     RunResult r;
     auto start = std::chrono::steady_clock::now();
+    auto elapsed = [&]() { return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count(); };
     r.ruleProblems = check_rules(p, code);
+    std::vector<CheckInfo> checks = split_checks(p);
+    if (live) {
+        std::lock_guard<std::mutex> g(live->lock);
+        live->total = (int)checks.size();
+        live->state.assign(checks.size(), 0);
+    }
 
     const std::string &cxx = find_compiler();
     if (cxx.empty()) {
         r.status = RunStatus::NoCompiler;
         r.compilerOutput = "No C++ compiler found. Stack Trace looks for c++, g++ or clang++, and on Windows "
                            "for C:/raylib/w64devkit/bin/g++.exe. Set STACKTRACE_CXX to your compiler to choose one.";
+        live_log(live, r.compilerOutput, r.log);
+        if (live) { std::lock_guard<std::mutex> g(live->lock); live->done = true; }
         return r;
     }
 
@@ -649,30 +967,179 @@ RunResult run_answer(const Problem &p, const std::string &code, const std::strin
     std::string runCmd = exe;
     for (char &c : runCmd) if (c == '/') c = '\\';
     std::string extra = " -static";   // so it runs without the compiler's DLLs on the PATH
+    std::string noInput = " < nul";
 #else
     std::string exe = workDir + "/solution";
     std::string runCmd = (exe[0] == '/') ? exe : "./" + exe;
     std::string extra = "";
+    std::string noInput = " < /dev/null";
 #endif
-    std::remove(exe.c_str());   // never run an old build if this one fails
 
-    {
-        std::ofstream f(source);
-        f << build_test_program(p, code, TIME_LIMIT_SECONDS);
-    }
-
-    std::string compileOut;
-    int status = run_command(cxx + " -std=c++17 -O0" + extra + " -o " + exe + " " + source, compileOut);
-    r.compilerOutput = compileOut;
-    if (status != 0) {
-        r.status = RunStatus::CompileError;
+    // Compile, unless it's exactly what was compiled last time (Run, then Submit)
+    std::string program = build_test_program(p, code, TEST_SECONDS);
+    std::string old;
+    bool same = read_file(source, old) && old == program && std::filesystem::exists(exe, ec);
+    if (same) {
+        live_log(live, "$ g++ solution.cpp     (no changes since the last run: using that build)", r.log);
     } else {
-        std::string runOut;
-        run_command(runCmd, runOut);
-        parse_test_output(runOut, r);
+        std::remove(exe.c_str());   // never run an old build if this one fails
+        { std::ofstream f(source); f << program; }
+        live_phase(live, "Compiling");
+        live_log(live, "$ g++ -std=c++17 solution.cpp", r.log);
+        std::string compileOut;
+        int status = run_command(cxx + " -std=c++17 -O0" + extra + " -o " + exe + " " + source, compileOut);
+        r.compilerOutput = compileOut;
+        r.problems = parse_compile_problems(compileOut);
+        if (status != 0) {
+            std::remove(source.c_str());   // so the same broken code is compiled (and explained) again next time
+            r.status = RunStatus::CompileError;
+            int errors = 0;
+            for (const CompileProblem &cp : r.problems) if (cp.error) errors++;
+            for (const CompileProblem &cp : r.problems) {
+                if (!cp.error) continue;
+                live_log(live, std::string("  error  ") + (cp.inTests ? "in the tests" : cp.line > 0 ? "line " + std::to_string(cp.line) : "") +
+                         ": " + cp.message, r.log);
+            }
+            live_log(live, "Didn't compile: " + std::to_string(errors) + (errors == 1 ? " error" : " errors") + " (" +
+                     seconds_text(elapsed()) + ")", r.log);
+            r.seconds = elapsed();
+            if (live) { std::lock_guard<std::mutex> g(live->lock); live->done = true; }
+            return r;
+        }
+        live_log(live, "  compiled (" + seconds_text(elapsed()) + ")", r.log);
     }
 
-    r.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    // Run it. Each run goes until it finishes, or crashes / hangs in a test;
+    // then that test is marked and the next run starts from the test after.
+    std::vector<TestResult> tests;
+    std::string output;
+    auto test_at = [&](int k) -> TestResult & {
+        if (k >= (int)tests.size()) tests.resize(k + 1);
+        return tests[k];
+    };
+    auto describe = [&](int k) {
+        return k < (int)checks.size() && !checks[k].description.empty() ? checks[k].description : "test " + std::to_string(k + 1);
+    };
+    int from = 0, total = (int)checks.size();
+    bool finished = false;
+    std::vector<bool> got;   // tests with a result
+    for (int attempt = 0; attempt < 60 && !finished; attempt++) {
+        int at = -1;
+        bool timeout = false, summary = false, gotAt = false;
+        std::string crash;
+        live_log(live, "$ ./solution" + (from > 0 ? " " + std::to_string(from) + "     (carrying on from test " + std::to_string(from + 1) + ")" : std::string()), r.log);
+        auto onLine = [&](const std::string &line) {
+            if (line.compare(0, 5, "@@AT\t") == 0) {
+                at = std::atoi(line.c_str() + 5);
+                gotAt = true;
+                if (at >= from) {
+                    live_phase(live, "Running test " + std::to_string(at + 1) + (total > 0 ? " of " + std::to_string(std::max(total, at + 1)) : ""));
+                }
+            } else if (line.compare(0, 7, "@@PASS\t") == 0 || line.compare(0, 7, "@@FAIL\t") == 0) {
+                RunResult one;
+                parse_test_output(line + "\n", one);
+                if (one.tests.empty() || at < 0) return;
+                TestResult t = one.tests[0];
+                t.outcome = t.passed ? TestOutcome::Passed : TestOutcome::Failed;
+                test_at(at) = t;
+                if ((int)got.size() <= at) got.resize(at + 1, false);
+                got[at] = true;
+                live_state(live, at, t.passed ? 1 : 2);
+                live_log(live, std::string(t.passed ? "  PASS  " : "  FAIL  ") + std::to_string(at + 1) + "  " + t.description, r.log);
+            } else if (line.compare(0, 8, "@@CRASH\t") == 0) {
+                crash = line.substr(8);
+            } else if (line == "@@TIMEOUT") {
+                timeout = true;
+            } else if (line.compare(0, 10, "@@SUMMARY\t") == 0) {
+                summary = true;
+                std::vector<std::string> f;
+                std::stringstream ss(line.substr(10));
+                std::string field;
+                while (std::getline(ss, field, '\t')) f.push_back(field);
+                if (f.size() >= 3) total = std::atoi(f[2].c_str());
+            } else if (!line.empty()) {
+                if (output.size() < 20000) output += line + "\n";
+                live_log(live, "  | " + line, r.log);
+            }
+        };
+        std::string raw;
+        int status = run_command(runCmd + " " + std::to_string(from) + noInput, raw, onLine);
+        if (summary) { finished = true; break; }
+
+        // It stopped part way: which test was it in?
+        if (crash.empty() && !timeout) crash = crash_from_exit(status);
+        bool inCheck = gotAt && at >= from && !(at < (int)got.size() && got[at]);
+        int culprit = inCheck ? at : at + 1;   // in a check, or in the setup lines after the last one
+        if (culprit < from) {
+            // It died before reaching the test to carry on from, so it'd do the same every time
+            for (int k = from; k < std::max(total, from + 1); k++) {
+                TestResult &t = test_at(k);
+                t = TestResult();
+                t.outcome = TestOutcome::NotRun;
+                t.description = describe(k);
+                t.code = k < (int)checks.size() ? checks[k].code : "";
+                live_state(live, k, 5);
+            }
+            live_log(live, "  The code before test " + std::to_string(from + 1) + " " + (timeout ? "hangs" : "crashes") +
+                     " every time, so the rest couldn't run.", r.log);
+            break;
+        }
+        TestResult &t = test_at(culprit);
+        t = TestResult();
+        t.outcome = timeout ? TestOutcome::TimedOut : TestOutcome::Crashed;
+        t.crash = timeout ? "timeout" : crash;
+        t.description = describe(culprit);
+        t.code = culprit < (int)checks.size() ? checks[culprit].code : "";
+        if ((int)got.size() <= culprit) got.resize(culprit + 1, false);
+        got[culprit] = true;
+        if (r.crashedAt < 0) r.crashedAt = culprit;
+        live_state(live, culprit, timeout ? 4 : 3);
+        live_log(live, std::string(timeout ? "  TIME  " : "  CRASH ") + std::to_string(culprit + 1) + "  " + t.description + "  (" +
+                 (timeout ? "never finished: stopped after " + std::to_string(TEST_SECONDS) + " s" : t.crash) + ")", r.log);
+        if (timeout) r.status = RunStatus::TimedOut;
+        from = culprit + 1;
+        if (total > 0 && from >= total) break;
+        if (elapsed() > RUN_BUDGET_SECONDS) {
+            for (int k = from; k < total; k++) {
+                TestResult &n = test_at(k);
+                n = TestResult();
+                n.outcome = TestOutcome::NotRun;
+                n.description = describe(k);
+                live_state(live, k, 5);
+            }
+            live_log(live, "  Out of time: the rest weren't run.", r.log);
+            break;
+        }
+    }
+
+    // Every test, in order; any without a result (shouldn't happen) are "not run"
+    if ((int)tests.size() < total) tests.resize(total);
+    for (int k = 0; k < (int)tests.size(); k++) {
+        if (k < (int)got.size() && got[k]) continue;
+        if (tests[k].outcome == TestOutcome::NotRun && !tests[k].description.empty()) continue;
+        tests[k] = TestResult();
+        tests[k].outcome = TestOutcome::NotRun;
+        tests[k].description = describe(k);
+    }
+    r.tests = tests;
+    r.programOutput = output;
+    r.passed = r.failed = 0;
+    bool anyCrash = false, anyTimeout = false;
+    for (const TestResult &t : r.tests) {
+        if (t.passed) r.passed++;
+        else r.failed++;
+        if (t.outcome == TestOutcome::Crashed || t.outcome == TestOutcome::NotRun) anyCrash = true;
+        if (t.outcome == TestOutcome::TimedOut) anyTimeout = true;
+    }
+    if (anyTimeout && !anyCrash) r.status = RunStatus::TimedOut;
+    else if (anyCrash) r.status = RunStatus::Crashed;
+    else if (anyTimeout) r.status = RunStatus::TimedOut;
+    else r.status = r.failed == 0 ? RunStatus::Passed : RunStatus::Failed;
+
+    r.seconds = elapsed();
+    live_log(live, "Done: " + std::to_string(r.passed) + " of " + std::to_string((int)r.tests.size()) + " passed (" +
+             seconds_text(r.seconds) + ")", r.log);
+    if (live) { std::lock_guard<std::mutex> g(live->lock); live->done = true; live->phase = "Done"; }
     return r;
 }
 

@@ -14,7 +14,8 @@
 #include "fx.h"
 #include <cmath>
 
-static const Color SIDE_COL[2] = { COL_AMBER, COL_BLUE };   // the host, the joiner
+// the host, the joiner (a function: the app theme can change the colours)
+static Color side_col(int i) { return i == 0 ? COL_AMBER : COL_BLUE; }
 
 static std::string two_digits(int n) { return (n < 10 ? "0" : "") + std::to_string(n); }
 static std::string clock_text(double seconds)
@@ -305,7 +306,7 @@ static void draw_predict(App &app)
         bool picked = (w.locked ? w.lockedSide : w.pick) == i;
         bool hover = canPick && here && CheckCollisionPointRec(GetMousePosition(), r);
         if (hover) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { w.pick = i; sfx_play(Sfx::Click); } }
-        Color c = SIDE_COL[i];
+        Color c = side_col(i);
         ui_panel(r, picked ? tint(c, 0.12f) : hover ? COL_SURFACE_2 : COL_SURFACE, picked ? c : COL_LINE, picked ? 2 : 1);
         if (!here) {
             ui_text("Waiting for someone to join...", r.x + 24, r.y + 30, 16, COL_MUTED);
@@ -413,12 +414,12 @@ static void draw_predict(App &app)
     DrawRectangleRounded(bar, 1, 8, COL_LINE_SOFT);
     if (total > 0) {
         float split = bar.width * pool[0] / total;
-        if (pool[0] > 0) DrawRectangleRounded({ bar.x, bar.y, split, bar.height }, 1, 8, SIDE_COL[0]);
-        if (pool[1] > 0) DrawRectangleRounded({ bar.x + split, bar.y, bar.width - split, bar.height }, 1, 8, SIDE_COL[1]);
+        if (pool[0] > 0) DrawRectangleRounded({ bar.x, bar.y, split, bar.height }, 1, 8, side_col(0));
+        if (pool[1] > 0) DrawRectangleRounded({ bar.x + split, bar.y, bar.width - split, bar.height }, 1, 8, side_col(1));
     }
     std::string l0 = name_of(app, 0) + " " + std::to_string(pool[0]), l1 = name_of(app, 1) + " " + std::to_string(pool[1]);
-    ui_text(l0, bar.x, bar.y + 22, 13, SIDE_COL[0], FontKind::Mono);
-    ui_text(l1, bar.x + bar.width - ui_text_width(l1, 13, FontKind::Mono), bar.y + 22, 13, SIDE_COL[1], FontKind::Mono);
+    ui_text(l0, bar.x, bar.y + 22, 13, side_col(0), FontKind::Mono);
+    ui_text(l1, bar.x + bar.width - ui_text_width(l1, 13, FontKind::Mono), bar.y + 22, 13, side_col(1), FontKind::Mono);
     ui_text_wrapped("Winners split the whole pool, so the less popular pick pays more.", poolBox.x + 18, poolBox.y + 88, rw - 36, 12, COL_MUTED);
 
     float roomY = poolBox.y + poolBox.height + 14;
@@ -483,15 +484,15 @@ static void draw_watch(App &app)
         std::string nm = name_of(app, i), tests = std::to_string(best) + " / " + std::to_string(total) + " tests";
         if (p.finished) tests = "SOLVED " + clock_text(p.finishSeconds);
         if (i == 0) {
-            mal_badge(w.mals[0], { bx + 15, 31 }, 15, SIDE_COL[0]);
+            mal_badge(w.mals[0], { bx + 15, 31 }, 15, side_col(0));
             ui_text(nm, bx + 38, 22, 17, COL_TEXT, FontKind::UiBold);
-            ui_text(tests, bx + half - ui_text_width(tests, 13, FontKind::Mono), 25, 13, SIDE_COL[i], FontKind::Mono);
+            ui_text(tests, bx + half - ui_text_width(tests, 13, FontKind::Mono), 25, 13, side_col(i), FontKind::Mono);
         } else {
-            ui_text(tests, bx, 25, 13, SIDE_COL[i], FontKind::Mono);
-            mal_badge(w.mals[1], { bx + half - 15, 31 }, 15, SIDE_COL[1]);
+            ui_text(tests, bx, 25, 13, side_col(i), FontKind::Mono);
+            mal_badge(w.mals[1], { bx + half - 15, 31 }, 15, side_col(1));
             ui_text(nm, bx + half - 38 - ui_text_width(nm, 17, FontKind::UiBold), 22, 17, COL_TEXT, FontKind::UiBold);
         }
-        draw_bar(bx, 50, half, best, total, SIDE_COL[i], i == 1);
+        draw_bar(bx, 50, half, best, total, side_col(i), i == 1);
     }
     std::string watching = "WATCHING  |  " + std::to_string(s.room.size()) + (s.room.size() == 1 ? " SPECTATOR" : " SPECTATORS");
     ui_text(watching, SCREEN_W / 2.0f - ui_text_width(watching, 11, FontKind::Mono) / 2, 12, 11, COL_PURPLE, FontKind::Mono);
@@ -510,8 +511,8 @@ static void draw_watch(App &app)
     for (int i = 0; i < 2; i++) {
         const VsPlayer &p = s.side[i].them;
         Rectangle pane = { 32 + i * (pw + gap), top, pw, bottom - top - 76 };
-        ui_panel(pane, COL_SURFACE, SIDE_COL[i], 1);
-        ui_text(name_of(app, i) + "'s code", pane.x + 14, pane.y + 10, 13, SIDE_COL[i], FontKind::MonoBold);
+        ui_panel(pane, COL_SURFACE, side_col(i), 1);
+        ui_text(name_of(app, i) + "'s code", pane.x + 14, pane.y + 10, 13, side_col(i), FontKind::MonoBold);
         std::string state = p.left ? "left" : p.finished ? "solved" : p.running ? "running..." : "typing...";
         ui_text(state, pane.x + pane.width - 14 - ui_text_width(state, 12, FontKind::Mono), pane.y + 11, 12, COL_MUTED, FontKind::Mono);
         DrawLine((int)pane.x, (int)(pane.y + 34), (int)(pane.x + pane.width), (int)(pane.y + 34), COL_LINE_SOFT);
@@ -522,14 +523,14 @@ static void draw_watch(App &app)
             std::vector<std::string> lines = split_code(s.live[i]);
             int fits = (int)(codeR.height / 21);
             if ((int)lines.size() > fits && fits > 0) lines.erase(lines.begin(), lines.end() - fits);
-            ui_code(lines, codeR, 0, SIDE_COL[i], false, 13);
+            ui_code(lines, codeR, 0, side_col(i), false, 13);
         }
 
         Rectangle res = { pane.x, pane.y + pane.height + 10, pw, 66 };
         ui_panel(res, COL_SURFACE, COL_LINE, 1);
         std::string last = p.lastResult.empty() ? "No runs yet" : "Last run: " + vs_result_text(p.lastResult, p.passed, p.total);
         Color lc = p.lastResult.empty() ? COL_MUTED : p.finished ? COL_GREEN
-                 : (p.lastResult == "compile" || p.lastResult == "crash" || p.lastResult == "timeout") ? COL_CORAL : SIDE_COL[i];
+                 : (p.lastResult == "compile" || p.lastResult == "crash" || p.lastResult == "timeout") ? COL_CORAL : side_col(i);
         if (p.finished) last = "Accepted in " + clock_text(p.finishSeconds);
         ui_text(last, res.x + 14, res.y + 12, 15, lc, FontKind::UiBold);
         std::string runs = std::to_string(p.runs) + (p.runs == 1 ? " run" : " runs");
@@ -558,8 +559,8 @@ static void draw_watch(App &app)
     DrawRectangleRounded(bar, 1, 8, COL_LINE_SOFT);
     if (ptotal > 0) {
         float split = bar.width * pool[0] / ptotal;
-        if (pool[0] > 0) DrawRectangleRounded({ bar.x, bar.y, split, bar.height }, 1, 8, SIDE_COL[0]);
-        if (pool[1] > 0) DrawRectangleRounded({ bar.x + split, bar.y, bar.width - split, bar.height }, 1, 8, SIDE_COL[1]);
+        if (pool[0] > 0) DrawRectangleRounded({ bar.x, bar.y, split, bar.height }, 1, 8, side_col(0));
+        if (pool[1] > 0) DrawRectangleRounded({ bar.x + split, bar.y, bar.width - split, bar.height }, 1, 8, side_col(1));
     }
     ui_text("Pool: " + std::to_string(ptotal) + " bytes, locked", pred.x + 16, pred.y + 108, 12, COL_MUTED);
 
@@ -572,7 +573,7 @@ static void draw_watch(App &app)
         float h = ui_text_wrapped_height(e.text, rw - 80, 13) + 8;
         if (fy + h > feed.y + feed.height - 8 - standsH) break;
         ui_text(clock_text(e.seconds), feed.x + 16, fy + 1, 11, COL_MUTED, FontKind::Mono);
-        Color c = e.kind == 3 ? COL_GREEN : e.kind == 1 ? COL_CORAL : SIDE_COL[e.side];
+        Color c = e.kind == 3 ? COL_GREEN : e.kind == 1 ? COL_CORAL : side_col(e.side);
         DrawCircleV({ feed.x + 62, fy + 8 }, 4, c);
         ui_text_wrapped(e.text, feed.x + 74, fy, rw - 84, 13, COL_TEXT_SOFT);
         fy += h;
@@ -664,8 +665,8 @@ static void draw_result(App &app)
         const VsPlayer &p = s.side[i].them;
         Rectangle pane = { MARGIN + k * (pw + gap), y, pw, h };
         bool winner = i == win;
-        ui_panel(pane, COL_SURFACE, winner ? SIDE_COL[i] : COL_LINE, winner ? 2 : 1);
-        ui_text(name_of(app, i) + (winner ? "  |  winner" : ""), pane.x + 14, pane.y + 11, 14, SIDE_COL[i], FontKind::UiBold);
+        ui_panel(pane, COL_SURFACE, winner ? side_col(i) : COL_LINE, winner ? 2 : 1);
+        ui_text(name_of(app, i) + (winner ? "  |  winner" : ""), pane.x + 14, pane.y + 11, 14, side_col(i), FontKind::UiBold);
         std::string stats = (p.finished ? clock_text(p.finishSeconds) : p.left ? "left" : "time up") + "  |  " +
                             std::to_string(p.runs) + " runs  |  " + std::to_string(p.finished ? p.total : p.bestPassed) + " / " +
                             std::to_string(p.total);
@@ -674,7 +675,7 @@ static void draw_result(App &app)
         std::string code = p.hasCode ? p.code : s.live[i];
         Rectangle codeR = { pane.x + 4, pane.y + 40, pane.width - 8, pane.height - 44 };
         if (code.empty()) ui_text("Their code didn't arrive.", codeR.x + 12, codeR.y + 10, 13, COL_MUTED);
-        else ui_code(split_code(code), codeR, 0, SIDE_COL[i], false, 13);
+        else ui_code(split_code(code), codeR, 0, side_col(i), false, 13);
     }
 
     // Everyone's payouts

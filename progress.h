@@ -80,6 +80,7 @@ struct Progress {
     std::map<std::string, BugRecord> bugs;        // BUG: the Bugdex
     std::map<std::string, int> bugFixes;          // BUGFIX: a bug's quick fixes done, as bits
     std::map<std::string, std::string> harvested; // HARVEST: farm crop (topic) -> the day it was last harvested
+    std::string theme = "default";                // THEME: the app theme in use (apptheme.h)
 };
 
 // A missing file just means a new student: returns true with empty progress.

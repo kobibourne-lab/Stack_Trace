@@ -6,6 +6,37 @@
 #include "rlgl.h"
 #include <cmath>
 
+// Mal and the pets look the same whatever the app theme is (on the light
+// themes the theme's background colour made Mal's eyes pale), so this file
+// uses the normal look's colours, not the theme's.
+static const Color MAL_BG = { 13, 17, 23, 255 };
+static const Color MAL_SURFACE = { 22, 27, 34, 255 };
+static const Color MAL_SURFACE_2 = { 28, 33, 40, 255 };
+static const Color MAL_LINE = { 48, 54, 61, 255 };
+static const Color MAL_LINE_SOFT = { 33, 38, 45, 255 };
+static const Color MAL_TEXT = { 230, 237, 243, 255 };
+static const Color MAL_TEXT_SOFT = { 201, 209, 217, 255 };
+static const Color MAL_MUTED = { 139, 148, 158, 255 };
+static const Color MAL_GREEN = { 126, 231, 135, 255 };
+static const Color MAL_AMBER = { 255, 180, 84, 255 };
+static const Color MAL_CORAL = { 255, 123, 114, 255 };
+static const Color MAL_BLUE = { 121, 192, 255, 255 };
+static const Color MAL_PURPLE = { 210, 168, 255, 255 };
+#define COL_BG MAL_BG
+#define COL_SURFACE MAL_SURFACE
+#define COL_SURFACE_2 MAL_SURFACE_2
+#define COL_LINE MAL_LINE
+#define COL_LINE_SOFT MAL_LINE_SOFT
+#define COL_TEXT MAL_TEXT
+#define COL_TEXT_SOFT MAL_TEXT_SOFT
+#define COL_MUTED MAL_MUTED
+#define COL_GREEN MAL_GREEN
+#define COL_AMBER MAL_AMBER
+#define COL_CORAL MAL_CORAL
+#define COL_BLUE MAL_BLUE
+#define COL_PURPLE MAL_PURPLE
+
+
 void mal_react(Mal &m, MalMood mood, float seconds)
 {
     m.mood = mood;
@@ -90,6 +121,10 @@ static Color skin_color(const std::string &skin)
     if (skin == "shallow")  return COL_PURPLE;
     if (skin == "impostor")    return { 110, 230, 200, 255 };   // Inheritance Grove's mint
     if (skin == "invalidator") return { 245, 140, 180, 255 };   // the Library's rose
+    if (skin == "lime")    return { 200, 250, 70, 255 };     // volatile lime
+    if (skin == "lava")    return { 255, 110, 50, 255 };     // stack overflow: molten, with glowing cracks
+    if (skin == "ice")     return { 150, 214, 255, 255 };    // frozen const: frost and snowflakes
+    if (skin == "rgb")     return { 255, 80, 80, 255 };      // RGB: cycles through every colour (body_color)
     return COL_GREEN;   // classic, glitch and leaker
 }
 
@@ -102,6 +137,7 @@ static Color blend(Color a, Color b, float t)
 static Color body_color(const Mal &m)
 {
     Color base = skin_color(m.skin);
+    if (m.skin == "rgb") base = ColorFromHSV(fmodf(m.clock * 60, 360), 0.55f, 1.0f);
     if (m.skin == "dangling")   // half freed: a faded blue that flickers
         base = blend(COL_BLUE, COL_BG, 0.5f + 0.12f * sinf(m.clock * 9) + (fmodf(m.clock, 2.3f) < 0.08f ? 0.25f : 0));
     switch (m.mood) {
@@ -505,21 +541,51 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
             DrawRectangleRoundedLinesEx({ b.x + size * 0.03f, b.y + size * 0.03f, w - size * 0.06f, h - size * 0.06f }, 0.42f, 12, fmaxf(2.0f, size * 0.03f), tube);
             DrawRectangleRoundedLinesEx({ b.x + size * 0.03f, b.y + size * 0.03f, w - size * 0.06f, h - size * 0.06f }, 0.42f, 12, fmaxf(1.0f, size * 0.012f), WHITE);
         }
+    } else if (m.skin == "lava") {
+        // Glowing cracks, and bubbles of overflow popping off the top
+        Color glowc = { 255, 230, 120, 255 };
+        float lt = fmaxf(1.5f, size * 0.022f), pulse = 0.6f + 0.4f * sinf(m.clock * 3);
+        Vector2 c1[4] = { { 0.06f, 0.22f }, { 0.14f, 0.32f }, { 0.08f, 0.44f }, { 0.15f, 0.55f } };
+        Vector2 c2[4] = { { 0.88f, 0.75f }, { 0.76f, 0.82f }, { 0.80f, 0.90f }, { 0.70f, 0.95f } };
+        for (int i = 0; i < 3; i++) {
+            DrawLineEx({ b.x + w * c1[i].x, b.y + h * c1[i].y }, { b.x + w * c1[i + 1].x, b.y + h * c1[i + 1].y }, lt, Fade(glowc, pulse));
+            DrawLineEx({ b.x + w * c2[i].x, b.y + h * c2[i].y }, { b.x + w * c2[i + 1].x, b.y + h * c2[i + 1].y }, lt, Fade(glowc, pulse));
+        }
+        for (int i = 0; i < 3; i++) {
+            float k = fmodf(m.clock * 0.6f + i * 0.33f, 1.0f);
+            DrawCircleV({ b.x + w * (0.25f + 0.25f * i), b.y - k * size * 0.25f }, size * 0.03f * (1 - k), Fade({ 255, 150, 60, 255 }, 1 - k));
+        }
+    } else if (m.skin == "ice") {
+        // Frost along the top and snowflakes drifting down past it
+        Color frost = { 255, 255, 255, 230 };
+        for (int i = 0; i < 6; i++) {
+            float x = b.x + w * (0.1f + 0.16f * i), d = size * (0.04f + 0.04f * hash01(i * 5));
+            ui_triangle({ x - size * 0.035f, b.y + size * 0.02f }, { x + size * 0.035f, b.y + size * 0.02f }, { x, b.y + size * 0.02f + d }, frost);
+        }
+        for (int i = 0; i < 3; i++) {
+            float k = fmodf(m.clock * 0.25f + i * 0.33f, 1.0f);
+            Vector2 c = { b.x + w * (0.15f + 0.35f * i) + sinf(m.clock + i) * size * 0.04f, b.y - size * 0.1f + k * h * 1.1f };
+            star4(c, size * 0.035f, Fade(WHITE, sinf(k * PI)));
+        }
+    } else if (m.skin == "rgb") {
+        // A rainbow edge running round it, like a gaming keyboard
+        Color edge = ColorFromHSV(fmodf(m.clock * 60 + 180, 360), 0.8f, 1.0f);
+        DrawRectangleRoundedLinesEx(b, 0.42f, 12, fmaxf(2.0f, size * 0.03f), edge);
     } else if (m.skin == "tux") {
         // A black jacket over the white shirt: the shirt shows in a V, with a bow tie
         Color jacket = { 30, 33, 40, 255 };
-        float y0 = b.y + h * 0.76f, bottom = b.y + h;
+        float y0 = b.y + h * 0.84f, bottom = b.y + h;   // low enough to keep clear of the mouth
         DrawRectangleRounded({ b.x, y0, w, bottom - y0 }, 0.6f, 10, jacket);
         DrawRectangleRec({ b.x, y0, w, (bottom - y0) * 0.4f }, jacket);   // square shoulders
-        DrawTriangle({ feet.x - w * 0.2f, y0 - 1 }, { feet.x, bottom - h * 0.02f }, { feet.x + w * 0.2f, y0 - 1 }, body);
+        DrawTriangle({ feet.x - w * 0.16f, y0 - 1 }, { feet.x, bottom - h * 0.02f }, { feet.x + w * 0.16f, y0 - 1 }, body);
         float lt = fmaxf(1.5f, size * 0.018f);
-        DrawLineEx({ feet.x - w * 0.2f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });   // lapel edges
-        DrawLineEx({ feet.x + w * 0.2f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });
-        float by = y0 + h * 0.035f, bs = size * 0.055f;
+        DrawLineEx({ feet.x - w * 0.16f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });   // lapel edges
+        DrawLineEx({ feet.x + w * 0.16f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });
+        float by = y0 + h * 0.03f, bs = size * 0.042f;
         DrawTriangle({ feet.x, by }, { feet.x - bs * 1.6f, by - bs }, { feet.x - bs * 1.6f, by + bs }, jacket);
         DrawTriangle({ feet.x, by }, { feet.x + bs * 1.6f, by + bs }, { feet.x + bs * 1.6f, by - bs }, jacket);
         DrawCircleV({ feet.x, by }, bs * 0.5f, jacket);
-        DrawCircleV({ feet.x, by + h * 0.09f }, size * 0.016f, jacket);   // a shirt button
+        DrawCircleV({ feet.x, by + h * 0.065f }, size * 0.014f, jacket);   // a shirt button
     } else if (m.skin == "diamond") {
         // Sparkles twinkling on the gem, and shards of diamond orbiting in front
         for (int i = 0; i < 4; i++) {
@@ -620,9 +686,62 @@ static void draw_duck(float clock, bool tag)
     if (tag) pet_tag("rubber duck", yel);
 }
 
+static void draw_ghost(float clock, bool tag)
+{
+    // void*: points at nothing, so it floats, and fades in and out (you can't tell what it is)
+    float bob = sinf(clock * 1.8f) * 3, a = 0.55f + 0.4f * (0.5f + 0.5f * sinf(clock * 0.9f));
+    Color body = Fade({ 220, 228, 255, 255 }, a);
+    float top = -50 + bob, bot = -16 + bob;
+    DrawCircleV({ 0, top + 17 }, 17, body);                                // the round head
+    DrawRectangleRec({ -17, top + 17, 34, bot - top - 17 }, body);
+    for (int i = 0; i < 4; i++) {                                         // the wavy hem
+        float wave = sinf(clock * 4 + i * 1.4f) * 1.5f;
+        DrawCircleV({ -12.75f + i * 8.5f, bot + wave }, 4.6f, body);
+    }
+    Color ink = Fade({ 20, 20, 24, 255 }, a);
+    DrawCircleV({ -6, top + 18 }, 3, ink);
+    DrawCircleV({ 6, top + 18 }, 3, ink);
+    DrawCircleV({ -5.2f, top + 17 }, 1, Fade(WHITE, a));
+    DrawCircleV({ 6.8f, top + 17 }, 1, Fade(WHITE, a));
+    DrawEllipse(0, (int)(top + 27), 2.5f, 3.5f, ink);                    // a little "o" of surprise
+    ui_text("void*", -11, (top + 4), 8, Fade({ 120, 130, 190, 255 }, a), FontKind::MonoBold);
+    float q = fmodf(clock * 0.7f, 1.0f);                                   // question marks drifting off
+    ui_text("?", (20 + q * 6), (top + 6 - q * 14), 12, Fade({ 150, 160, 220, 255 }, (1 - q) * a), FontKind::MonoBold);
+    if (tag) pet_tag("void*", { 180, 190, 240, 255 });
+}
+
+static void draw_snake(float clock, bool tag)
+{
+    // A linked list: each segment is a node pointing at the next, the tail ends in NULL
+    Color seg[3] = { { 84, 170, 96, 255 }, { 96, 190, 108, 255 }, { 110, 210, 120, 255 } }, head = { 126, 231, 135, 255 };
+    const char *vals[3] = { "3", "5", "7" };
+    for (int i = 0; i < 3; i++) {
+        float x = -38 + i * 21.0f, y = -9 + sinf(clock * 3 - i * 0.9f) * 3;
+        DrawRectangleRounded({ x - 8, y - 7, 16, 14 }, 0.45f, 6, seg[i]);
+        DrawLineEx({ x + 2, y - 7 }, { x + 2, y + 7 }, 1, darker(seg[i], 0.6f));   // value | next
+        ui_text(vals[i], x - 6, y - 4, 8, darker(seg[i], 0.35f), FontKind::MonoBold);
+        float ny = -9 + sinf(clock * 3 - (i + 1) * 0.9f) * 3;
+        DrawLineEx({ x + 5, y }, { x + 11, ny }, 1.5f, COL_AMBER);
+        DrawTriangle({ x + 13, ny }, { x + 10, ny - 2.5f }, { x + 10, ny + 2.5f }, COL_AMBER);
+    }
+    ui_text("NULL", -58, -12, 7, COL_CORAL, FontKind::MonoBold);
+    float hy = -14 + sinf(clock * 3 - 2.7f) * 3;
+    DrawRectangleRounded({ 18, hy - 10, 22, 19 }, 0.6f, 8, head);
+    DrawCircleV({ 25, hy - 3 }, 2.6f, COL_BG);
+    DrawCircleV({ 33, hy - 3 }, 2.6f, COL_BG);
+    DrawCircleV({ 25.8f, hy - 3.8f }, 0.9f, WHITE);
+    DrawCircleV({ 33.8f, hy - 3.8f }, 0.9f, WHITE);
+    if (fmodf(clock, 2.0f) < 0.5f) {                                       // flicks its tongue
+        DrawLineEx({ 40, hy + 3 }, { 46, hy + 3 }, 1.5f, COL_CORAL);
+        DrawLineEx({ 46, hy + 3 }, { 49, hy }, 1.2f, COL_CORAL);
+        DrawLineEx({ 46, hy + 3 }, { 49, hy + 6 }, 1.2f, COL_CORAL);
+    }
+    if (tag) pet_tag("node*", head);
+}
+
 void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag)
 {
-    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck") return;
+    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck" && pet != "ghost" && pet != "snake") return;
     float k = size / 60.0f;
     rlPushMatrix();
     rlTranslatef(at.x, at.y, 0);
@@ -630,6 +749,8 @@ void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, b
     if (pet == "cat") draw_cat(tag);
     else if (pet == "dog") draw_dog(clock, tag);
     else if (pet == "duck") draw_duck(clock, tag);
+    else if (pet == "ghost") draw_ghost(clock, tag);
+    else if (pet == "snake") draw_snake(clock, tag);
     else draw_bird(clock, tag);
     rlPopMatrix();
 }

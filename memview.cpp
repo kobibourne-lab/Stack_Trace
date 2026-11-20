@@ -9,7 +9,12 @@
 #include <map>
 
 // Arrow colours, used in turn for each pointer on screen.
-static const Color ARROW_COLORS[] = { COL_GREEN, COL_BLUE, COL_PURPLE, COL_AMBER };
+// A function, not a table: the app theme can change these colours while it runs
+static Color arrow_color(int i)
+{
+    const Color c[] = { COL_GREEN, COL_BLUE, COL_PURPLE, COL_AMBER };
+    return c[i];
+}
 static const int ARROW_COLOR_COUNT = 4;
 
 const float ROW_H = 40;        // one variable in a stack frame
@@ -135,7 +140,7 @@ void memview_draw(const Step &step, Rectangle area)
         std::string shown = c.value;
 
         if (is_pointer(c)) {
-            Color ac = ARROW_COLORS[arrowIndex++ % ARROW_COLOR_COUNT];
+            Color ac = arrow_color(arrowIndex++ % ARROW_COLOR_COUNT);
             arrowColor[c.name] = ac;
             auto t = byName.find(target_of(c));
             shown = (t != byName.end()) ? placed[t->second].cell->address : "?";

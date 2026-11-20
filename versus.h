@@ -41,7 +41,7 @@
 #include <vector>
 #include "practice.h"
 
-const int VERSUS_VERSION = 2;     // 2: spectators, LIVE and STATS
+const int VERSUS_VERSION = 3;     // 2: spectators, LIVE and STATS. 3: LOOK (Mal's outfit) and 6-part ROOM rows
 const double COUNTDOWN_SECONDS = 3.0;
 const double END_GRACE_SECONDS = 15.0;   // after time's up, how long to wait for the other's last result
 

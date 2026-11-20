@@ -6,6 +6,7 @@
 // The problem file format is described in README.md under "Writing problems".
 
 #pragma once
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -69,12 +70,30 @@ std::vector<std::string> check_rules(const Problem &p, const std::string &code);
 // The whole test program: a few helpers, the student's code, then the tests.
 std::string build_test_program(const Problem &p, const std::string &code, int timeLimitSeconds);
 
+enum class TestOutcome {
+    Passed, Failed,
+    Crashed,       // the code crashed during this test (crash says how)
+    TimedOut,      // this test never finished (an endless loop?)
+    NotRun         // couldn't run: the code before it crashed or hung every time
+};
+
 struct TestResult {
     bool passed = false;
+    TestOutcome outcome = TestOutcome::Failed;
     std::string description;
     std::string expected;   // may contain '\n' (patterns, grids)
     std::string got;
+    std::string crash;      // Crashed: "segmentation fault", "divide by zero" ...
+    std::string code;       // the test's own lines: what it was doing (shown when it crashes)
 };
+
+// One check in a problem's tests, found by reading them (before running):
+// its description, and its lines plus the lines just before it that set it up.
+struct CheckInfo {
+    std::string description;
+    std::string code;
+};
+std::vector<CheckInfo> split_checks(const Problem &p);
 
 enum class RunStatus {
     Passed,        // every test passed
@@ -85,6 +104,26 @@ enum class RunStatus {
     NoCompiler     // no C++ compiler could be found
 };
 
+// A problem the compiler found, for the Problems list and the editor.
+struct CompileProblem {
+    int line = 0, col = 0;      // in the student's code (1-based); 0 = not in it
+    bool error = true;          // false: a warning
+    std::string message;
+    bool inTests = false;       // it's in the tests: the function doesn't match the prototype
+};
+std::vector<CompileProblem> parse_compile_problems(const std::string &compilerOutput);
+
+// What a run is doing right now, for the screen to show while it runs on
+// another thread. Lock `lock` to read or change it.
+struct RunProgress {
+    std::mutex lock;
+    std::vector<std::string> log;   // the terminal: what's happened, a line each
+    std::string phase;              // "Compiling", "Running test 3 of 7"
+    int total = 0;                  // checks in the problem
+    std::vector<int> state;         // per test: 0 waiting, 1 passed, 2 failed, 3 crashed, 4 timed out, 5 not run
+    bool done = false;
+};
+
 struct RunResult {
     RunStatus status = RunStatus::Failed;
     std::vector<TestResult> tests;
@@ -93,6 +132,9 @@ struct RunResult {
     std::string compilerOutput;             // errors and warnings, with the student's line numbers
     std::string programOutput;              // anything the student's code printed
     double seconds = 0;                     // how long compiling and running took
+    std::vector<CompileProblem> problems;   // CompileError: where the errors are
+    std::vector<std::string> log;           // the terminal's lines from the run
+    int crashedAt = -1;                     // the first test that crashed or hung (-1: none)
 };
 
 // Reads what the test program printed (also used by the tests).
@@ -101,10 +143,23 @@ void parse_test_output(const std::string &output, RunResult &r);
 // Accepted = it ran, every test passed and no rules were broken.
 bool run_accepted(const RunResult &r);
 
-// Compiles and runs the answer. Blocks until done (about a second); the
-// screen shows "Running" first so the window doesn't look frozen.
+// Compiles and runs the answer. Blocks until done, so the screens call it on
+// another thread and watch `live` (optional) to show progress as it goes.
 // workDir holds the generated files (made if missing).
-RunResult run_answer(const Problem &p, const std::string &code, const std::string &workDir);
+//
+// Each test has its own time limit (TEST_SECONDS). When the code crashes or
+// hangs in a test, that test is marked and the program is run again from the
+// next one, so one bad test doesn't hide the rest.
+const int TEST_SECONDS = 3;
+RunResult run_answer(const Problem &p, const std::string &code, const std::string &workDir, RunProgress *live = nullptr);
+
+// Bytes for solving a problem in exam mode: the first solve pays 10 / 20 / 30
+// (Easy / Medium / Hard), beating your best time pays half that, else nothing.
+int exam_reward(const std::string &difficulty, bool firstSolve, bool newBest);
+
+// A plain explanation of a crash ("segmentation fault": "your code used a
+// pointer to nothing ...").
+std::string crash_explanation(const std::string &crash);
 
 // The C++ compiler command found on this computer ("" if none), searched for
 // once: STACKTRACE_CXX if set, then c++ / g++ / clang++, then raylib's

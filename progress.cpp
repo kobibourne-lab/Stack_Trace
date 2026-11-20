@@ -18,6 +18,7 @@
 //   BUG: offbyone | 2 | 2026-11-13 | boss   (the Bugdex: times caught, first date, how)
 //   BUGFIX: leak | 3   (a bug's quick fixes done, as bits)
 //   HARVEST: pointers | 2026-11-13   (the Memory Farm: last harvest of a crop)
+//   THEME: phosphor   (the app theme in use)
 // For ANSWER, 1 means right and 0 means wrong. For SOLVED, the last number is
 // the fastest time in seconds. For BOSS (a campaign boss beaten), the numbers
 // are the fastest win in seconds and the most stars.
@@ -99,6 +100,8 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             p.bugFixes[fields[0]] = std::atoi(fields[1].c_str());
         } else if (key == "HARVEST" && fields.size() >= 2 && !fields[0].empty()) {
             p.harvested[fields[0]] = fields[1];
+        } else if (key == "THEME" && !fields.empty() && !fields[0].empty()) {
+            p.theme = fields[0];
         } else if (key == "BYTES" && !fields.empty()) {
             p.bytes = std::atoi(fields[0].c_str());
             if (p.bytes < 0) p.bytes = 0;
@@ -172,6 +175,7 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         f << "BUG: " << b.first << " | " << b.second.caught << " | " << b.second.date << " | " << b.second.how << "\n";
     for (const auto &b : p.bugFixes) f << "BUGFIX: " << b.first << " | " << b.second << "\n";
     for (const auto &h : p.harvested) f << "HARVEST: " << h.first << " | " << h.second << "\n";
+    if (p.theme != "default") f << "THEME: " << p.theme << "\n";
     for (const auto &entry : p.bosses)
         f << "BOSS: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << " | "
           << entry.second.stars << "\n";
