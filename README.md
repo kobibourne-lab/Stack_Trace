@@ -299,6 +299,29 @@ devices, so 2 players and 2 spectators is comfortable).
 The host sees who's watching and what they've predicted in the lobby. Both
 players need the same version of Stack Trace (the messages are version 2 now).
 
+## The exam question of the day
+
+Press **Q** on the start screen (or click **Exam Q**). Every day there is one
+question picked from **all** the material in the app: every quiz question of
+every topic, not just the labs. It is the same for everyone on that date (so you
+can compare with a friend) and it changes at midnight, every 24 hours.
+
+- **One go**, like the real exam: no lives and no second try. The topic is hidden
+  until you've answered, so you can't guess the area from it.
+- A right answer pays 20 bytes, plus 5 more for each day already in your streak
+  (up to 25 extra). A wrong answer still pays 5 for having a go, and shows the
+  explanation. **Revise this topic** opens its lesson.
+- The streak counts days in a row answered right; a wrong answer or a missed day
+  ends it. **Copy result** gives a spoiler-free line to send to a friend.
+- It counts like any quiz answer (topic mastery and XP), and is one of the daily
+  quests ("Answer today's exam question").
+- The day's question comes from shuffling the whole pool once per cycle, so no
+  question comes round twice until every one has been used (127 at the moment,
+  so a new cycle every 127 days; it grows as quizzes are added).
+
+The rules are in `examq.cpp` (no drawing, so it's tested) and the screen is
+`screen_examq.cpp`. It's saved in `progress.txt` as `EXAMQ` and `EXAMQ_STATS`.
+
 ## Tests
 
 `make test` runs `tests/test_core.cpp`, with no window:
@@ -355,6 +378,8 @@ players need the same version of Stack Trace (the messages are version 2 now).
 | `campaign.cpp/.h` | the campaign: regions, what's cleared and open, boss HP and stars (no drawing) |
 | `screen_campaign.cpp` | the campaign's world map |
 | `screen_boss.cpp` | a boss fight: intro, the fight, and winning or losing |
+| `examq.cpp/.h` | the exam question of the day: the pool, the daily pick, one go, bytes and streak (no drawing) |
+| `screen_examq.cpp` | the exam question of the day screen |
 | `content/` | topics, lessons, quizzes, and Exam prep problems in `content/practice/` |
 | `fonts/` | IBM Plex Sans and JetBrains Mono, both under the SIL Open Font License (licences included) |
 | `tests/test_core.cpp` | the automatic tests |

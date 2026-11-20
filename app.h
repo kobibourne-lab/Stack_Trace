@@ -22,8 +22,9 @@
 #include "codex.h"
 #include "bugdex.h"
 #include "farm.h"
+#include "examq.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm, ExamQ };
 
 // A run of the code on another thread, so the window never freezes while it
 // compiles and runs. The screen draws progress.log as it fills up.
@@ -183,6 +184,9 @@ struct App {
     VersusState vs;              // Versus mode
     WatchState watch;            // watching a Versus match
 
+    std::vector<ExamQ> examPool;        // every quiz question, for the exam question of the day
+    std::string examPoolError;
+
     std::vector<Region> campaign;       // content/campaign.txt
     std::string campaignError;
     bool inCampaign = false;     // lessons and quizzes go back to the campaign map, not the topic map
@@ -295,6 +299,12 @@ void screen_codex(App &app);
 void open_bugdex(App &app);
 void screen_bugdex(App &app);
 void open_farm(App &app);
+// The exam question of the day: one question from all the material, one go.
+void open_examq(App &app);
+void screen_examq(App &app);
+// A quiz answer button (screen_quiz.cpp), shared with the exam question's screen.
+// age is the seconds since it was answered, for the pop and shake.
+bool quiz_option_button(const std::string &label, int number, Rectangle r, bool answered, int chosen, int answerNo, float age);
 void screen_farm(App &app);
 // The Bit Garden, small, for the view out of Mal's window.
 void draw_garden_view(const App &app, Rectangle area, float t);

@@ -72,19 +72,18 @@ static void answer(App &app, int choice, Vector2 at)
 
 // An option: a chunky button that pops green when it's the answer, and shakes
 // when it was picked wrongly.
-static bool option_button(const std::string &label, int number, Rectangle r, const QuizSession &s, const Question &q)
+bool quiz_option_button(const std::string &label, int number, Rectangle r, bool answered, int chosen, int answerNo, float age)
 {
     Color border = COL_LINE, fill = COL_SURFACE, text = COL_TEXT, base = COL_LINE;
-    bool clickable = !s.answered;
+    bool clickable = !answered;
     bool hover = clickable && CheckCollisionPointRec(GetMousePosition(), r);
     bool held = hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-    float age = since_answer();
 
-    bool isAnswer = s.answered && number == q.answer;
-    bool isWrongPick = s.answered && number == s.chosen && !isAnswer;
+    bool isAnswer = answered && number == answerNo;
+    bool isWrongPick = answered && number == chosen && !isAnswer;
     if (isAnswer) { border = COL_GREEN; text = COL_GREEN; fill = { 29, 58, 38, 255 }; base = { 47, 107, 58, 255 }; }
     else if (isWrongPick) { border = COL_CORAL; text = COL_CORAL; fill = { 58, 30, 30, 255 }; base = { 110, 48, 45, 255 }; }
-    else if (s.answered) text = COL_MUTED;
+    else if (answered) text = COL_MUTED;
     else if (hover) { fill = COL_SURFACE_2; border = COL_TEXT_SOFT; base = COL_TEXT_SOFT; ui_want_hand(); }
 
     // Pop: the right answer swells and settles. Shake: the wrong pick wobbles.
@@ -115,6 +114,11 @@ static bool option_button(const std::string &label, int number, Rectangle r, con
 
     bool clicked = hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     return clicked;
+}
+
+static bool option_button(const std::string &label, int number, Rectangle r, const QuizSession &s, const Question &q)
+{
+    return quiz_option_button(label, number, r, s.answered, s.chosen, q.answer, since_answer());
 }
 
 static void draw_status(App &app)

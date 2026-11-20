@@ -269,6 +269,7 @@ static const char *quest_icon(const std::string &key)
     if (key == "solve") return "</>";
     if (key == "game") return "OS";
     if (key == "outputle") return "_?";
+    if (key == "examq") return "EQ";
     if (key == "bugfix") return "!!";
     if (key == "codexrun") return "C";
     if (key == "harvest") return "**";

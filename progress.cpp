@@ -12,6 +12,8 @@
 //   FREEZES: 1   (const freezes held)
 //   DAILY: 2026-11-13 | 1 | correct=4 | game=2   (today's quests: the date,
 //          the chests opened as bits, then the counters)
+//   EXAMQ: 2026-11-20 | 2 | 1   (today's exam question: the pick, and was it right)
+//   EXAMQ_STATS: 5 | 4 | 2 | 3 | 2026-11-20   (played, right, streak, best streak, last day right)
 //   OUTPUTLE: 2026-11-13 | 5,49 | 7,49   (today's Outputle guesses)
 //   OUTPUTLE_STATS: 4 | 3 | 2 | 2 | 2026-11-13 | 0 | 1 | 2 | 0 | 0 | 0
 //          (played, won, streak, best streak, last win, then wins in 1..6 tries)
@@ -90,6 +92,17 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             s.best = std::atoi(fields[3].c_str());
             s.lastWin = fields[4];
             for (int i = 0; i < 6 && 5 + i < (int)fields.size(); i++) s.dist[i] = std::atoi(fields[5 + i].c_str());
+        } else if (key == "EXAMQ" && fields.size() >= 3) {
+            p.examq.date = fields[0];
+            p.examq.choice = std::atoi(fields[1].c_str());
+            p.examq.correct = fields[2] == "1";
+        } else if (key == "EXAMQ_STATS" && fields.size() >= 4) {
+            ExamQStats &s = p.examqStats;
+            s.played = std::atoi(fields[0].c_str());
+            s.correct = std::atoi(fields[1].c_str());
+            s.streak = std::atoi(fields[2].c_str());
+            s.best = std::atoi(fields[3].c_str());
+            if (fields.size() >= 5) s.lastCorrect = fields[4];
         } else if (key == "BUG" && fields.size() >= 2 && !fields[0].empty()) {
             BugRecord b;
             b.caught = std::atoi(fields[1].c_str());
@@ -170,6 +183,12 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         f << "OUTPUTLE_STATS: " << s.played << " | " << s.won << " | " << s.streak << " | " << s.best << " | " << s.lastWin;
         for (int d : s.dist) f << " | " << d;
         f << "\n";
+    }
+    if (!p.examq.date.empty())
+        f << "EXAMQ: " << p.examq.date << " | " << p.examq.choice << " | " << (p.examq.correct ? 1 : 0) << "\n";
+    if (p.examqStats.played > 0) {
+        const ExamQStats &s = p.examqStats;
+        f << "EXAMQ_STATS: " << s.played << " | " << s.correct << " | " << s.streak << " | " << s.best << " | " << s.lastCorrect << "\n";
     }
     for (const auto &b : p.bugs)
         f << "BUG: " << b.first << " | " << b.second.caught << " | " << b.second.date << " | " << b.second.how << "\n";
