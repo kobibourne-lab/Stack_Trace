@@ -620,9 +620,62 @@ static void draw_duck(float clock, bool tag)
     if (tag) pet_tag("rubber duck", yel);
 }
 
+static void draw_ghost(float clock, bool tag)
+{
+    // void*: points at nothing, so it floats, and fades in and out (you can't tell what it is)
+    float bob = sinf(clock * 1.8f) * 3, a = 0.55f + 0.4f * (0.5f + 0.5f * sinf(clock * 0.9f));
+    Color body = Fade({ 220, 228, 255, 255 }, a);
+    float top = -50 + bob, bot = -16 + bob;
+    DrawCircleV({ 0, top + 17 }, 17, body);                                // the round head
+    DrawRectangleRec({ -17, top + 17, 34, bot - top - 17 }, body);
+    for (int i = 0; i < 4; i++) {                                         // the wavy hem
+        float wave = sinf(clock * 4 + i * 1.4f) * 1.5f;
+        DrawCircleV({ -12.75f + i * 8.5f, bot + wave }, 4.6f, body);
+    }
+    Color ink = Fade({ 20, 20, 24, 255 }, a);
+    DrawCircleV({ -6, top + 18 }, 3, ink);
+    DrawCircleV({ 6, top + 18 }, 3, ink);
+    DrawCircleV({ -5.2f, top + 17 }, 1, Fade(WHITE, a));
+    DrawCircleV({ 6.8f, top + 17 }, 1, Fade(WHITE, a));
+    DrawEllipse(0, (int)(top + 27), 2.5f, 3.5f, ink);                    // a little "o" of surprise
+    ui_text("void*", -11, (top + 4), 8, Fade({ 120, 130, 190, 255 }, a), FontKind::MonoBold);
+    float q = fmodf(clock * 0.7f, 1.0f);                                   // question marks drifting off
+    ui_text("?", (20 + q * 6), (top + 6 - q * 14), 12, Fade({ 150, 160, 220, 255 }, (1 - q) * a), FontKind::MonoBold);
+    if (tag) pet_tag("void*", { 180, 190, 240, 255 });
+}
+
+static void draw_snake(float clock, bool tag)
+{
+    // A linked list: each segment is a node pointing at the next, the tail ends in NULL
+    Color seg[3] = { { 84, 170, 96, 255 }, { 96, 190, 108, 255 }, { 110, 210, 120, 255 } }, head = { 126, 231, 135, 255 };
+    const char *vals[3] = { "3", "5", "7" };
+    for (int i = 0; i < 3; i++) {
+        float x = -38 + i * 21.0f, y = -9 + sinf(clock * 3 - i * 0.9f) * 3;
+        DrawRectangleRounded({ x - 8, y - 7, 16, 14 }, 0.45f, 6, seg[i]);
+        DrawLineEx({ x + 2, y - 7 }, { x + 2, y + 7 }, 1, darker(seg[i], 0.6f));   // value | next
+        ui_text(vals[i], x - 6, y - 4, 8, darker(seg[i], 0.35f), FontKind::MonoBold);
+        float ny = -9 + sinf(clock * 3 - (i + 1) * 0.9f) * 3;
+        DrawLineEx({ x + 5, y }, { x + 11, ny }, 1.5f, COL_AMBER);
+        DrawTriangle({ x + 13, ny }, { x + 10, ny - 2.5f }, { x + 10, ny + 2.5f }, COL_AMBER);
+    }
+    ui_text("NULL", -58, -12, 7, COL_CORAL, FontKind::MonoBold);
+    float hy = -14 + sinf(clock * 3 - 2.7f) * 3;
+    DrawRectangleRounded({ 18, hy - 10, 22, 19 }, 0.6f, 8, head);
+    DrawCircleV({ 25, hy - 3 }, 2.6f, COL_BG);
+    DrawCircleV({ 33, hy - 3 }, 2.6f, COL_BG);
+    DrawCircleV({ 25.8f, hy - 3.8f }, 0.9f, WHITE);
+    DrawCircleV({ 33.8f, hy - 3.8f }, 0.9f, WHITE);
+    if (fmodf(clock, 2.0f) < 0.5f) {                                       // flicks its tongue
+        DrawLineEx({ 40, hy + 3 }, { 46, hy + 3 }, 1.5f, COL_CORAL);
+        DrawLineEx({ 46, hy + 3 }, { 49, hy }, 1.2f, COL_CORAL);
+        DrawLineEx({ 46, hy + 3 }, { 49, hy + 6 }, 1.2f, COL_CORAL);
+    }
+    if (tag) pet_tag("node*", head);
+}
+
 void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag)
 {
-    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck") return;
+    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck" && pet != "ghost" && pet != "snake") return;
     float k = size / 60.0f;
     rlPushMatrix();
     rlTranslatef(at.x, at.y, 0);
@@ -630,6 +683,8 @@ void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, b
     if (pet == "cat") draw_cat(tag);
     else if (pet == "dog") draw_dog(clock, tag);
     else if (pet == "duck") draw_duck(clock, tag);
+    else if (pet == "ghost") draw_ghost(clock, tag);
+    else if (pet == "snake") draw_snake(clock, tag);
     else draw_bird(clock, tag);
     rlPopMatrix();
 }

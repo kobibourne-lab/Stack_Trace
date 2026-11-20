@@ -46,6 +46,8 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "cat",        "const cat",       WearKind::Pet,  4,  0, false, 0, 40 },   // never moves
         { "dog",        "static dog",      WearKind::Pet,  8,  0, false, 0, 80 },   // remembers you
         { "bird",       "volatile bird",   WearKind::Pet,  10, 0, false, 0, 100 },   // changes when you're not looking
+        { "ghost",      "void* ghost",     WearKind::Pet,  12, 0, false, 0, 120 },   // points at nothing, fades in and out
+        { "snake",      "linked list snake", WearKind::Pet, 0, 3, false },          // beat The Heap (the 3rd boss)
     };
     return items;
 }

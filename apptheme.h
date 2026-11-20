@@ -1,8 +1,10 @@
 // apptheme.h - the app's themes: the whole look of Stack Trace, not just Mal.
-// Five of them: the normal dark look, and four to unlock: Phosphor (an old
+// Eight of them: the normal dark look, and seven to unlock: Phosphor (an old
 // green-screen terminal, unlocked at level 5), Neon Night (synthwave, bought
-// for bytes), Paper (a light notebook look, free) and Blueprint (an engineer's
-// drawing, for beating 3 campaign bosses). The one in use is saved (THEME).
+// for bytes), Paper (a light notebook look, free), Blueprint (an engineer's
+// drawing, for beating 3 campaign bosses), Retro OS (a 90s desktop, bytes),
+// Pocket (an old handheld console, for 20 Codle wins) and Deep Sea (the ocean
+// floor, for mastering 10 topics). The one in use is saved (THEME).
 //
 // No drawing here (theme.cpp draws them), so it can be tested.
 
@@ -18,6 +20,8 @@ struct AppTheme {
     int level = 0;       // reach this level to unlock it (0 = no level needed)
     int bosses = 0;      // beat this many campaign bosses to unlock it
     int price = 0;       // bytes to buy it (0 = free once the rest is done)
+    int codleWins = 0;   // win this many Codles to unlock it
+    int mastered = 0;    // master this many topics to unlock it
 };
 
 const std::vector<AppTheme> &app_themes();

@@ -11,6 +11,12 @@
 //                taped on with a pencil outline and a shadow
 //   Blueprint    grid paper, corner marks and measurements round the panels,
 //                and a title block on the title screen
+//   Retro OS     a 90s desktop: teal behind grey 3D windows with blue title
+//                bars, and a taskbar along the bottom
+//   Pocket       an old handheld console: four greens, everything tinted to
+//                match, and a dot-matrix screen
+//   Deep Sea     the ocean floor: light rays, bubbles, drifting jellyfish,
+//                and panels that glow like deep-sea creatures
 
 #include "theme.h"
 #include "ui.h"
@@ -28,7 +34,7 @@ struct Palette {
     Color green, amber, coral, blue, purple;
 };
 
-enum class Look { Normal, Phosphor, Neon, Paper, Blueprint };
+enum class Look { Normal, Phosphor, Neon, Paper, Blueprint, Retro, Pocket, DeepSea };
 
 static Palette palette_for(Look l)
 {
@@ -49,6 +55,18 @@ static Palette palette_for(Look l)
         return { { 14, 40, 88, 255 }, { 19, 51, 107, 255 }, { 25, 61, 124, 255 }, { 92, 142, 212, 255 }, { 46, 86, 152, 255 },
                  { 238, 245, 255, 255 }, { 204, 222, 246, 255 }, { 142, 172, 216, 255 },
                  { 140, 255, 190, 255 }, { 255, 214, 108, 255 }, { 255, 140, 128, 255 }, { 164, 222, 255, 255 }, { 214, 192, 255, 255 } };
+    case Look::Retro:
+        return { { 212, 208, 200, 255 }, { 192, 192, 192, 255 }, { 224, 222, 216, 255 }, { 128, 128, 128, 255 }, { 160, 160, 160, 255 },
+                 { 0, 0, 0, 255 }, { 32, 32, 32, 255 }, { 88, 88, 88, 255 },
+                 { 0, 128, 0, 255 }, { 0, 0, 128, 255 }, { 176, 0, 0, 255 }, { 0, 64, 192, 255 }, { 128, 0, 128, 255 } };
+    case Look::Pocket:
+        return { { 155, 188, 15, 255 }, { 139, 172, 15, 255 }, { 124, 156, 14, 255 }, { 48, 98, 48, 255 }, { 110, 148, 20, 255 },
+                 { 15, 56, 15, 255 }, { 28, 70, 24, 255 }, { 48, 98, 48, 255 },
+                 { 15, 56, 15, 255 }, { 48, 98, 48, 255 }, { 15, 56, 15, 255 }, { 48, 98, 48, 255 }, { 15, 56, 15, 255 } };
+    case Look::DeepSea:
+        return { { 2, 14, 28, 255 }, { 6, 26, 44, 255 }, { 9, 34, 56, 255 }, { 22, 74, 104, 255 }, { 12, 44, 66, 255 },
+                 { 220, 250, 255, 255 }, { 170, 220, 235, 255 }, { 90, 140, 160, 255 },
+                 { 60, 255, 200, 255 }, { 255, 200, 90, 255 }, { 255, 110, 140, 255 }, { 80, 200, 255, 255 }, { 170, 140, 255, 255 } };
     default:
         return { { 13, 17, 23, 255 }, { 22, 27, 34, 255 }, { 28, 33, 40, 255 }, { 48, 54, 61, 255 }, { 33, 38, 45, 255 },
                  { 230, 237, 243, 255 }, { 201, 209, 217, 255 }, { 139, 148, 158, 255 },
@@ -62,6 +80,9 @@ static Look look_for(const std::string &id)
     if (id == "neon") return Look::Neon;
     if (id == "paper") return Look::Paper;
     if (id == "blueprint") return Look::Blueprint;
+    if (id == "retro") return Look::Retro;
+    if (id == "pocket") return Look::Pocket;
+    if (id == "deepsea") return Look::DeepSea;
     return Look::Normal;
 }
 
@@ -120,6 +141,10 @@ static bool big_panel(Rectangle r, Color fill)
 }
 
 const Color NEON_PINK = { 255, 60, 170, 255 }, NEON_CYAN = { 60, 220, 255, 255 };
+
+// The windows given a title bar this frame, so a panel inside one doesn't get its own
+static Rectangle titled[16];
+static int titledCount = 0;
 
 // ---------------------------------------------------------------------------
 // Backgrounds
@@ -195,14 +220,76 @@ static void blueprint_background(Rectangle a, float fine)
     for (float y = a.y; y < a.y + a.height; y += fine, n++) DrawRectangle((int)a.x, (int)y, (int)a.width, 1, n % 5 ? f : m);
 }
 
+static void retro_background(Rectangle a, float bar)
+{
+    DrawRectangleRec(a, { 0, 128, 128, 255 });   // the teal desktop
+    if (bar <= 0) return;
+    // the taskbar along the bottom (the footer hints sit on it)
+    float y = a.y + a.height - bar;
+    DrawRectangle((int)a.x, (int)y, (int)a.width, (int)bar + 1, { 192, 192, 192, 255 });
+    DrawRectangle((int)a.x, (int)y, (int)a.width, 2, WHITE);
+}
+
+static void deepsea_background(float t, Rectangle a, float scale)
+{
+    DrawRectangleGradientV((int)a.x, (int)a.y, (int)a.width, (int)a.height, { 8, 46, 78, 255 }, { 1, 6, 16, 255 });
+    // light rays slanting down from the surface, swaying
+    BeginBlendMode(BLEND_ADDITIVE);
+    for (int i = 0; i < 5; i++) {
+        float x = a.x + a.width * (0.12f + 0.2f * i) + sinf(t * 0.3f + i * 2) * 30 * scale;
+        float w = (40 + noise(i * 9) * 50) * scale, lean = a.height * 0.35f;
+        Color c = Fade({ 120, 220, 255, 255 }, 0.05f + 0.03f * sinf(t * 0.7f + i));
+        Vector2 p1 = { x - w / 2, a.y }, p2 = { x + w / 2, a.y }, p3 = { x + lean + w * 1.6f, a.y + a.height * 0.85f }, p4 = { x + lean - w * 0.6f, a.y + a.height * 0.85f };
+        ui_triangle(p1, p2, p3, c);
+        ui_triangle(p1, p3, p4, c);
+    }
+    // caustics: soft ripples of light near the top
+    for (int i = 0; i < 18; i++) {
+        float x = a.x + noise(i * 7) * a.width + sinf(t * 0.8f + i) * 12 * scale, y = a.y + noise(i * 11) * a.height * 0.22f;
+        DrawEllipse((int)x, (int)y, (18 + noise(i) * 26) * scale, 4 * scale, Fade({ 90, 200, 230, 255 }, 0.06f + 0.05f * sinf(t * 1.6f + i * 3)));
+    }
+    EndBlendMode();
+    // jellyfish drifting up and back down, tentacles waving
+    const Color jc[3] = { { 255, 120, 200, 255 }, { 120, 220, 255, 255 }, { 180, 140, 255, 255 } };
+    for (int j = 0; j < 3; j++) {
+        float s = (24 + 16 * noise(j * 5)) * scale;
+        float x = a.x + a.width * (0.07f + 0.43f * j) + sinf(t * 0.25f + j * 2) * 26 * scale;
+        float y = a.y + a.height * (0.35f + 0.25f * noise(j * 3)) + sinf(t * 0.4f + j) * 40 * scale;
+        float pulse = 1 + 0.08f * sinf(t * 2.5f + j);
+        for (int k = 0; k < 5; k++) {
+            float tx = x - s * 0.7f + k * s * 0.35f;
+            Vector2 prev = { tx, y };
+            for (int q = 1; q <= 8; q++) {
+                Vector2 p = { tx + sinf(t * 2 + q * 0.6f + k) * 4 * scale, y + q * 7 * scale };
+                DrawLineEx(prev, p, 1.5f * scale, Fade(jc[j], 0.45f - q * 0.04f));
+                prev = p;
+            }
+        }
+        DrawCircleSector({ x, y }, s * pulse * 1.5f, 180, 360, 24, Fade(jc[j], 0.08f));
+        DrawCircleSector({ x, y }, s * pulse, 180, 360, 24, Fade(jc[j], 0.55f));
+        DrawCircleSector({ x, y - s * 0.15f }, s * pulse * 0.55f, 200, 340, 16, Fade(WHITE, 0.18f));
+    }
+    // bubbles rising and wobbling
+    for (int i = 0; i < 46; i++) {
+        float speed = (18 + noise(i * 3) * 40) * scale, r = (1.5f + noise(i * 17) * 4.5f) * scale;
+        float y = a.y + a.height - fmodf(noise(i * 13) * a.height + t * speed, a.height + 20);
+        float x = a.x + noise(i * 29) * a.width + sinf(t * 1.5f + i) * 4 * scale;
+        DrawCircleLines((int)x, (int)y, r, Fade({ 170, 240, 255, 255 }, 0.5f));
+        DrawCircleV({ x - r * 0.35f, y - r * 0.35f }, r * 0.25f, Fade(WHITE, 0.5f));
+    }
+}
+
 void theme_background(float t)
 {
+    titledCount = 0;   // a new frame
     Rectangle all = { 0, 0, (float)SCREEN_W, (float)SCREEN_H };
     switch (look) {
         case Look::Phosphor:  phosphor_background(t, all); break;
         case Look::Neon:      neon_background(t, all); break;
         case Look::Paper:     paper_background(all, 26); break;
         case Look::Blueprint: blueprint_background(all, 10); break;
+        case Look::Retro:     retro_background(all, (float)FOOTER_H); break;
+        case Look::DeepSea:   deepsea_background(t, all, 1); break;
         default: break;
     }
 }
@@ -217,9 +304,22 @@ static Color neon_colour(Rectangle r, Color border)
     return noise(rect_hash(r)) < 0.5f ? NEON_PINK : NEON_CYAN;
 }
 
+const Color SEA_GLOW = { 40, 200, 230, 255 };
+
 void theme_panel_under(Rectangle r, Color fill, Color border)
 {
-    if (look == Look::Normal || look == Look::Phosphor || !big_panel(r, fill)) return;
+    if (look == Look::Normal || look == Look::Phosphor || look == Look::Pocket || !big_panel(r, fill)) return;
+    if (look == Look::DeepSea) {   // a soft cyan glow, like something living down there
+        for (int i = 6; i >= 1; i--) {
+            Rectangle g = grow(r, i * 2.5f);
+            DrawRectangleRoundedLinesEx(g, roundness(g, 8 + i * 2.5f), 8, 3, Fade(SEA_GLOW, 0.05f + 0.015f * (6 - i)));
+        }
+        return;
+    }
+    if (look == Look::Retro) {   // a hard drop shadow, like a 90s window
+        DrawRectangleRec({ r.x + 4, r.y + 4, r.width, r.height }, Fade(BLACK, 0.35f));
+        return;
+    }
     if (look == Look::Neon) {   // a soft glow round the tube
         Color c = neon_colour(r, border);
         for (int i = 5; i >= 1; i--) {
@@ -287,9 +387,47 @@ static void dimension_line(Rectangle r, Color c)
     ui_text(label, r.x + r.width / 2 - tw / 2, y - 6, 10, c, FontKind::Mono);
 }
 
+static void bevel(Rectangle r, bool raised)
+{
+    Color lite = raised ? WHITE : Color{ 64, 64, 64, 255 }, dark = raised ? Color{ 64, 64, 64, 255 } : WHITE;
+    DrawRectangle((int)r.x, (int)r.y, (int)r.width, 2, lite);
+    DrawRectangle((int)r.x, (int)r.y, 2, (int)r.height, lite);
+    DrawRectangle((int)r.x, (int)(r.y + r.height - 2), (int)r.width, 2, dark);
+    DrawRectangle((int)(r.x + r.width - 2), (int)r.y, 2, (int)r.height, dark);
+}
+
+static void title_bar(Rectangle r)
+{
+    for (int i = 0; i < titledCount; i++) {
+        const Rectangle &o = titled[i];
+        if (r.x >= o.x && r.y >= o.y && r.x + r.width <= o.x + o.width && r.y + r.height <= o.y + o.height) return;
+    }
+    if (titledCount < 16) titled[titledCount++] = r;
+    // a blue title bar on top of the window, with its three buttons
+    Rectangle b = { r.x, r.y - 22, r.width, 22 };
+    DrawRectangleGradientH((int)b.x, (int)b.y, (int)b.width, (int)b.height, { 0, 0, 128, 255 }, { 16, 132, 208, 255 });
+    ui_text("stack_trace.exe", b.x + 8, b.y + 4, 12, WHITE, FontKind::UiBold);
+    const char *marks[3] = { "x", "o", "_" };
+    for (int i = 0; i < 3; i++) {
+        Rectangle k = { b.x + b.width - 20 - i * 19.0f, b.y + 3, 16, 15 };
+        DrawRectangleRec(k, { 192, 192, 192, 255 });
+        bevel(k, true);
+        ui_text(marks[i], k.x + 5, k.y + (i == 2 ? -2 : 0), 11, BLACK, FontKind::MonoBold);
+    }
+}
+
 void theme_panel_over(Rectangle r, Color fill, Color border)
 {
-    if (look == Look::Normal || look == Look::Phosphor || !big_panel(r, fill)) return;
+    if (look == Look::Normal || look == Look::Phosphor || look == Look::Pocket || !big_panel(r, fill)) return;
+    if (look == Look::DeepSea) {
+        DrawRectangleRoundedLinesEx(r, roundness(r, 8), 8, 2, same(border, COL_LINE) ? SEA_GLOW : border);
+        return;
+    }
+    if (look == Look::Retro) {
+        bevel(r, true);
+        if (r.y >= 100 && r.width >= 300) title_bar(r);
+        return;
+    }
     if (look == Look::Neon) {
         Color c = neon_colour(r, border);
         DrawRectangleRoundedLinesEx(r, roundness(r, 8), 8, 2.5f, c);
@@ -336,6 +474,15 @@ void theme_overlay(float t, bool titleBlock)
         DrawRectangleGradientV(0, SCREEN_H - e / 2, SCREEN_W, e / 2, Fade(BLACK, 0), Fade(BLACK, 0.5f));
         Rectangle glass = { -30, -30, SCREEN_W + 60.0f, SCREEN_H + 60.0f };
         DrawRectangleRoundedLinesEx(glass, 0.16f, 16, 40, BLACK);
+    } else if (look == Look::Pocket) {
+        // everything tinted to the console's greens, then the dot-matrix grid
+        BeginBlendMode(BLEND_MULTIPLIED);
+        DrawRectangle(0, 0, SCREEN_W, SCREEN_H, { 200, 228, 130, 255 });
+        EndBlendMode();
+        for (int y = 1; y < SCREEN_H; y += 3) DrawRectangle(0, y, SCREEN_W, 1, Fade({ 155, 188, 15, 255 }, 0.18f));
+        for (int x = 1; x < SCREEN_W; x += 3) DrawRectangle(x, 0, 1, SCREEN_H, Fade({ 155, 188, 15, 255 }, 0.18f));
+        Rectangle glass = { -24, -24, SCREEN_W + 48.0f, SCREEN_H + 48.0f };
+        DrawRectangleRoundedLinesEx(glass, 0.08f, 16, 30, { 48, 98, 48, 255 });
     } else if (look == Look::Blueprint && titleBlock) {
         blueprint_title_block();
     }
@@ -357,6 +504,8 @@ void theme_preview(const std::string &id, Rectangle r, float t)
         case Look::Neon:      neon_background(t, r); break;
         case Look::Paper:     paper_background(r, 14); break;
         case Look::Blueprint: blueprint_background(r, 8); break;
+        case Look::Retro:     retro_background(r, 12); break;
+        case Look::DeepSea:   deepsea_background(t, r, 0.4f); break;
         default: break;
     }
     Rectangle panel = { r.x + r.width * 0.52f, r.y + 14, r.width * 0.42f, r.height - 28 };
@@ -367,11 +516,16 @@ void theme_preview(const std::string &id, Rectangle r, float t)
     if (look == Look::Neon) DrawRectangleRoundedLinesEx(panel, roundness(panel, 6), 6, 2, NEON_CYAN);
     if (look == Look::Paper) { pencil_rect(panel, 9); tape(panel.x + 3, panel.y + 2, -38); }
     if (look == Look::Blueprint) corner_marks(panel, { 225, 238, 255, 255 });
-    ui_text("int *p = &x;", panel.x + 8, panel.y + 12, 10, COL_TEXT, FontKind::Mono);
-    ui_text("*p = 7;", panel.x + 8, panel.y + 26, 10, COL_TEXT_SOFT, FontKind::Mono);
+    if (look == Look::Retro) {
+        bevel(panel, true);
+        DrawRectangleGradientH((int)panel.x, (int)panel.y, (int)panel.width, 10, { 0, 0, 128, 255 }, { 16, 132, 208, 255 });
+    }
+    if (look == Look::DeepSea) DrawRectangleRoundedLinesEx(panel, roundness(panel, 6), 6, 1.5f, SEA_GLOW);
+    ui_text("int *p = &x;", panel.x + 6, panel.y + 14, 8, COL_TEXT, FontKind::Mono);
+    ui_text("*p = 7;", panel.x + 6, panel.y + 26, 8, COL_TEXT_SOFT, FontKind::Mono);
     DrawRectangle((int)panel.x + 8, (int)(panel.y + panel.height - 22), (int)(panel.width * 0.5f), 12, Fade(COL_AMBER, 0.85f));
     float lx = r.x + 12;
-    ui_text("STACK TRACE", lx, r.y + 18, 14, COL_TEXT, FontKind::MonoBold);
+    ui_text("STACK TRACE", lx, r.y + 18, 12, COL_TEXT, FontKind::MonoBold);
     Rectangle b1 = { lx, r.y + 44, r.width * 0.2f, 16 }, b2 = { lx + r.width * 0.22f, r.y + 44, r.width * 0.2f, 16 };
     DrawRectangleRounded(b1, 0.4f, 6, COL_AMBER);
     DrawRectangleRounded(b2, 0.4f, 6, COL_GREEN);
@@ -379,6 +533,8 @@ void theme_preview(const std::string &id, Rectangle r, float t)
     DrawRectangleRoundedLinesEx({ lx + r.width * 0.22f, r.y + 66, r.width * 0.2f, 16 }, 0.4f, 6, 1.5f, COL_CORAL);
     if (look == Look::Phosphor)
         for (float y = r.y; y < r.y + r.height; y += 3) DrawRectangle((int)r.x, (int)y, (int)r.width, 1, Fade(BLACK, 0.25f));
+    if (look == Look::Pocket)
+        for (float y = r.y + 1; y < r.y + r.height; y += 3) DrawRectangle((int)r.x, (int)y, (int)r.width, 1, Fade({ 155, 188, 15, 255 }, 0.2f));
     EndScissorMode();
     theme_apply(was);
 }

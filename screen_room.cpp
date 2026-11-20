@@ -499,25 +499,25 @@ static void draw_editor(App &app, float t)
 static void draw_theme_cards(App &app, float gx, float gy, float t)
 {
     Vector2 mouse = GetMousePosition();
-    const float cw = 255, ch = 176, gap = 12;
+    const float cw = 184, ch = 166, gap = 12;   // 4 to a row
     int i = 0;
     for (const AppTheme &th : app_themes()) {
-        Rectangle c = { gx + (i % 3) * (cw + gap), gy + (i / 3) * (ch + gap), cw, ch };
+        Rectangle c = { gx + (i % 4) * (cw + gap), gy + (i / 4) * (ch + gap), cw, ch };
         i++;
         bool open = app_theme_unlocked(app.progress, th), earned = app_theme_earned(app.progress, th);
         bool inUse = app.progress.theme == th.id || (th.id == "default" && app.progress.theme.empty());
         bool forSale = !open && earned && th.price > 0, canBuy = forSale && app.progress.bytes >= th.price;
         bool hover = CheckCollisionPointRec(mouse, c);
         ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, inUse ? COL_GREEN : hover ? (forSale ? COL_PURPLE : COL_TEXT_SOFT) : COL_LINE, inUse || hover ? 2 : 1);
-        Rectangle pic = { c.x + 8, c.y + 8, cw - 16, 112 };
+        Rectangle pic = { c.x + 8, c.y + 8, cw - 16, 100 };
         theme_preview(th.id, pic, t);
         if (!open) DrawRectangleRec(pic, Fade(COL_BG, 0.55f));
-        ui_text(th.name, c.x + 12, c.y + 128, 15, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
+        ui_text(th.name, c.x + 10, c.y + 116, 14, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
         std::string state = inUse ? "in use" : open ? (hover ? "click to use" : "unlocked")
-                          : forSale ? (canBuy ? std::to_string(th.price) + " bytes: click to buy" : "need " + std::to_string(th.price - app.progress.bytes) + " more bytes")
+                          : forSale ? (canBuy ? std::to_string(th.price) + " bytes: buy" : "need " + std::to_string(th.price - app.progress.bytes) + " more bytes")
                           : app_theme_requirement(th) + (th.price > 0 ? ", then " + std::to_string(th.price) + " bytes" : "");
         Color sc = inUse ? COL_GREEN : open ? COL_TEXT_SOFT : forSale ? COL_PURPLE : COL_AMBER;
-        ui_text(state, c.x + 12, c.y + 150, 12, sc, FontKind::Mono);
+        ui_text(state, c.x + 10, c.y + 140, 11, sc, FontKind::Mono);
         if (!hover) continue;
         ui_want_hand();
         if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) continue;
@@ -609,7 +609,7 @@ static void draw_wardrobe(App &app, float t)
         ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, worn ? COL_GREEN : forSale && hover ? COL_PURPLE : (hover ? COL_TEXT_SOFT : COL_LINE), worn || (forSale && hover) ? 2 : 1);
 
         if (item.kind == WearKind::Pet && item.id != "nopet") {
-            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 86 }, item.id == "duck" ? 56 : 66, t, false);
+            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 86 }, item.id == "duck" ? 56 : item.id == "snake" ? 50 : 66, t, false);
         } else {
             Mal preview;   // a little Mal showing the item
             preview.hat = item.kind == WearKind::Hat ? item.id : "none";

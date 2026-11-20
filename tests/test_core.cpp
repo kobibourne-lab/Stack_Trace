@@ -999,6 +999,8 @@ static void test_wardrobe_snake_scores()
     CHECK(wardrobe_unlocked(*wardrobe_find("glitch"), u));
     CHECK(wardrobe_requirement(*wardrobe_find("glitch")) == "Crash a MAL-OS game");
     CHECK(wardrobe_find("bird") && wardrobe_find("bird")->kind == WearKind::Pet);
+    CHECK(wardrobe_find("ghost") && wardrobe_find("ghost")->kind == WearKind::Pet && wardrobe_find("ghost")->level == 12 && wardrobe_find("ghost")->price == 120);
+    CHECK(wardrobe_find("snake") && wardrobe_find("snake")->kind == WearKind::Pet && wardrobe_find("snake")->bosses == 3);
     CHECK(wardrobe_find("afro") && wardrobe_find("mohawk"));
     CHECK(wardrobe_rename("tophat") == "helicopter" && wardrobe_rename("gold") == "diamond" && wardrobe_rename("afro") == "afro");
     CHECK(!wardrobe_unlocked(*wardrobe_find("diamond"), UnlockInfo()));
@@ -1609,7 +1611,7 @@ static void test_farm()
 
 static void test_app_themes()
 {
-    CHECK(app_themes().size() == 5);
+    CHECK(app_themes().size() == 8);
     CHECK(app_theme_find("neon") && app_theme_find("neon")->price == 300);
     CHECK(app_theme_find("nope") == nullptr);
     Progress p;
@@ -1654,6 +1656,22 @@ static void test_app_themes()
     std::remove("test_theme_progress.txt");
     Progress fresh;
     CHECK(fresh.theme == "default");
+
+    // Retro OS for bytes, Pocket for 20 Codle wins, Deep Sea for 10 topics mastered
+    Progress q;
+    q.bytes = 500;
+    CHECK(app_theme_requirement(*app_theme_find("pocket")) == "Win 20 Codles");
+    CHECK(app_theme_requirement(*app_theme_find("deepsea")) == "Master 10 topics");
+    CHECK(app_theme_buy(q, "retro", why) && q.bytes == 300 && app_theme_use(q, "retro", why));
+    CHECK(!app_theme_unlocked(q, *app_theme_find("pocket")));
+    q.outputleStats.won = 19;
+    CHECK(!app_theme_use(q, "pocket", why));
+    q.outputleStats.won = 20;
+    CHECK(app_theme_use(q, "pocket", why) && q.theme == "pocket");
+    for (int i = 0; i < 9; i++) q.points["topic" + std::to_string(i)] = POINTS_MAX;
+    CHECK(!app_theme_unlocked(q, *app_theme_find("deepsea")));
+    q.points["topic9"] = POINTS_MAX;
+    CHECK(app_theme_unlocked(q, *app_theme_find("deepsea")));
 }
 
 int main()
