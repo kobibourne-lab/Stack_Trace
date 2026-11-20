@@ -6,6 +6,37 @@
 #include "rlgl.h"
 #include <cmath>
 
+// Mal and the pets look the same whatever the app theme is (on the light
+// themes the theme's background colour made Mal's eyes pale), so this file
+// uses the normal look's colours, not the theme's.
+static const Color MAL_BG = { 13, 17, 23, 255 };
+static const Color MAL_SURFACE = { 22, 27, 34, 255 };
+static const Color MAL_SURFACE_2 = { 28, 33, 40, 255 };
+static const Color MAL_LINE = { 48, 54, 61, 255 };
+static const Color MAL_LINE_SOFT = { 33, 38, 45, 255 };
+static const Color MAL_TEXT = { 230, 237, 243, 255 };
+static const Color MAL_TEXT_SOFT = { 201, 209, 217, 255 };
+static const Color MAL_MUTED = { 139, 148, 158, 255 };
+static const Color MAL_GREEN = { 126, 231, 135, 255 };
+static const Color MAL_AMBER = { 255, 180, 84, 255 };
+static const Color MAL_CORAL = { 255, 123, 114, 255 };
+static const Color MAL_BLUE = { 121, 192, 255, 255 };
+static const Color MAL_PURPLE = { 210, 168, 255, 255 };
+#define COL_BG MAL_BG
+#define COL_SURFACE MAL_SURFACE
+#define COL_SURFACE_2 MAL_SURFACE_2
+#define COL_LINE MAL_LINE
+#define COL_LINE_SOFT MAL_LINE_SOFT
+#define COL_TEXT MAL_TEXT
+#define COL_TEXT_SOFT MAL_TEXT_SOFT
+#define COL_MUTED MAL_MUTED
+#define COL_GREEN MAL_GREEN
+#define COL_AMBER MAL_AMBER
+#define COL_CORAL MAL_CORAL
+#define COL_BLUE MAL_BLUE
+#define COL_PURPLE MAL_PURPLE
+
+
 void mal_react(Mal &m, MalMood mood, float seconds)
 {
     m.mood = mood;

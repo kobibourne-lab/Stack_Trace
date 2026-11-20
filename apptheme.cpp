@@ -11,7 +11,7 @@ const std::vector<AppTheme> &app_themes()
         { "paper",     "Paper",       "Light mode as a notebook, with panels taped on.",            0, 0, 0, 0, 0 },
         { "blueprint", "Blueprint",   "An engineer's drawing: grid paper and measurements.",        0, 3, 0, 0, 0 },
         { "retro",     "Retro OS",    "A 90s desktop: grey 3D windows on teal, and a taskbar.",     0, 0, 200, 0, 0 },
-        { "pocket",    "Pocket",      "An old handheld console: four greens and a dot screen.",     0, 0, 0, 20, 0 },
+        { "pocket",    "Pocket",      "An old handheld console: four greens and a dot screen.",     0, 0, 0, 10, 0 },
         { "deepsea",   "Deep Sea",    "The ocean floor: light rays, bubbles and jellyfish.",        0, 0, 0, 0, 10 },
     };
     return themes;

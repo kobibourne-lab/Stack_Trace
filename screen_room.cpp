@@ -495,6 +495,29 @@ static void draw_editor(App &app, float t)
 // The wardrobe and tree overlays
 // ---------------------------------------------------------------------------
 
+// Clicks in the wardrobe only count once the mouse has been let go after it
+// opened (the click that opened it used to land on whatever was under it),
+// and buying takes two clicks: the first asks "click again to buy".
+static double wardrobeLastDraw = -10;
+static bool wardrobeArmed = false;
+static int wardrobeTab = 0;
+static std::string pendingBuy;   // the item asking "click again to buy"
+static double pendingAt = 0;
+
+static bool wardrobe_clicked() { return wardrobeArmed && IsMouseButtonPressed(MOUSE_BUTTON_LEFT); }
+
+// First click: ask. Second click on the same thing: true (buy it).
+static bool confirm_buy(const std::string &id)
+{
+    if (pendingBuy == id && GetTime() - pendingAt < 4) { pendingBuy.clear(); return true; }
+    pendingBuy = id;
+    pendingAt = GetTime();
+    sfx_play(Sfx::Click);
+    return false;
+}
+
+static bool asking(const std::string &id) { return pendingBuy == id && GetTime() - pendingAt < 4; }
+
 // The THEMES tab: a card for each app theme, with a little preview of it
 static void draw_theme_cards(App &app, float gx, float gy, float t)
 {
@@ -514,16 +537,17 @@ static void draw_theme_cards(App &app, float gx, float gy, float t)
         if (!open) DrawRectangleRec(pic, Fade(COL_BG, 0.55f));
         ui_text(th.name, c.x + 10, c.y + 116, 14, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
         std::string state = inUse ? "in use" : open ? (hover ? "click to use" : "unlocked")
-                          : forSale ? (canBuy ? std::to_string(th.price) + " bytes: buy" : "need " + std::to_string(th.price - app.progress.bytes) + " more bytes")
+                          : forSale ? (canBuy ? (asking("theme_" + th.id) ? "click again to buy" : std::to_string(th.price) + " bytes: buy") : "need " + std::to_string(th.price - app.progress.bytes) + " more bytes")
                           : app_theme_requirement(th) + (th.price > 0 ? ", then " + std::to_string(th.price) + " bytes" : "");
         Color sc = inUse ? COL_GREEN : open ? COL_TEXT_SOFT : forSale ? COL_PURPLE : COL_AMBER;
         ui_text(state, c.x + 10, c.y + 140, 11, sc, FontKind::Mono);
         if (!hover) continue;
         ui_want_hand();
-        if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) continue;
+        if (!wardrobe_clicked()) continue;
         std::string why;
         Vector2 mid = { c.x + cw / 2, c.y + ch / 2 };
         if (forSale) {
+            if (canBuy && !confirm_buy("theme_" + th.id)) continue;
             if (app_theme_buy(app.progress, th.id, why)) {
                 sfx_play(Sfx::Combo);
                 fx_float_text("-" + std::to_string(th.price) + " bytes", { mid.x, c.y - 6 }, 18, COL_PURPLE);
@@ -565,7 +589,11 @@ static void draw_wardrobe(App &app, float t)
     ui_text(have, p.x + p.width - 28 - hw + 14, p.y + 32, 16, COL_PURPLE, FontKind::MonoBold);
 
     // Tabs: hats, skins, pets, and the shop (things bought with bytes)
-    static int tab = 0;
+    double now = GetTime();
+    if (now - wardrobeLastDraw > 0.25) { wardrobeArmed = false; wardrobeTab = 0; pendingBuy.clear(); }   // just opened
+    wardrobeLastDraw = now;
+    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) wardrobeArmed = true;
+    int &tab = wardrobeTab;
     const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS", "SHOP", "THEMES" };
     const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet, WearKind::Hat, WearKind::Hat };
     const bool shop = tab == 3, themes = tab == 4;
@@ -577,7 +605,7 @@ static void draw_wardrobe(App &app, float t)
         ui_panel(tr, on ? COL_AMBER : (hov ? COL_SURFACE_2 : COL_BG), on ? COL_AMBER : COL_LINE, 1);
         float tw = ui_text_width(tabs[i], 12, FontKind::MonoBold);
         ui_text(tabs[i], tr.x + (tr.width - tw) / 2, tr.y + 10, 12, on ? COL_BG : COL_TEXT_SOFT, FontKind::MonoBold);
-        if (hov) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { tab = i; sfx_play(Sfx::Click); } }
+        if (hov) { ui_want_hand(); if (wardrobe_clicked()) { tab = i; pendingBuy.clear(); sfx_play(Sfx::Click); } }
     }
     if (IsKeyPressed(KEY_TAB)) tab = (tab + 1) % 5;
     const char *hint = tab == 0 ? "Reach the level, then buy it with bytes. Boss and mastery rewards are free."
@@ -624,7 +652,7 @@ static void draw_wardrobe(App &app, float t)
             ui_panel({ c.x + (cw - pw) / 2 - 6, c.y + 6, pw + 12, 18 }, canBuy ? COL_PURPLE : Fade(COL_PURPLE, 0.25f), Fade(COL_PURPLE, 0), 0);
             ui_text(price, c.x + (cw - pw) / 2, c.y + 9, 11, canBuy ? COL_BG : COL_PURPLE, FontKind::MonoBold);
             if (hover) {
-                std::string act = canBuy ? "click to buy" : "need " + std::to_string(item.price - app.progress.bytes) + " more";
+                std::string act = canBuy ? (asking(item.id) ? "click again to buy" : "click to buy") : "need " + std::to_string(item.price - app.progress.bytes) + " more";
                 ui_text(act, c.x + (cw - ui_text_width(act, 11, FontKind::Mono)) / 2, c.y + ch - 40, 11, canBuy ? COL_PURPLE : COL_MUTED, FontKind::Mono);
             }
         } else if (!open) {   // dimmed, with what unlocks it (and what it'll cost after)
@@ -642,7 +670,7 @@ static void draw_wardrobe(App &app, float t)
         ui_text(item.name, c.x + (cw - nw) / 2, c.y + ch - 22, 12, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
         if (hover) {
             ui_want_hand();
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (wardrobe_clicked() && (!forSale || !canBuy || confirm_buy(item.id))) {
                 if (forSale) {
                     std::string why;
                     Vector2 mid = { c.x + cw / 2, c.y + ch / 2 };
@@ -679,8 +707,8 @@ static void draw_wardrobe(App &app, float t)
         ui_text("Const freeze", c.x + (cw - nw) / 2, c.y + ch - 22, 12, COL_TEXT, FontKind::UiBold);
         if (hover) {
             ui_want_hand();
-            ui_text("Keeps your streak alive if you miss a day", c.x, c.y + ch + 6, 12, COL_BLUE);
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            ui_text(asking("freeze") ? "Click again to buy" : "Keeps your streak alive if you miss a day", c.x, c.y + ch + 6, 12, COL_BLUE);
+            if (wardrobe_clicked() && (!canBuy || confirm_buy("freeze"))) {
                 std::string why;
                 Vector2 mid = { c.x + cw / 2, c.y + ch / 2 };
                 if (streak_buy_freeze(app.progress, why)) {

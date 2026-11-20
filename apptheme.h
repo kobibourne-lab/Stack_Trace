@@ -3,7 +3,7 @@
 // green-screen terminal, unlocked at level 5), Neon Night (synthwave, bought
 // for bytes), Paper (a light notebook look, free), Blueprint (an engineer's
 // drawing, for beating 3 campaign bosses), Retro OS (a 90s desktop, bytes),
-// Pocket (an old handheld console, for 20 Codle wins) and Deep Sea (the ocean
+// Pocket (an old handheld console, for 10 Codle wins) and Deep Sea (the ocean
 // floor, for mastering 10 topics). The one in use is saved (THEME).
 //
 // No drawing here (theme.cpp draws them), so it can be tested.

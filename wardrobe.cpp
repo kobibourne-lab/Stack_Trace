@@ -34,7 +34,7 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "shallow",    "Shallow Copy",    WearKind::Skin, 0,  4, false },   // a ghost copy, one array
         { "impostor",   "The Impostor",    WearKind::Skin, 0,  5, false },   // glasses, nose and moustache
         { "invalidator","The Invalidator", WearKind::Skin, 0,  6, false },   // a stale iterator over Mal
-        { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  4, false },
+        { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  6, false },   // every boss beaten
         { "diamond",    "Diamond",         WearKind::Skin, 0,  0, true  },
         // The shop: bought with bytes (price last), only in the SHOP tab
         { "beanie",     "Beanie",          WearKind::Hat,  0,  0, false, 0, 40 },   // a knitted hat with a bobble

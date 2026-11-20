@@ -1695,16 +1695,16 @@ static void test_app_themes()
     Progress fresh;
     CHECK(fresh.theme == "default");
 
-    // Retro OS for bytes, Pocket for 20 Codle wins, Deep Sea for 10 topics mastered
+    // Retro OS for bytes, Pocket for 10 Codle wins, Deep Sea for 10 topics mastered
     Progress q;
     q.bytes = 500;
-    CHECK(app_theme_requirement(*app_theme_find("pocket")) == "Win 20 Codles");
+    CHECK(app_theme_requirement(*app_theme_find("pocket")) == "Win 10 Codles");
     CHECK(app_theme_requirement(*app_theme_find("deepsea")) == "Master 10 topics");
     CHECK(app_theme_buy(q, "retro", why) && q.bytes == 300 && app_theme_use(q, "retro", why));
     CHECK(!app_theme_unlocked(q, *app_theme_find("pocket")));
-    q.outputleStats.won = 19;
+    q.outputleStats.won = 9;
     CHECK(!app_theme_use(q, "pocket", why));
-    q.outputleStats.won = 20;
+    q.outputleStats.won = 10;
     CHECK(app_theme_use(q, "pocket", why) && q.theme == "pocket");
     for (int i = 0; i < 9; i++) q.points["topic" + std::to_string(i)] = POINTS_MAX;
     CHECK(!app_theme_unlocked(q, *app_theme_find("deepsea")));
