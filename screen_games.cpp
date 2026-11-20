@@ -71,10 +71,10 @@ static void game_over(App &app, const std::string &title, const std::string &lin
         fx_float_text("Glitch skin unlocked!", { SCREEN_W / 2.0f, 150 }, 26, COL_PURPLE);
     }
     if (newBest) {   // a new high score earns bytes for the wardrobe shop
-        app.progress.bytes += NEW_BEST_BYTES;
+        int won = earn_bytes(app.progress, NEW_BEST_BYTES);
         save_progress(app);
-        app.mos.out.push_back({ "+" + std::to_string(NEW_BEST_BYTES) + " bytes for a new best", MosTone::Good });
-        fx_float_text("+" + std::to_string(NEW_BEST_BYTES) + " bytes", { SCREEN_W / 2.0f, 190 }, 22, COL_PURPLE);
+        app.mos.out.push_back({ "+" + std::to_string(won) + " bytes for a new best", MosTone::Good });
+        fx_float_text("+" + std::to_string(won) + " bytes", { SCREEN_W / 2.0f, 190 }, 22, COL_PURPLE);
         sfx_play(Sfx::LevelUp);
         mal_react(app.mal, MalMood::Cheer, 2.5f);
     }

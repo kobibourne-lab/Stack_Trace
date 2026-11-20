@@ -128,7 +128,7 @@ bool daily_claim(Progress &p, const std::string &today, int index, int &bytes, s
         if (!quest_done(p, quests[index], today)) { why = "Quest not finished yet"; return false; }
         bytes = quests[index].reward;
     }
-    p.bytes += bytes;
+    bytes = earn_bytes(p, bytes);
     p.daily.claimed |= 1 << index;
     return true;
 }

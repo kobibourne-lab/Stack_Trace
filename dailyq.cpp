@@ -77,8 +77,7 @@ bool dailyq_solve(Progress &p, const std::string &date, int seconds, int &bytesW
     s.lastSolved = date;
     if (s.streak > s.best) s.best = s.streak;
 
-    bytesWon = dailyq_reward(s.streak);
-    p.bytes += bytesWon;
+    bytesWon = earn_bytes(p, dailyq_reward(s.streak));   // with the skin's perk
     return true;
 }
 

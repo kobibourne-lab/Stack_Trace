@@ -56,7 +56,7 @@ int crop_harvest(Progress &p, const std::string &topic, const std::string &today
 {
     int bytes = crop_harvest_value(p, topic, today);
     if (bytes == 0) return 0;
-    p.bytes += bytes;
+    bytes = earn_bytes(p, bytes);
     p.harvested[topic] = today;
     return bytes;
 }

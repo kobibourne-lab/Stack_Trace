@@ -149,8 +149,7 @@ static void finish_run(App &app)
         // Exam mode pays bytes: a first solve, or beating your best time
         w.bytesWon = 0;
         if (w.examMode && w.finishShown) {
-            w.bytesWon = exam_reward(p.difficulty, first, w.newBest);
-            app.progress.bytes += w.bytesWon;
+            w.bytesWon = earn_bytes(app.progress, exam_reward(p.difficulty, first, w.newBest));
         }
         if (w.finishShown) {
             mal_react(app.mal, MalMood::Cheer, 3.0f);

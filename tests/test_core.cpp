@@ -1361,6 +1361,28 @@ static void test_wardrobe_shop()
     CHECK(progress_load(path, back, error));
     CHECK(back.bytes == 20 && back.owned.size() == 2 && back.owned.count("duck") && back.owned.count("drinkhat"));
     std::remove(path.c_str());
+    // The plain colours moved to the shop; the effect skins took their places
+    CHECK(wardrobe_find("amber")->level == 0 && wardrobe_find("amber")->price == 40);
+    CHECK(wardrobe_find("nebula")->level == 4 && wardrobe_find("holo")->level == 6 && wardrobe_find("electric")->level == 12);
+    CHECK(wardrobe_find("silver")->level == 15 && wardrobe_find("blue")->level == 0 && wardrobe_find("blue")->price == 80);
+    CHECK(wardrobe_find("tinfoil")->kind == WearKind::Hat && wardrobe_find("raccoon")->kind == WearKind::Pet && wardrobe_find("droid")->price == 90);
+
+    // Skin perks: gold +25% bytes, diamond +50% bytes and XP
+    Progress k;
+    k.bytes = 0;
+    CHECK(earn_bytes(k, 20) == 20 && k.bytes == 20);
+    k.skin = "slayer";
+    CHECK(earn_bytes(k, 20) == 25 && k.bytes == 45);
+    k.skin = "diamond";
+    CHECK(earn_bytes(k, 20) == 30 && k.bytes == 75);
+    int xp = progress_xp(k);
+    progress_record(k, "pointers", true, "2026-11-20");
+    CHECK(progress_xp(k) == xp + XP_CORRECT + XP_CORRECT / 2);
+    k.skin = "classic";
+    progress_record(k, "pointers", true, "2026-11-20");
+    CHECK(progress_xp(k) == xp + 2 * XP_CORRECT + XP_CORRECT / 2);
+    CHECK(progress_save(path, k, error) && progress_load(path, back, error) && back.bonusXp == XP_CORRECT / 2);
+    std::remove(path.c_str());
 }
 
 // The Duolingo loop: streak days, const freezes, daily quests and chests.

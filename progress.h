@@ -78,6 +78,7 @@ struct Progress {
     std::map<std::string, SolvedRecord> solved;   // problem id ("lab1/q01_leap_year") -> record
     std::map<std::string, BossRecord> bosses;     // campaign region id ("stack") -> record
     int bytes = 100;                              // pocket money: Versus predictions, rewards, the wardrobe shop
+    int bonusXp = 0;                              // BONUSXP: extra XP from wearing the Diamond skin
     std::set<std::string> owned;                  // wardrobe shop items bought with bytes
 
     // The streak (daily.cpp): days something was learned, and days a freeze covered
@@ -176,6 +177,11 @@ const int XP_BOSS = 150;     // a campaign boss beaten
 const int XP_STAR = 25;      // each star won against a boss (the best run counts)
 
 int progress_xp(const Progress &p);
+
+// Bytes earned (rewards, harvests, wins): adds them, plus the skin's perk
+// (Boss slayer gold +25%, Diamond +50%), and returns what was added.
+// Diamond also gives 50% more XP (kept in bonusXp as it's earned).
+int earn_bytes(Progress &p, int bytes);
 
 // Level 1 starts at 0 XP. Each level needs 50 XP more than the one before:
 // level 2 at 50, level 3 at 150, level 4 at 300, level 5 at 500 ...

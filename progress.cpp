@@ -6,6 +6,7 @@
 //   SOLVED: lab1/q01_leap_year | 2026-11-03 | 154
 //   BOSS: stack | 2026-11-10 | 401 | 2
 //   BYTES: 160   (pocket money: Versus predictions, rewards, the wardrobe shop)
+//   BONUSXP: 40   (extra XP earned wearing the Diamond skin)
 //   OWNED: beanie | duck   (wardrobe items bought with bytes)
 //   DAYS: 2026-11-12 | 2026-11-13   (days something was learned: the streak)
 //   FROZEN: 2026-11-10   (missed days a const freeze covered)
@@ -114,6 +115,8 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             p.harvested[fields[0]] = fields[1];
         } else if (key == "THEME" && !fields.empty() && !fields[0].empty()) {
             p.theme = fields[0];
+        } else if (key == "BONUSXP" && !fields.empty()) {
+            p.bonusXp = std::atoi(fields[0].c_str());
         } else if (key == "BYTES" && !fields.empty()) {
             p.bytes = std::atoi(fields[0].c_str());
             if (p.bytes < 0) p.bytes = 0;
@@ -151,6 +154,7 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
     for (const auto &entry : p.solved)
         f << "SOLVED: " << entry.first << " | " << entry.second.date << " | " << entry.second.seconds << "\n";
     f << "BYTES: " << p.bytes << "\n";
+    if (p.bonusXp > 0) f << "BONUSXP: " << p.bonusXp << "\n";
     if (!p.owned.empty()) {
         f << "OWNED: ";
         bool first = true;
@@ -208,8 +212,28 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Skin perks: Boss slayer gold earns 25% more bytes; Diamond 50% more bytes and XP
+// ---------------------------------------------------------------------------
+
+int earn_bytes(Progress &p, int bytes)
+{
+    if (bytes <= 0) return 0;
+    int total = bytes;
+    if (p.skin == "slayer") total = bytes + (bytes + 3) / 4;    // +25%, rounded up
+    if (p.skin == "diamond") total = bytes + (bytes + 1) / 2;   // +50%, rounded up
+    p.bytes += total;
+    return total;
+}
+
+static void earn_xp_bonus(Progress &p, int xp)
+{
+    if (p.skin == "diamond" && xp > 0) p.bonusXp += (xp + 1) / 2;   // the XP itself comes from the records
+}
+
 void progress_record(Progress &p, const std::string &topic, bool correct, const std::string &date)
 {
+    earn_xp_bonus(p, correct ? XP_CORRECT : XP_WRONG);
     AnswerRecord a;
     a.date = date;
     a.topic = topic;
@@ -230,6 +254,7 @@ bool progress_mark_solved(Progress &p, const std::string &problemId, const std::
         s.date = date;
         s.seconds = seconds;
         p.solved[problemId] = s;
+        earn_xp_bonus(p, XP_SOLVED);
         return true;
     }
     if (seconds > 0 && (it->second.seconds <= 0 || seconds < it->second.seconds)) it->second.seconds = seconds;
@@ -252,10 +277,11 @@ bool progress_record_boss(Progress &p, const std::string &regionId, const std::s
         b.seconds = seconds;
         b.stars = stars;
         p.bosses[regionId] = b;
+        earn_xp_bonus(p, XP_BOSS + stars * XP_STAR);
         return true;
     }
     if (seconds > 0 && (it->second.seconds <= 0 || seconds < it->second.seconds)) it->second.seconds = seconds;
-    if (stars > it->second.stars) it->second.stars = stars;
+    if (stars > it->second.stars) { earn_xp_bonus(p, (stars - it->second.stars) * XP_STAR); it->second.stars = stars; }
     return false;
 }
 
@@ -435,6 +461,7 @@ int progress_xp(const Progress &p)
     int xp = 0;
     for (const AnswerRecord &a : p.answers) xp += a.correct ? XP_CORRECT : XP_WRONG;
     xp += (int)p.solved.size() * XP_SOLVED;
+    xp += p.bonusXp;   // Diamond's extra
     for (const auto &entry : p.bosses) xp += XP_BOSS + entry.second.stars * XP_STAR;
     return xp;
 }

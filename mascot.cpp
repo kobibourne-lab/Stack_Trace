@@ -113,7 +113,11 @@ static Color skin_color(const std::string &skin)
     if (skin == "amber")  return COL_AMBER;
     if (skin == "purple") return COL_PURPLE;
     if (skin == "blue")   return COL_BLUE;
-    if (skin == "slayer")  return { 255, 205, 90, 255 };    // boss slayer gold
+    if (skin == "slayer")   return { 246, 190, 60, 255 };   // boss slayer gold (gold_body paints it)
+    if (skin == "silver")   return { 200, 208, 220, 255 };  // platinum: polished like gold, no perk
+    if (skin == "electric") return { 160, 120, 245, 255 };
+    if (skin == "nebula")   return { 160, 110, 225, 255 };
+    if (skin == "holo")     return { 90, 220, 250, 160 };
     if (skin == "neon")    return { 255, 72, 196, 255 };     // hot pink, with a glow (draw_skin_back/front)
     if (skin == "diamond") return { 175, 232, 255, 255 };
     if (skin == "tux")     return { 236, 239, 243, 255 };   // a white shirt; the jacket is drawn on
@@ -433,6 +437,210 @@ static void diamond_aura(const Mal &m, Rectangle b, float size)
     EndBlendMode();
 }
 
+// ---------------------------------------------------------------------------
+// Skins that paint the body itself (under the face): gold, electric,
+// nebula and hologram
+// ---------------------------------------------------------------------------
+
+// Fills Mal's rounded body a line at a time, colour(t, y) for each line
+// (t = 0 at the top, 1 at the bottom): for gradients and bands of light.
+template <typename F> static void body_lines(Rectangle b, F colour)
+{
+    float r = fminf(b.width, b.height) * 0.42f / 2;
+    for (float y = b.y; y < b.y + b.height; y += 1.0f) {
+        float dy = y < b.y + r ? b.y + r - y : (y > b.y + b.height - r ? y - (b.y + b.height - r) : 0);
+        float inset = dy > 0 ? r - sqrtf(fmaxf(0.0f, r * r - dy * dy)) : 0;
+        float x0 = b.x + inset, x1 = b.x + b.width - inset;
+        colour((y - b.y) / b.height, y, x0, x1);
+    }
+}
+
+static Color lerp_col(Color a, Color c, float k)
+{
+    k = fmaxf(0.0f, fminf(1.0f, k));
+    return { (unsigned char)(a.r + (c.r - a.r) * k), (unsigned char)(a.g + (c.g - a.g) * k),
+             (unsigned char)(a.b + (c.b - a.b) * k), (unsigned char)(a.a + (c.a - a.a) * k) };
+}
+
+// A jagged bolt from a to b (the same shape for the same seed)
+static void bolt(Vector2 a, Vector2 b, int seed, float jag, float thick, Color c)
+{
+    const int n = 7;
+    Vector2 prev = a;
+    for (int i = 1; i <= n; i++) {
+        float u = (float)i / n;
+        Vector2 p = { a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u };
+        if (i < n) {   // sideways from the line
+            float dx = b.y - a.y, dy = a.x - b.x, len = sqrtf(dx * dx + dy * dy) + 0.001f;
+            float off = (hash01(seed * 13 + i) - 0.5f) * 2 * jag;
+            p.x += dx / len * off;
+            p.y += dy / len * off;
+        }
+        DrawLineEx(prev, p, thick, c);
+        prev = p;
+    }
+}
+
+// Boss slayer gold: polished metal, light at the top and deep at the bottom,
+// with a band of shine that sweeps across now and then
+static void gold_body(const Mal &m, Rectangle b, bool silver = false)
+{
+    Color top = { 255, 240, 160, 255 }, mid = { 246, 190, 60, 255 }, low = { 196, 122, 22, 255 };
+    if (silver) { top = { 250, 252, 255, 255 }; mid = { 200, 208, 220, 255 }; low = { 128, 138, 156, 255 }; }   // platinum
+    float sweep = fmodf(m.clock * 0.5f, 1.6f) - 0.3f;   // the shine's place across, 0..1 (rests off the edge)
+    body_lines(b, [&](float t, float y, float x0, float x1) {
+        Color c = t < 0.45f ? lerp_col(top, mid, t / 0.45f) : lerp_col(mid, low, (t - 0.45f) / 0.55f);
+        DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, c);
+        // the shine: a slanted band, brighter in the middle
+        float centre = b.x + b.width * sweep + (y - b.y) * 0.45f, half = b.width * 0.09f;
+        float s0 = fmaxf(x0, centre - half), s1 = fminf(x1, centre + half);
+        if (s1 > s0) DrawRectangleRec({ s0, y, s1 - s0, 1.2f }, Fade(WHITE, 0.45f));
+        float c0 = fmaxf(x0, centre - half * 0.35f), c1 = fminf(x1, centre + half * 0.35f);
+        if (c1 > c0) DrawRectangleRec({ c0, y, c1 - c0, 1.2f }, Fade(WHITE, 0.35f));
+    });
+    // a bright rim along the top edge
+    DrawRectangleRoundedLinesEx(b, 0.42f, 12, fmaxf(1.5f, b.width * 0.02f), Fade(silver ? Color{ 255, 255, 255, 255 } : Color{ 255, 250, 210, 255 }, 0.8f));
+}
+
+static void gold_sparkles(const Mal &m, Rectangle b, float size)
+{
+    for (int i = 0; i < 4; i++) {
+        float k = fmodf(m.clock * 0.7f + i * 0.27f, 1.0f), a = sinf(k * PI);
+        int slot = (int)(m.clock * 0.7f + i * 0.27f) * 4 + i;
+        Vector2 c = { b.x + b.width * (0.05f + 0.9f * hash01(slot * 7)), b.y + b.height * (0.05f + 0.9f * hash01(slot * 11)) };
+        if (fabsf(c.y - (b.y + b.height * 0.55f)) < b.height * 0.2f && fabsf(c.x - (b.x + b.width / 2)) < b.width * 0.3f) continue;   // not on the face
+        star4(c, size * 0.07f * a, Fade(WHITE, a));
+    }
+}
+
+// Version B: a golden aura of slow turning rays, and coins orbiting
+static void gold_aura(const Mal &m, Rectangle b, float size)
+{
+    Vector2 c = { b.x + b.width / 2, b.y + b.height * 0.5f };
+    BeginBlendMode(BLEND_ADDITIVE);
+    for (int i = 0; i < 12; i++) {
+        float a = i * 2 * PI / 12 + m.clock * 0.3f, len = size * (0.95f + 0.15f * sinf(m.clock * 2 + i));
+        Vector2 p1 = { c.x + cosf(a - 0.09f) * len, c.y + sinf(a - 0.09f) * len }, p2 = { c.x + cosf(a + 0.09f) * len, c.y + sinf(a + 0.09f) * len };
+        DrawTriangle(c, p2, p1, Fade({ 255, 200, 80, 255 }, 0.07f));
+        DrawTriangle(c, p1, p2, Fade({ 255, 200, 80, 255 }, 0.07f));
+    }
+    for (int i = 3; i >= 1; i--) DrawCircleV(c, size * (0.3f + 0.12f * i), Fade({ 255, 190, 60, 255 }, 0.07f));
+    EndBlendMode();
+}
+
+static void gold_coins(const Mal &m, Rectangle b, float size, bool front)
+{
+    Vector2 c = { b.x + b.width / 2, b.y + b.height * 0.97f };   // round the feet, clear of the face
+    for (int i = 0; i < 3; i++) {
+        float a = m.clock * 1.6f + i * 2 * PI / 3;
+        bool isFront = sinf(a) > 0;
+        if (isFront != front) continue;
+        Vector2 p = { c.x + cosf(a) * size * 0.62f, c.y + sinf(a) * size * 0.16f };
+        float squeeze = fabsf(cosf(m.clock * 4 + i));   // spinning
+        float r = size * 0.07f;
+        DrawEllipse((int)p.x, (int)p.y, r * fmaxf(0.25f, squeeze), r, { 205, 140, 30, 255 });
+        DrawEllipse((int)p.x, (int)p.y, r * 0.75f * fmaxf(0.25f, squeeze), r * 0.75f, { 255, 214, 90, 255 });
+    }
+}
+
+// Electric: arcs crackling round the edge, and sparks flying off
+static void electric_body(const Mal &m, Rectangle b)
+{
+    float pulse = 0.5f + 0.5f * sinf(m.clock * 9);
+    body_lines(b, [&](float t, float y, float x0, float x1) {
+        Color c = lerp_col({ 190, 150, 255, 255 }, { 120, 80, 230, 255 }, t);
+        DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, c);
+        float glow = b.width * 0.12f;   // a glow along the sides
+        DrawRectangleRec({ x0, y, glow, 1.2f }, Fade({ 200, 230, 255, 255 }, 0.12f + 0.1f * pulse));
+        DrawRectangleRec({ x1 - glow, y, glow, 1.2f }, Fade({ 200, 230, 255, 255 }, 0.12f + 0.1f * pulse));
+    });
+}
+
+static void electric_front(const Mal &m, Rectangle b, float size)
+{
+    int beat = (int)(m.clock * 14);   // the arcs jump about 14 times a second
+    Vector2 corners[6] = { { b.x, b.y + b.height * 0.2f }, { b.x + b.width * 0.3f, b.y }, { b.x + b.width, b.y + b.height * 0.3f },
+                           { b.x + b.width, b.y + b.height * 0.85f }, { b.x + b.width * 0.6f, b.y + b.height }, { b.x, b.y + b.height * 0.7f } };
+    for (int i = 0; i < 2; i++) {
+        int s = beat * 3 + i * 17;
+        int a = (int)(hash01(s) * 6), c = (a + 1 + (int)(hash01(s + 1) * 2)) % 6;
+        Vector2 out = { (corners[a].x + corners[c].x) / 2 + (hash01(s + 2) - 0.5f) * size * 0.2f,
+                        (corners[a].y + corners[c].y) / 2 + (hash01(s + 3) - 0.5f) * size * 0.2f };
+        // bow it outwards, away from the middle
+        Vector2 mid = { b.x + b.width / 2, b.y + b.height / 2 };
+        out.x += (out.x - mid.x) * 0.5f;
+        out.y += (out.y - mid.y) * 0.5f;
+        BeginBlendMode(BLEND_ADDITIVE);
+        bolt(corners[a], out, s, size * 0.05f, size * 0.05f, Fade({ 150, 200, 255, 255 }, 0.35f));
+        bolt(out, corners[c], s + 5, size * 0.05f, size * 0.05f, Fade({ 150, 200, 255, 255 }, 0.35f));
+        EndBlendMode();
+        bolt(corners[a], out, s, size * 0.05f, fmaxf(1.5f, size * 0.016f), { 235, 245, 255, 255 });
+        bolt(out, corners[c], s + 5, size * 0.05f, fmaxf(1.5f, size * 0.016f), { 235, 245, 255, 255 });
+    }
+    for (int i = 0; i < 5; i++) {   // sparks
+        float k = fmodf(m.clock * 1.5f + i * 0.2f, 1.0f);
+        int slot = (int)(m.clock * 1.5f + i * 0.2f) * 5 + i;
+        float ang = hash01(slot) * 2 * PI;
+        Vector2 from = { b.x + b.width / 2 + cosf(ang) * b.width * 0.55f, b.y + b.height / 2 + sinf(ang) * b.height * 0.55f };
+        Vector2 p = { from.x + cosf(ang) * k * size * 0.3f, from.y + sinf(ang) * k * size * 0.3f + k * k * size * 0.2f };
+        DrawCircleV(p, size * 0.018f * (1 - k), Fade({ 255, 255, 200, 255 }, 1 - k));
+    }
+}
+
+// Nebula: a little galaxy inside, with a ring round it like a planet
+static void nebula_body(const Mal &m, Rectangle b, float size)
+{
+    body_lines(b, [&](float t, float y, float x0, float x1) {
+        float wave = sinf(t * 6 + m.clock * 0.8f) * 0.5f + 0.5f;
+        Color c = lerp_col(lerp_col({ 120, 110, 240, 255 }, { 220, 110, 210, 255 }, t), { 90, 190, 240, 255 }, wave * 0.25f);
+        DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, c);
+    });
+    for (int i = 0; i < 9; i++) {   // stars inside, twinkling
+        Vector2 p = { b.x + b.width * (0.1f + 0.8f * hash01(i * 31)), b.y + b.height * (0.08f + 0.84f * hash01(i * 37)) };
+        if (fabsf(p.y - (b.y + b.height * 0.55f)) < b.height * 0.2f && fabsf(p.x - (b.x + b.width / 2)) < b.width * 0.32f) continue;   // not on the face
+        float tw = 0.5f + 0.5f * sinf(m.clock * (2 + hash01(i)) + i);
+        star4(p, size * (0.025f + 0.02f * tw), Fade(WHITE, 0.4f + 0.6f * tw));
+    }
+}
+
+static void nebula_ring(const Mal &m, Rectangle b, float size, bool front)
+{
+    Vector2 c = { b.x + b.width / 2, b.y + b.height * 0.86f };
+    float rx = size * 0.62f, ry = size * 0.13f, tilt = sinf(m.clock * 0.6f) * 0.06f;
+    for (int i = 0; i < 48; i++) {
+        float a0 = i * 2 * PI / 48, a1 = (i + 1) * 2 * PI / 48;
+        if ((sinf(a0) > 0) != front) continue;   // the near half in front, the far half behind
+        Vector2 p0 = { c.x + cosf(a0) * rx, c.y + sinf(a0) * ry + cosf(a0) * rx * tilt };
+        Vector2 p1 = { c.x + cosf(a1) * rx, c.y + sinf(a1) * ry + cosf(a1) * rx * tilt };
+        DrawLineEx(p0, p1, fmaxf(2.0f, size * 0.035f), Fade({ 200, 180, 255, 255 }, 0.85f));
+        DrawLineEx(p0, p1, fmaxf(1.0f, size * 0.012f), Fade(WHITE, 0.7f));
+    }
+}
+
+// Hologram: see-through cyan, scanlines rolling down, a flicker, and the projector's beam
+static void holo_back(Rectangle b, Vector2 feet, float size)
+{
+    BeginBlendMode(BLEND_ADDITIVE);
+    ui_triangle({ feet.x - size * 0.1f, feet.y + 2 }, { b.x - size * 0.05f, b.y }, { b.x + b.width + size * 0.05f, b.y }, Fade({ 80, 230, 255, 255 }, 0.06f));
+    ui_triangle({ feet.x - size * 0.1f, feet.y + 2 }, { feet.x + size * 0.1f, feet.y + 2 }, { b.x + b.width + size * 0.05f, b.y }, Fade({ 80, 230, 255, 255 }, 0.06f));
+    EndBlendMode();
+    DrawEllipse((int)feet.x, (int)(feet.y + 1), size * 0.22f, size * 0.04f, { 60, 70, 80, 255 });   // the projector
+    DrawEllipse((int)feet.x, (int)(feet.y), size * 0.12f, size * 0.02f, Fade({ 120, 240, 255, 255 }, 0.9f));
+}
+
+static void holo_body(const Mal &m, Rectangle b)
+{
+    bool glitch = fmodf(m.clock, 2.7f) < 0.1f;
+    float roll = fmodf(m.clock * 40, 6);
+    body_lines(b, [&](float t, float y, float x0, float x1) {
+        float shift = glitch && fabsf(t - 0.3f) < 0.06f ? b.width * 0.08f : 0;
+        bool dark = fmodf(y - b.y + roll, 6) < 2;
+        Color c = dark ? Color{ 40, 170, 210, 150 } : Color{ 110, 235, 255, 170 };
+        DrawRectangleRec({ x0 + shift, y, x1 - x0, 1.2f }, c);
+    });
+    DrawRectangleRoundedLinesEx(b, 0.42f, 12, fmaxf(1.5f, b.width * 0.02f), Fade({ 200, 250, 255, 255 }, 0.8f));
+}
+
 // Skin extras drawn behind Mal's body.
 static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, Color body)
 {
@@ -444,6 +652,13 @@ static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, 
             DrawRectangleRounded({ b.x - g, b.y - g, b.width + 2 * g, b.height + 2 * g }, 0.6f, 16, Fade({ 255, 60, 200, 255 }, 0.09f));
         }
         EndBlendMode();
+    } else if (m.skin == "slayer" && m.mood != MalMood::Freed) {   // boss slayer gold: an aura, and coins going round
+        gold_aura(m, b, size);
+        gold_coins(m, b, size, false);
+    } else if (m.skin == "nebula") {
+        nebula_ring(m, b, size, false);
+    } else if (m.skin == "holo") {
+        holo_back(b, feet, size);
     } else if (m.skin == "diamond") {
         diamond_aura(m, b, size);
         diamond_shards(m, b, size, false);
@@ -567,6 +782,10 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
             Vector2 c = { b.x + w * (0.15f + 0.35f * i) + sinf(m.clock + i) * size * 0.04f, b.y - size * 0.1f + k * h * 1.1f };
             star4(c, size * 0.035f, Fade(WHITE, sinf(k * PI)));
         }
+    } else if (m.skin == "electric") {
+        electric_front(m, b, size);
+    } else if (m.skin == "nebula") {
+        nebula_ring(m, b, size, true);
     } else if (m.skin == "rgb") {
         // A rainbow edge running round it, like a gaming keyboard
         Color edge = ColorFromHSV(fmodf(m.clock * 60 + 180, 360), 0.8f, 1.0f);
@@ -739,9 +958,65 @@ static void draw_snake(float clock, bool tag)
     if (tag) pet_tag("node*", head);
 }
 
+static void draw_raccoon(float clock, bool tag)
+{
+    // The garbage collector: a raccoon snacking on leaked bits
+    Color fur = { 140, 140, 150, 255 }, darkf = { 70, 72, 82, 255 }, light = { 215, 215, 222, 255 }, pink = { 240, 150, 170, 255 };
+    float chew = sinf(clock * 8) * 1.2f;
+    for (int i = 0; i < 5; i++)   // its striped tail
+        DrawCircleV({ -24 - i * 4.0f, -10 - i * 3.0f + sinf(clock * 3 + i) * 1.5f }, 5.5f - i * 0.5f, i % 2 ? darkf : fur);
+    DrawEllipse(-4, -14, 17, 13, fur);                  // body
+    DrawEllipse(-4, -10, 10, 8, light);                 // belly
+    // big round ears, with pink inside, twitching now and then
+    float twitch = fmodf(clock, 3.0f) < 0.15f ? 2.0f : 0;
+    DrawCircleV({ -8, -41 - twitch }, 6.5f, fur);
+    DrawCircleV({ 12, -41 }, 6.5f, fur);
+    DrawCircleV({ -8, -40.5f - twitch }, 3.5f, pink);
+    DrawCircleV({ 12, -40.5f }, 3.5f, pink);
+    DrawCircleV({ 2, -30 }, 12.5f, fur);                // head
+    DrawEllipse(2, -31, 11.5f, 4.5f, darkf);            // the mask
+    DrawCircleV({ -2, -31 }, 2.4f, WHITE);
+    DrawCircleV({ 6, -31 }, 2.4f, WHITE);
+    DrawCircleV({ -2, -31 }, 1.2f, BLACK);
+    DrawCircleV({ 6, -31 }, 1.2f, BLACK);
+    DrawEllipse(2, -24, 5, 3.5f, light);                // muzzle
+    DrawCircleV({ 2, -25 + chew * 0.3f }, 2, BLACK);    // nose
+    DrawCircleV({ -6, -12 }, 3, darkf);                 // paws holding the bit
+    DrawCircleV({ 4, -12 }, 3, darkf);
+    ui_text("1", -3, -21 + chew, 10, COL_GREEN, FontKind::MonoBold);
+    float k = fmodf(clock * 0.8f, 1.0f);               // crumbs falling
+    ui_text("0", 4 + k * 4, -12 + k * 12, 8, Fade(COL_GREEN, 1 - k), FontKind::MonoBold);
+    if (tag) pet_tag("gc", fur);
+}
+
+static void draw_droid(float clock, bool tag)
+{
+    // A little droid hovering on a jet, its eye scanning side to side
+    float bob = sinf(clock * 2.4f) * 3;
+    float y = -30 + bob;
+    Color shell = { 225, 230, 238, 255 }, trim = { 255, 160, 60, 255 }, glass = { 30, 36, 48, 255 };
+    float flame = 5 + sinf(clock * 30) * 1.5f;   // the jet underneath, flickering
+    DrawTriangle({ -5, y + 14 }, { 0, y + 14 + flame * 2 }, { 5, y + 14 }, { 120, 210, 255, 255 });
+    DrawTriangle({ -3, y + 14 }, { 0, y + 14 + flame }, { 3, y + 14 }, WHITE);
+    DrawEllipse(0, (int)(-1), 10 - bob * 0.5f, 2.5f, Fade(BLACK, 0.3f));   // shadow
+    DrawCircleV({ 0, y }, 15, shell);                                         // round body
+    DrawCircleSector({ 0, y }, 15, 0, 180, 20, { 196, 202, 214, 255 });      // shading underneath
+    DrawRectangleRec({ -15, y - 1, 30, 3 }, trim);                            // a stripe
+    DrawRectangleRounded({ -10, y - 11, 20, 9 }, 0.6f, 6, glass);            // the visor
+    float scan = sinf(clock * 1.6f) * 6;
+    DrawCircleV({ scan, y - 6.5f }, 3, { 255, 80, 80, 255 });                 // the eye, scanning
+    DrawCircleV({ scan, y - 6.5f }, 5, Fade({ 255, 80, 80, 255 }, 0.25f));
+    DrawLineEx({ 6, y - 14 }, { 9, y - 22 }, 1.5f, { 150, 156, 168, 255 });   // antenna
+    DrawCircleV({ 9, y - 23 }, 2, fmodf(clock, 0.8f) < 0.4f ? trim : Color{ 120, 90, 60, 255 });
+    for (int s = -1; s <= 1; s += 2)                                          // little side fins
+        DrawTriangle({ s * 14.0f, y + 2 }, { s * 21.0f, y + 8 }, { s * 14.0f, y + 8 }, trim),
+        DrawTriangle({ s * 14.0f, y + 2 }, { s * 14.0f, y + 8 }, { s * 21.0f, y + 8 }, trim);
+    if (tag) pet_tag("droid", trim);
+}
+
 void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag)
 {
-    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck" && pet != "ghost" && pet != "snake") return;
+    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck" && pet != "ghost" && pet != "snake" && pet != "raccoon" && pet != "droid") return;
     float k = size / 60.0f;
     rlPushMatrix();
     rlTranslatef(at.x, at.y, 0);
@@ -751,6 +1026,8 @@ void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, b
     else if (pet == "duck") draw_duck(clock, tag);
     else if (pet == "ghost") draw_ghost(clock, tag);
     else if (pet == "snake") draw_snake(clock, tag);
+    else if (pet == "raccoon") draw_raccoon(clock, tag);
+    else if (pet == "droid") draw_droid(clock, tag);
     else draw_bird(clock, tag);
     rlPopMatrix();
 }
@@ -926,6 +1203,27 @@ static void draw_wear(const Mal &m, Rectangle b, float size)
         DrawCircleV({ cx + w * 0.12f, top - size * 0.34f }, size * 0.022f, COL_AMBER);
     } else if (hat == "crown") {
         draw_crown(m, b, size);
+    } else if (hat == "tinfoil") {
+        // A tinfoil hat, crinkled, with a little antenna: keeps the bugs out
+        Color foil = { 205, 210, 218, 255 }, dark = { 150, 156, 168, 255 };
+        float base = top + h * 0.06f;
+        Vector2 L = { cx - w * 0.52f, base }, R = { cx + w * 0.52f, base }, T = { cx + sinf(m.clock * 2) * size * 0.02f, base - size * 0.5f };
+        DrawTriangle(L, R, T, foil);
+        DrawTriangle(L, T, R, foil);
+        for (int i = 0; i < 6; i++) {   // crinkles and shine
+            float u = 0.2f + 0.13f * i;
+            Vector2 a = { L.x + (T.x - L.x) * u, L.y + (T.y - L.y) * u }, c = { R.x + (T.x - R.x) * (u - 0.08f), R.y + (T.y - R.y) * (u - 0.08f) };
+            DrawLineEx(a, { (a.x + c.x) / 2, (a.y + c.y) / 2 + size * 0.03f * (i % 2 ? 1 : -1) }, fmaxf(1.0f, size * 0.012f), dark);
+        }
+        DrawTriangle({ cx - w * 0.2f, base - size * 0.05f }, { cx - w * 0.06f, base - size * 0.05f }, { T.x - size * 0.03f, T.y + size * 0.1f }, Fade(WHITE, 0.55f));
+        DrawRectangleRounded({ cx - w * 0.56f, base - size * 0.02f, w * 1.12f, size * 0.06f }, 0.6f, 6, dark);
+        DrawLineEx(T, { T.x, T.y - size * 0.12f }, fmaxf(1.5f, size * 0.018f), dark);
+        float blink = fmodf(m.clock, 1.0f) < 0.5f ? 1.0f : 0.35f;
+        DrawCircleV({ T.x, T.y - size * 0.13f }, size * 0.03f, Fade(COL_CORAL, blink));
+        for (int i = 0; i < 2; i++) {   // little signal waves
+            float k = fmodf(m.clock * 1.2f + i * 0.5f, 1.0f);
+            DrawRingLines({ T.x, T.y - size * 0.13f }, size * (0.05f + 0.12f * k), size * (0.05f + 0.12f * k), 210, 330, 12, Fade(COL_BLUE, 1 - k));
+        }
     } else if (hat == "beanie") {
         // A knitted beanie: stripes, a folded-up band and a bobble on top
         float capY = top + h * 0.08f, r = w * 0.5f;
@@ -1014,10 +1312,7 @@ static void draw_wear(const Mal &m, Rectangle b, float size)
         DrawTriangle({ cx, y }, { cx + s * 1.6f, y + s }, { cx + s * 1.6f, y - s }, COL_CORAL);
         DrawCircleV({ cx, y }, s * 0.45f, { 200, 80, 74, 255 });
     }
-    if (m.skin == "slayer" && m.mood != MalMood::Freed) {   // a little sparkle for boss slayer gold
-        float t = fmodf(m.clock * 0.8f, 1.0f);
-        DrawCircleV({ b.x + w * 0.85f, top + h * (0.2f + 0.1f * t) }, size * 0.025f * (1 - t), WHITE);
-    }
+    if (m.skin == "slayer" && m.mood != MalMood::Freed) { gold_sparkles(m, b, size); gold_coins(m, b, size, true); }
 }
 
 void mal_draw(const Mal &m, Vector2 feet, float size)
@@ -1067,7 +1362,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
     draw_skin_back(m, b, feet, size, body);
     if (m.hat == "afro") draw_afro_back(b, size);
     if (m.hat == "crown" && m.mood != MalMood::Freed) draw_crown_glow(m, b, size);
-    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "sombrero" || m.hat == "explorer" || m.hat == "beanie" || m.hat == "pirate" || m.hat == "wizard" || m.hat == "crown";
+    bool hatCovers = m.hat == "afro" || m.hat == "mohawk" || m.hat == "drinkhat" || m.hat == "hardhat" || m.hat == "helicopter" || m.hat == "sombrero" || m.hat == "explorer" || m.hat == "beanie" || m.hat == "pirate" || m.hat == "wizard" || m.hat == "crown" || m.hat == "tinfoil";
 
     // ----- Antenna: a pointer arrow on top, wobbling as Mal moves -----
     if (!hatCovers) {
@@ -1092,6 +1387,13 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
     DrawRectangleRounded({ b.x, b.y + size * 0.05f, b.width, b.height }, 0.42f, 12, darker(body, 0.72f));
     DrawRectangleRounded(b, 0.42f, 12, body);
     if (m.skin == "diamond" && m.mood != MalMood::Freed) diamond_facets(m, b, size);
+    if (m.mood != MalMood::Freed) {   // skins that paint the body itself
+        if (m.skin == "slayer") gold_body(m, b);
+        else if (m.skin == "silver") gold_body(m, b, true);
+        else if (m.skin == "electric") electric_body(m, b);
+        else if (m.skin == "nebula") nebula_body(m, b, size);
+        else if (m.skin == "holo") holo_body(m, b);
+    }
 
     // Its address, like a label on a memory block (only when big enough to read)
     if (size >= 70) {

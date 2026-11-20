@@ -581,6 +581,14 @@ static void draw_wardrobe(App &app, float t)
     Vector2 big = { p.x + 120, p.y + p.height - 70 };
     DrawEllipse((int)big.x, (int)big.y, 80, 18, COL_SURFACE_2);
     mal_draw_with_pet(app.mal, big, 150);
+    // The perk of the skin being worn
+    const char *perk = app.mal.skin == "slayer" ? "+25% bytes earned" : app.mal.skin == "diamond" ? "+50% bytes and XP earned" : nullptr;
+    if (perk) {
+        Rectangle pr = { p.x + 28, p.y + 92, 240, 52 };
+        ui_panel(pr, COL_BG, COL_AMBER, 1);
+        ui_text("SKIN PERK", pr.x + 12, pr.y + 8, 11, COL_AMBER, FontKind::MonoBold);
+        ui_text(perk, pr.x + 12, pr.y + 26, 14, COL_TEXT, FontKind::UiBold);
+    }
 
     // Bytes to spend, top right
     std::string have = std::to_string(app.progress.bytes) + " bytes";
@@ -668,6 +676,13 @@ static void draw_wardrobe(App &app, float t)
         }
         float nw = ui_text_width(item.name, 12, FontKind::UiBold);
         ui_text(item.name, c.x + (cw - nw) / 2, c.y + ch - 19, 12, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
+        if (item.id == "slayer" || item.id == "diamond") {   // the perk, as a little tag
+            const char *tagText = item.id == "slayer" ? "+25% bytes" : "+50% bytes & XP";
+            float tw = ui_text_width(tagText, 10, FontKind::MonoBold) + 10;
+            Rectangle tr = { c.x + (cw - tw) / 2, c.y + ch - 36, tw, 15 };
+            DrawRectangleRounded(tr, 0.5f, 6, Fade(COL_AMBER, open ? 0.9f : 0.35f));
+            ui_text(tagText, tr.x + 5, tr.y + 2, 10, COL_BG, FontKind::MonoBold);
+        }
         if (hover) {
             ui_want_hand();
             if (wardrobe_clicked() && (!forSale || !canBuy || confirm_buy(item.id))) {

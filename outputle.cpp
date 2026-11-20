@@ -160,8 +160,7 @@ bool outputle_guess(Progress &p, const std::string &date, const std::string &gue
         s.streak = (s.lastWin == date_add_days(date, -1)) ? s.streak + 1 : 1;
         if (s.streak > s.best) s.best = s.streak;
         s.lastWin = date;
-        bytesWon = outputle_reward(tries);
-        p.bytes += bytesWon;
+        bytesWon = earn_bytes(p, outputle_reward(tries));
     } else {
         s.streak = 0;
     }

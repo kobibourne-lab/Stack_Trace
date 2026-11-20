@@ -23,11 +23,10 @@ const std::vector<WardrobeItem> &wardrobe_items()
         // Skins, in the order they unlock
         { "classic",    "Classic green",   WearKind::Skin, 0,  0, false },
         { "glitch",     "Glitch",          WearKind::Skin, 0,  0, false, 1 },   // corrupted memory
-        { "amber",      "Amber",           WearKind::Skin, 4,  0, false, 0, 40 },
-        { "purple",     "Heap purple",     WearKind::Skin, 6,  0, false, 0, 60 },
-        { "blue",       "Pointer blue",    WearKind::Skin, 8,  0, false, 0, 80 },
+        { "nebula",     "Nebula",          WearKind::Skin, 4,  0, false, 0, 40 },    // a galaxy inside, with a planet ring
+        { "holo",       "Hologram",        WearKind::Skin, 6,  0, false, 0, 60 },    // see-through, scanlines, a projector
         { "tux",        "Tuxedo",          WearKind::Skin, 10, 0, false, 0, 100 },
-        { "lime",       "Volatile lime",   WearKind::Skin, 12, 0, false, 0, 120 },
+        { "electric",   "Electric",        WearKind::Skin, 12, 0, false, 0, 120 },   // arcs crackling round the edge
         { "lava",       "Stack overflow",  WearKind::Skin, 14, 0, false, 0, 140 },   // molten, with glowing cracks
         { "ice",        "Frozen const",    WearKind::Skin, 16, 0, false, 0, 160 },   // frost and snowflakes
         { "rgb",        "RGB",             WearKind::Skin, 18, 0, false, 0, 200 },   // every colour, cycling
@@ -38,12 +37,20 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "shallow",    "Shallow Copy",    WearKind::Skin, 0,  4, false },   // a ghost copy, one array
         { "impostor",   "The Impostor",    WearKind::Skin, 0,  5, false },   // glasses, nose and moustache
         { "invalidator","The Invalidator", WearKind::Skin, 0,  6, false },   // a stale iterator over Mal
+        { "silver",     "Platinum",        WearKind::Skin, 15, 0, false, 0, 150 },   // polished like the gold, without the perk
         { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  6, false },   // every boss beaten
         { "diamond",    "Diamond",         WearKind::Skin, 0,  0, true  },
         // The shop: bought with bytes (price last), only in the SHOP tab
         { "beanie",     "Beanie",          WearKind::Hat,  0,  0, false, 0, 40 },   // a knitted hat with a bobble
         { "pirate",     "Pirate hat",      WearKind::Hat,  0,  0, false, 0, 90 },   // arr[i]!
         { "neon",       "Neon",            WearKind::Skin, 0,  0, false, 0, 120 },  // glows in the dark
+        { "amber",      "Amber",           WearKind::Skin, 0,  0, false, 0, 40 },   // the plain colours, now in the shop
+        { "purple",     "Heap purple",     WearKind::Skin, 0,  0, false, 0, 60 },
+        { "lime",       "Volatile lime",   WearKind::Skin, 0,  0, false, 0, 80 },
+        { "blue",       "Pointer blue",    WearKind::Skin, 0,  0, false, 0, 80 },
+        { "tinfoil",    "Tinfoil hat",     WearKind::Hat,  0,  0, false, 0, 50 },   // keeps the bugs out
+        { "raccoon",    "GC raccoon",      WearKind::Pet,  0,  0, false, 0, 70 },   // the garbage collector
+        { "droid",      "Droid",           WearKind::Pet,  0,  0, false, 0, 90 },   // hovers, eye scanning
         { "duck",       "Rubber duck",     WearKind::Pet,  0,  0, false, 0, 60 },   // for rubber duck debugging
         // Pets: follow Mal around
         { "nopet",      "No pet",          WearKind::Pet,  0,  0, false },

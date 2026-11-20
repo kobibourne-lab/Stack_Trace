@@ -196,7 +196,12 @@ static void update_network(App &app, double now)
         int pool[2];
         vs_pool(s.room, pool);
         w.payout = vs_payout(w.lockedBytes, w.lockedSide, s.winner, pool);
-        app.progress.bytes += w.payout;
+        if (w.payout > w.lockedBytes) {   // the stake back, and the winnings (with the skin's perk)
+            app.progress.bytes += w.lockedBytes;
+            w.payout = w.lockedBytes + earn_bytes(app.progress, w.payout - w.lockedBytes);
+        } else {
+            app.progress.bytes += w.payout;
+        }
         w.paid = true;
         save(app);
         if (w.payout > w.lockedBytes) {
