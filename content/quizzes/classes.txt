@@ -43,7 +43,18 @@ ANSWER: 2
 EXPLAIN: q points at p, and q->x is the same as (*q).x, which is p.x.
 
 QUESTION: Choose
-PROMPT: Inside a method, what is this?
+PROMPT: Inside move, what is this?
+CODE:
+class Point {
+public:
+    int x = 0;
+    void move(int dx) { x += dx; }
+};
+int main() {
+    Point p;
+    p.move(5);
+}
+END
 OPTION: A copy of the object
 OPTION: The class itself
 OPTION: The first member variable
