@@ -617,7 +617,7 @@ static void draw_wardrobe(App &app, float t)
     gy += 72;
 
     UnlockInfo u = unlock_info(app);
-    const float cw = 116, ch = 124, gap = 10;
+    const float cw = 116, ch = 112, gap = 8;   // 3 rows of 6 fit above Done
     int col = 0;
     if (themes) draw_theme_cards(app, gx, gy, t);
     for (const WardrobeItem &item : wardrobe_items()) {
@@ -637,14 +637,14 @@ static void draw_wardrobe(App &app, float t)
         ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, worn ? COL_GREEN : forSale && hover ? COL_PURPLE : (hover ? COL_TEXT_SOFT : COL_LINE), worn || (forSale && hover) ? 2 : 1);
 
         if (item.kind == WearKind::Pet && item.id != "nopet") {
-            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 86 }, item.id == "duck" ? 56 : item.id == "snake" ? 50 : 66, t, false);
+            mal_draw_pet(item.id, { c.x + cw / 2 - 4, c.y + 80 }, item.id == "duck" ? 56 : item.id == "snake" ? 50 : 66, t, false);
         } else {
             Mal preview;   // a little Mal showing the item
             preview.hat = item.kind == WearKind::Hat ? item.id : "none";
             preview.skin = item.kind == WearKind::Skin ? item.id : "classic";
             preview.clock = t;
             preview.blinkIn = 99;
-            mal_draw(preview, { c.x + cw / 2 - (item.id == "shallow" ? 8 : 0), c.y + 86 }, 42);
+            mal_draw(preview, { c.x + cw / 2 - (item.id == "shallow" ? 8 : 0), c.y + 80 }, 42);
         }
         if (forSale) {   // the price, and what clicking does
             std::string price = std::to_string(item.price) + " bytes";
@@ -653,7 +653,7 @@ static void draw_wardrobe(App &app, float t)
             ui_text(price, c.x + (cw - pw) / 2, c.y + 9, 11, canBuy ? COL_BG : COL_PURPLE, FontKind::MonoBold);
             if (hover) {
                 std::string act = canBuy ? (asking(item.id) ? "click again to buy" : "click to buy") : "need " + std::to_string(item.price - app.progress.bytes) + " more";
-                ui_text(act, c.x + (cw - ui_text_width(act, 11, FontKind::Mono)) / 2, c.y + ch - 40, 11, canBuy ? COL_PURPLE : COL_MUTED, FontKind::Mono);
+                ui_text(act, c.x + (cw - ui_text_width(act, 11, FontKind::Mono)) / 2, c.y + ch - 34, 11, canBuy ? COL_PURPLE : COL_MUTED, FontKind::Mono);
             }
         } else if (!open) {   // dimmed, with what unlocks it (and what it'll cost after)
             DrawRectangleRec(c, Fade(COL_BG, 0.72f));
@@ -667,7 +667,7 @@ static void draw_wardrobe(App &app, float t)
             }
         }
         float nw = ui_text_width(item.name, 12, FontKind::UiBold);
-        ui_text(item.name, c.x + (cw - nw) / 2, c.y + ch - 22, 12, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
+        ui_text(item.name, c.x + (cw - nw) / 2, c.y + ch - 19, 12, open ? COL_TEXT : COL_MUTED, FontKind::UiBold);
         if (hover) {
             ui_want_hand();
             if (wardrobe_clicked() && (!forSale || !canBuy || confirm_buy(item.id))) {
@@ -696,15 +696,15 @@ static void draw_wardrobe(App &app, float t)
         bool full = app.progress.freezes >= FREEZE_MAX, canBuy = !full && app.progress.bytes >= FREEZE_PRICE;
         bool hover = CheckCollisionPointRec(mouse, c);
         ui_panel(c, hover ? COL_SURFACE_2 : COL_BG, hover ? COL_BLUE : COL_LINE, hover ? 2 : 1);
-        draw_freeze({ c.x + cw / 2 - 26, c.y + 34, 52, 52 }, true, t);
+        draw_freeze({ c.x + cw / 2 - 24, c.y + 30, 48, 48 }, true, t);
         std::string price = full ? "holding " + std::to_string(FREEZE_MAX) : std::to_string(FREEZE_PRICE) + " bytes";
         float pw = ui_text_width(price, 11, FontKind::MonoBold);
         ui_panel({ c.x + (cw - pw) / 2 - 6, c.y + 6, pw + 12, 18 }, canBuy ? COL_PURPLE : Fade(COL_PURPLE, 0.25f), Fade(COL_PURPLE, 0), 0);
         ui_text(price, c.x + (cw - pw) / 2, c.y + 9, 11, canBuy ? COL_BG : COL_PURPLE, FontKind::MonoBold);
         std::string held = "you have " + std::to_string(app.progress.freezes);
-        ui_text(held, c.x + (cw - ui_text_width(held, 10, FontKind::Mono)) / 2, c.y + 90, 10, COL_BLUE, FontKind::Mono);
+        ui_text(held, c.x + (cw - ui_text_width(held, 10, FontKind::Mono)) / 2, c.y + 80, 10, COL_BLUE, FontKind::Mono);
         float nw = ui_text_width("Const freeze", 12, FontKind::UiBold);
-        ui_text("Const freeze", c.x + (cw - nw) / 2, c.y + ch - 22, 12, COL_TEXT, FontKind::UiBold);
+        ui_text("Const freeze", c.x + (cw - nw) / 2, c.y + ch - 19, 12, COL_TEXT, FontKind::UiBold);
         if (hover) {
             ui_want_hand();
             ui_text(asking("freeze") ? "Click again to buy" : "Keeps your streak alive if you miss a day", c.x, c.y + ch + 6, 12, COL_BLUE);

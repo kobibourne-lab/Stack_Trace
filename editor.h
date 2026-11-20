@@ -2,7 +2,9 @@
 // line numbers and C/C++ colours, and turns keys and clicks into edits.
 //
 // Keys: type as normal, Enter keeps the indent, Tab indents, arrows / Home /
-// End / Page Up / Page Down move, Ctrl+V (Cmd+V on Mac) pastes, Ctrl+Z undoes.
+// End / Page Up / Page Down move (with Shift they select), Ctrl+A selects all,
+// Ctrl+C copies, Ctrl+X cuts, Ctrl+V pastes, Ctrl+Z undoes (Cmd on a Mac).
+// Click and drag selects; with nothing selected, copy and cut take the line.
 
 #pragma once
 #include <string>
@@ -25,6 +27,8 @@ struct EditorView {
     double lastInput = 0;              // the cursor stays solid just after typing
     std::vector<EditorMark> marks;
     int jumpRow = -1, jumpCol = 0;     // set to move the cursor there (and scroll to it) next frame
+    bool dragging = false;             // selecting with the mouse
+    double copiedAt = -10;             // when Ctrl+C copied (shows "Copied")
 };
 
 // Handles input (when focused and not read-only) and draws the editor in r.

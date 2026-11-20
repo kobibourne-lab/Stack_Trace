@@ -135,17 +135,47 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
             if (clip != nullptr) eb_paste(b, clip);
             input = true;
         }
+        if (cmd && IsKeyPressed(KEY_X)) {   // cut: the selection, or the whole line (like VS Code)
+            if (eb_has_selection(b)) {
+                SetClipboardText(eb_selected_text(b).c_str());
+                eb_delete_selection(b);
+            } else {
+                SetClipboardText((b.lines[b.row] + "\n").c_str());
+                int r = b.row;
+                if (r + 1 < (int)b.lines.size()) { b.selRow = r; b.selCol = 0; eb_move_to(b, r + 1, 0); }
+                else if (r > 0) { b.selRow = r - 1; b.selCol = (int)b.lines[r - 1].size(); eb_move_to(b, r, (int)b.lines[r].size()); }
+                else { b.selRow = r; b.selCol = 0; eb_move_to(b, r, (int)b.lines[r].size()); }
+                eb_delete_selection(b);
+            }
+            input = true;
+        }
         if (cmd && key_repeat(KEY_Z)) { eb_undo(b); input = true; }
     }
     if (focused) {
-        if (key_repeat(KEY_LEFT)) { eb_left(b); input = true; }
-        if (key_repeat(KEY_RIGHT)) { eb_right(b); input = true; }
-        if (key_repeat(KEY_UP)) { eb_up(b); input = true; }
-        if (key_repeat(KEY_DOWN)) { eb_down(b); input = true; }
-        if (IsKeyPressed(KEY_HOME)) { eb_home(b); input = true; }
-        if (IsKeyPressed(KEY_END)) { eb_end(b); input = true; }
-        if (key_repeat(KEY_PAGE_UP)) { for (int i = 0; i < visibleRows - 1; i++) eb_up(b); input = true; }
-        if (key_repeat(KEY_PAGE_DOWN)) { for (int i = 0; i < visibleRows - 1; i++) eb_down(b); input = true; }
+        bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+        bool cmd = command_down();
+        // Copy: the selection, or the whole line when nothing's selected (works read-only too)
+        if (cmd && IsKeyPressed(KEY_C)) {
+            std::string text = eb_has_selection(b) ? eb_selected_text(b) : b.lines[b.row] + "\n";
+            SetClipboardText(text.c_str());
+            v.copiedAt = GetTime();
+        }
+        if (cmd && IsKeyPressed(KEY_A)) { eb_select_all(b); input = true; }
+        // Moving: with Shift it selects, without it the selection goes
+        auto move = [&](void (*f)(EditBuffer &), int times) {
+            if (shift) eb_start_selection(b);
+            else eb_clear_selection(b);
+            for (int i = 0; i < times; i++) f(b);
+            input = true;
+        };
+        if (key_repeat(KEY_LEFT)) move(eb_left, 1);
+        if (key_repeat(KEY_RIGHT)) move(eb_right, 1);
+        if (key_repeat(KEY_UP)) move(eb_up, 1);
+        if (key_repeat(KEY_DOWN)) move(eb_down, 1);
+        if (IsKeyPressed(KEY_HOME)) move(eb_home, 1);
+        if (IsKeyPressed(KEY_END)) move(eb_end, 1);
+        if (key_repeat(KEY_PAGE_UP)) move(eb_up, visibleRows - 1);
+        if (key_repeat(KEY_PAGE_DOWN)) move(eb_down, visibleRows - 1);
     }
 
     // Jump to a line (clicking a problem in the Problems list)
@@ -165,8 +195,23 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             int row = v.scrollRow + (int)((mouse.y - text.y) / LINE_H);
             int col = v.scrollCol + (int)std::lround((mouse.x - text.x) / cw);
+            bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+            if (shift) eb_start_selection(b);   // Shift+click selects up to there
             eb_move_to(b, row, col);
+            if (!shift) { b.selRow = b.row; b.selCol = b.col; }   // dragging from here selects
+            v.dragging = true;
             input = true;
+        }
+    }
+    // Dragging with the button held selects (it scrolls when the mouse goes past the edge)
+    if (v.dragging) {
+        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            v.dragging = false;
+            if (!eb_has_selection(b)) eb_clear_selection(b);
+        } else {
+            int row = v.scrollRow + (int)floorf((mouse.y - text.y) / LINE_H);
+            int col = v.scrollCol + (int)std::lround((mouse.x - text.x) / cw);
+            if (row != b.row || col != b.col) { eb_move_to(b, row, col); input = true; }
         }
     }
 
@@ -191,7 +236,14 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
         if (row >= (int)b.lines.size()) break;
         float y = text.y + i * LINE_H;
 
-        if (row == b.row && focused) DrawRectangle((int)text.x - 6, (int)y, (int)text.width + 6, (int)LINE_H, COL_SURFACE);
+        if (row == b.row && focused && !eb_has_selection(b)) DrawRectangle((int)text.x - 6, (int)y, (int)text.width + 6, (int)LINE_H, COL_SURFACE);
+        int sf, st;
+        eb_selection_on_row(b, row, sf, st);
+        if (st > sf) {   // the selected part of this line
+            float x0 = text.x + (sf - v.scrollCol) * cw, x1 = text.x + (st - v.scrollCol) * cw;
+            if (x0 < text.x) x0 = text.x;
+            if (x1 > x0) DrawRectangle((int)x0, (int)y, (int)(x1 - x0), (int)LINE_H, Fade(COL_BLUE, 0.28f));
+        }
         const EditorMark *mark = nullptr;
         for (const EditorMark &m : v.marks)
             if (m.row == row && m.lineText == b.lines[row] && (!mark || (m.error && !mark->error))) mark = &m;
@@ -227,4 +279,11 @@ void editor_update_draw(EditBuffer &b, EditorView &v, Rectangle r, bool focused,
     EndScissorMode();
 
     if (readOnly) DrawRectangleRec(r, Fade(COL_BG, 0.35f));
+    if (GetTime() - v.copiedAt < 1.2) {   // a little "Copied" in the corner
+        const char *msg = "Copied";
+        float mw = ui_text_width(msg, 12, FontKind::MonoBold) + 16;
+        Rectangle tag = { r.x + r.width - mw - 10, r.y + 8, mw, 22 };
+        DrawRectangleRounded(tag, 0.4f, 6, COL_GREEN);
+        ui_text(msg, tag.x + 8, tag.y + 4, 12, COL_BG, FontKind::MonoBold);
+    }
 }

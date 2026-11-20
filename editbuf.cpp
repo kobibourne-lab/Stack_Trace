@@ -29,6 +29,7 @@ static void edited(EditBuffer &b)
 
 void eb_set_text(EditBuffer &b, const std::string &text)
 {
+    b.selRow = -1;
     b.lines.clear();
     std::string line;
     std::stringstream ss(text);
@@ -50,6 +51,7 @@ void eb_set_text(EditBuffer &b, const std::string &text)
 
 void eb_replace_all(EditBuffer &b, const std::string &text)
 {
+    b.selRow = -1;
     std::vector<EditSnapshot> undo = b.undo;
     undo.push_back({ b.lines, b.row, b.col });
     eb_set_text(b, text);
@@ -67,8 +69,85 @@ std::string eb_text(const EditBuffer &b)
     return s;
 }
 
+// ---------------------------------------------------------------------------
+// The selection
+// ---------------------------------------------------------------------------
+
+bool eb_has_selection(const EditBuffer &b)
+{
+    return b.selRow >= 0 && (b.selRow != b.row || b.selCol != b.col);
+}
+
+void eb_start_selection(EditBuffer &b)
+{
+    if (b.selRow < 0) { b.selRow = b.row; b.selCol = b.col; }
+}
+
+void eb_clear_selection(EditBuffer &b) { b.selRow = -1; }
+
+void eb_select_all(EditBuffer &b)
+{
+    b.selRow = 0;
+    b.selCol = 0;
+    b.row = (int)b.lines.size() - 1;
+    b.col = (int)b.lines[b.row].size();
+    b.wantCol = b.col;
+}
+
+// The selection's start and end, in order
+static void sel_range(const EditBuffer &b, int &r0, int &c0, int &r1, int &c1)
+{
+    r0 = b.selRow; c0 = b.selCol; r1 = b.row; c1 = b.col;
+    if (r0 >= (int)b.lines.size()) { r0 = (int)b.lines.size() - 1; c0 = (int)b.lines[r0].size(); }
+    if (c0 > (int)b.lines[r0].size()) c0 = (int)b.lines[r0].size();
+    if (r1 < r0 || (r1 == r0 && c1 < c0)) { std::swap(r0, r1); std::swap(c0, c1); }
+}
+
+std::string eb_selected_text(const EditBuffer &b)
+{
+    if (!eb_has_selection(b)) return "";
+    int r0, c0, r1, c1;
+    sel_range(b, r0, c0, r1, c1);
+    if (r0 == r1) return b.lines[r0].substr(c0, c1 - c0);
+    std::string s = b.lines[r0].substr(c0) + "\n";
+    for (int r = r0 + 1; r < r1; r++) s += b.lines[r] + "\n";
+    return s + b.lines[r1].substr(0, c1);
+}
+
+void eb_selection_on_row(const EditBuffer &b, int row, int &from, int &to)
+{
+    from = to = 0;
+    if (!eb_has_selection(b)) return;
+    int r0, c0, r1, c1;
+    sel_range(b, r0, c0, r1, c1);
+    if (row < r0 || row > r1) return;
+    from = row == r0 ? c0 : 0;
+    to = row == r1 ? c1 : (int)b.lines[row].size() + 1;   // +1: the line break is selected too
+}
+
+bool eb_delete_selection(EditBuffer &b)
+{
+    if (!eb_has_selection(b)) { b.selRow = -1; return false; }
+    snapshot(b);
+    b.lastWasTyping = false;
+    int r0, c0, r1, c1;
+    sel_range(b, r0, c0, r1, c1);
+    b.lines[r0] = b.lines[r0].substr(0, c0) + b.lines[r1].substr(c1);
+    b.lines.erase(b.lines.begin() + r0 + 1, b.lines.begin() + r1 + 1);
+    b.row = r0;
+    b.col = c0;
+    b.selRow = -1;
+    edited(b);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Typing
+// ---------------------------------------------------------------------------
+
 void eb_type(EditBuffer &b, char c)
 {
+    if (eb_delete_selection(b)) b.lastWasTyping = false;
     // A run of letters is one undo step; a space or symbol starts a new one
     bool letter = isalnum((unsigned char)c) || c == '_';
     if (!(b.lastWasTyping && letter)) snapshot(b);
@@ -87,6 +166,7 @@ void eb_type(EditBuffer &b, char c)
 
 void eb_newline(EditBuffer &b)
 {
+    eb_delete_selection(b);
     snapshot(b);
     b.lastWasTyping = false;
     std::string &line = b.lines[b.row];
@@ -118,6 +198,7 @@ void eb_newline(EditBuffer &b)
 
 void eb_backspace(EditBuffer &b)
 {
+    if (eb_delete_selection(b)) return;
     if (b.row == 0 && b.col == 0) return;
     snapshot(b);
     b.lastWasTyping = false;
@@ -145,6 +226,7 @@ void eb_backspace(EditBuffer &b)
 
 void eb_delete(EditBuffer &b)
 {
+    if (eb_delete_selection(b)) return;
     std::string &line = b.lines[b.row];
     if (b.col >= (int)line.size() && b.row + 1 >= (int)b.lines.size()) return;
     snapshot(b);
@@ -160,6 +242,7 @@ void eb_delete(EditBuffer &b)
 
 void eb_tab(EditBuffer &b)
 {
+    eb_clear_selection(b);
     snapshot(b);
     b.lastWasTyping = false;
     int spaces = INDENT - (b.col % INDENT);
@@ -171,6 +254,7 @@ void eb_tab(EditBuffer &b)
 void eb_paste(EditBuffer &b, const std::string &text)
 {
     if (text.empty()) return;
+    eb_delete_selection(b);
     snapshot(b);
     b.lastWasTyping = false;
     std::string &line = b.lines[b.row];
@@ -271,4 +355,5 @@ void eb_undo(EditBuffer &b)
     b.wantCol = b.col;
     b.changed = true;
     b.lastWasTyping = false;
+    b.selRow = -1;
 }

@@ -21,6 +21,7 @@ struct EditBuffer {
     bool changed = false;       // edited since the last save
     std::vector<EditSnapshot> undo;
     bool lastWasTyping = false; // typing several letters is one undo step
+    int selRow = -1, selCol = 0;  // the selection's other end (selRow -1: nothing selected)
 };
 
 void eb_set_text(EditBuffer &b, const std::string &text);   // also clears undo
@@ -43,3 +44,14 @@ void eb_end(EditBuffer &b);
 void eb_move_to(EditBuffer &b, int row, int col); // clamped, e.g. from a mouse click
 
 void eb_undo(EditBuffer &b);
+
+// Selecting: the text between the anchor (selRow, selCol) and the cursor.
+// Typing, Enter, paste, backspace and delete replace what's selected.
+bool eb_has_selection(const EditBuffer &b);
+void eb_start_selection(EditBuffer &b);          // anchor at the cursor, if there isn't one already
+void eb_clear_selection(EditBuffer &b);
+void eb_select_all(EditBuffer &b);
+std::string eb_selected_text(const EditBuffer &b);
+bool eb_delete_selection(EditBuffer &b);         // false if nothing was selected
+// The selected columns on a row: from <= col < to (from == to: none on that row)
+void eb_selection_on_row(const EditBuffer &b, int row, int &from, int &to);

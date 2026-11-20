@@ -410,6 +410,36 @@ static void test_editor()
     CHECK(b.row == 2 && b.col == 9);
     eb_home(b);
     CHECK(b.col == 0);
+
+    // Selecting: shift-moves, copy, typing over it, deleting it, select all
+    EditBuffer sel;
+    eb_set_text(sel, "int a = 1;\nint b = 2;\nint c = 3;\n");
+    size_t lines = sel.lines.size();
+    eb_move_to(sel, 0, 4);
+    CHECK(!eb_has_selection(sel));
+    eb_start_selection(sel);
+    eb_move_to(sel, 1, 5);
+    CHECK(eb_has_selection(sel) && eb_selected_text(sel) == "a = 1;\nint b");
+    int f, t;
+    eb_selection_on_row(sel, 0, f, t);
+    CHECK(f == 4 && t == 11);
+    eb_selection_on_row(sel, 2, f, t);
+    CHECK(f == t);
+    eb_type(sel, 'x');   // typing replaces it
+    CHECK(sel.lines[0] == "int x = 2;" && sel.lines.size() == lines - 1 && !eb_has_selection(sel));
+    eb_undo(sel);
+    eb_undo(sel);
+    CHECK(sel.lines[0] == "int a = 1;" && sel.lines[1] == "int b = 2;");
+    eb_move_to(sel, 2, 9);   // backwards selections work too
+    sel.selRow = 2; sel.selCol = 9;
+    eb_move_to(sel, 2, 4);
+    CHECK(eb_selected_text(sel) == "c = 3");
+    eb_backspace(sel);
+    CHECK(sel.lines[2] == "int ;");
+    eb_select_all(sel);
+    CHECK(eb_selected_text(sel).find("int a = 1;\nint b = 2;\nint ;") == 0);
+    eb_paste(sel, "done");
+    CHECK(sel.lines.size() == 1 && sel.lines[0] == "done");
 }
 
 static void test_practice()
@@ -526,6 +556,8 @@ static void test_real_problems()
     CHECK(broken.status == RunStatus::CompileError);
     CHECK(broken.compilerOutput.find("solution.cpp:1") != std::string::npos);   // the student's own line number
     CHECK(!broken.problems.empty() && broken.problems[0].line == 1 && broken.problems[0].error);
+    CHECK(exam_reward("Easy", true, false) == 10 && exam_reward("Hard", true, false) == 30 && exam_reward("Medium", true, false) == 20);
+    CHECK(exam_reward("Hard", false, true) == 15 && exam_reward("Medium", false, false) == 0);
 
     // Crashes and endless loops: the test it happened in is marked, and the
     // rest still run (Insert at Position, without the out-of-range checks)

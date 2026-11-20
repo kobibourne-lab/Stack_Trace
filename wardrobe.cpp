@@ -27,6 +27,10 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "purple",     "Heap purple",     WearKind::Skin, 6,  0, false, 0, 60 },
         { "blue",       "Pointer blue",    WearKind::Skin, 8,  0, false, 0, 80 },
         { "tux",        "Tuxedo",          WearKind::Skin, 10, 0, false, 0, 100 },
+        { "lime",       "Volatile lime",   WearKind::Skin, 12, 0, false, 0, 120 },
+        { "lava",       "Stack overflow",  WearKind::Skin, 14, 0, false, 0, 140 },   // molten, with glowing cracks
+        { "ice",        "Frozen const",    WearKind::Skin, 16, 0, false, 0, 160 },   // frost and snowflakes
+        { "rgb",        "RGB",             WearKind::Skin, 18, 0, false, 0, 200 },   // every colour, cycling
         // Boss skins: beat a boss and you can wear its look
         { "offbyone",   "The Off-By-One",  WearKind::Skin, 0,  1, false },   // an extra eye, 0x9001
         { "dangling",   "Dangling Pointer",WearKind::Skin, 0,  2, false },   // half freed, flickers

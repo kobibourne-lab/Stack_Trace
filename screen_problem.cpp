@@ -145,6 +145,12 @@ static void finish_run(App &app)
         w.solveSeconds = seconds;
         w.newBest = !first && previous > 0 && seconds < previous;
         w.bestSeconds = app.progress.solved[p.id].seconds;
+        // Exam mode pays bytes: a first solve, or beating your best time
+        w.bytesWon = 0;
+        if (w.examMode && w.finishShown) {
+            w.bytesWon = exam_reward(p.difficulty, first, w.newBest);
+            app.progress.bytes += w.bytesWon;
+        }
         if (w.finishShown) {
             mal_react(app.mal, MalMood::Cheer, 3.0f);
             sfx_play(Sfx::LevelUp);
@@ -216,6 +222,12 @@ static bool draw_finish(App &app)
         ui_text("NEW BEST TIME!", tx, ly, 18, COL_AMBER, FontKind::MonoBold);
     } else {
         ui_text("Best time: " + clock_text(w.bestSeconds), tx, ly, 15, COL_TEXT_SOFT, FontKind::Mono);
+    }
+    if (w.bytesWon > 0) {
+        std::string b = "+" + std::to_string(w.bytesWon) + " bytes";
+        ui_text(b, tx, ly + 26, 18, COL_PURPLE, FontKind::MonoBold);
+        ui_text(w.firstSolve ? "solved in exam mode" : "new best in exam mode", tx + ui_text_width(b, 18, FontKind::MonoBold) + 10, ly + 29, 13, COL_TEXT_SOFT);
+        ly += 26;
     }
     std::string runs = std::to_string(w.runCount) + (w.runCount == 1 ? " run" : " runs") + ", " +
                        std::to_string(w.result.passed) + " / " + std::to_string(w.result.passed + w.result.failed) + " tests";
@@ -504,6 +516,42 @@ void problem_draw_console(App &app, Rectangle r)
         if (on) DrawRectangle((int)tx + 6, (int)(r.y + 38), (int)tw - 12, 2, i == 2 ? COL_CORAL : COL_AMBER);
         if (hov) { ui_want_hand(); if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { w.consoleTab = i; w.termScroll = 0; } }
         tx += tw + 4;
+    }
+    // Copy what the tab shows (to paste into a message, or a search)
+    if (w.hasResult || running) {
+        static double copiedAt = -10;
+        bool copied = GetTime() - copiedAt < 1.2;
+        std::string label = copied ? "Copied" : "Copy";
+        float bw = ui_text_width(label, 12, FontKind::MonoBold) + 18;
+        Rectangle cb = { tx + 8, r.y + 9, bw, 23 };
+        bool hov = CheckCollisionPointRec(GetMousePosition(), cb);
+        DrawRectangleRoundedLinesEx(cb, 0.4f, 6, 1, copied ? COL_GREEN : hov ? COL_TEXT_SOFT : COL_LINE);
+        ui_text(label, cb.x + 9, cb.y + 5, 12, copied ? COL_GREEN : hov ? COL_TEXT : COL_MUTED, FontKind::MonoBold);
+        if (hov) {
+            ui_want_hand();
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                std::string text;
+                if (w.consoleTab == 1 || running) {
+                    std::vector<std::string> log;
+                    if (running) { std::lock_guard<std::mutex> g(w.job->progress.lock); log = w.job->progress.log; }
+                    else log = res.log;
+                    for (const std::string &l : log) text += l + "\n";
+                } else if (w.consoleTab == 2) {
+                    text = res.compilerOutput;
+                } else {
+                    for (size_t i = 0; i < res.tests.size(); i++) {
+                        const TestResult &t = res.tests[i];
+                        const char *how = t.outcome == TestOutcome::Passed ? "passed" : t.outcome == TestOutcome::Failed ? "FAILED"
+                                        : t.outcome == TestOutcome::Crashed ? "CRASHED" : t.outcome == TestOutcome::TimedOut ? "NEVER FINISHED" : "not run";
+                        text += "Test " + std::to_string(i + 1) + " " + how + ": " + t.description + "\n";
+                        if (t.outcome == TestOutcome::Failed) text += "  expected: " + t.expected + "\n  got:      " + t.got + "\n";
+                        if (t.outcome == TestOutcome::Crashed) text += "  " + t.crash + "\n";
+                    }
+                }
+                SetClipboardText(text.c_str());
+                copiedAt = GetTime();
+            }
+        }
     }
     DrawLine((int)r.x + 1, (int)(r.y + 40), (int)(r.x + r.width - 1), (int)(r.y + 40), COL_LINE_SOFT);
 

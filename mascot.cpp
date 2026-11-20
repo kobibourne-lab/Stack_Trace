@@ -121,6 +121,10 @@ static Color skin_color(const std::string &skin)
     if (skin == "shallow")  return COL_PURPLE;
     if (skin == "impostor")    return { 110, 230, 200, 255 };   // Inheritance Grove's mint
     if (skin == "invalidator") return { 245, 140, 180, 255 };   // the Library's rose
+    if (skin == "lime")    return { 200, 250, 70, 255 };     // volatile lime
+    if (skin == "lava")    return { 255, 110, 50, 255 };     // stack overflow: molten, with glowing cracks
+    if (skin == "ice")     return { 150, 214, 255, 255 };    // frozen const: frost and snowflakes
+    if (skin == "rgb")     return { 255, 80, 80, 255 };      // RGB: cycles through every colour (body_color)
     return COL_GREEN;   // classic, glitch and leaker
 }
 
@@ -133,6 +137,7 @@ static Color blend(Color a, Color b, float t)
 static Color body_color(const Mal &m)
 {
     Color base = skin_color(m.skin);
+    if (m.skin == "rgb") base = ColorFromHSV(fmodf(m.clock * 60, 360), 0.55f, 1.0f);
     if (m.skin == "dangling")   // half freed: a faded blue that flickers
         base = blend(COL_BLUE, COL_BG, 0.5f + 0.12f * sinf(m.clock * 9) + (fmodf(m.clock, 2.3f) < 0.08f ? 0.25f : 0));
     switch (m.mood) {
@@ -536,21 +541,51 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
             DrawRectangleRoundedLinesEx({ b.x + size * 0.03f, b.y + size * 0.03f, w - size * 0.06f, h - size * 0.06f }, 0.42f, 12, fmaxf(2.0f, size * 0.03f), tube);
             DrawRectangleRoundedLinesEx({ b.x + size * 0.03f, b.y + size * 0.03f, w - size * 0.06f, h - size * 0.06f }, 0.42f, 12, fmaxf(1.0f, size * 0.012f), WHITE);
         }
+    } else if (m.skin == "lava") {
+        // Glowing cracks, and bubbles of overflow popping off the top
+        Color glowc = { 255, 230, 120, 255 };
+        float lt = fmaxf(1.5f, size * 0.022f), pulse = 0.6f + 0.4f * sinf(m.clock * 3);
+        Vector2 c1[4] = { { 0.06f, 0.22f }, { 0.14f, 0.32f }, { 0.08f, 0.44f }, { 0.15f, 0.55f } };
+        Vector2 c2[4] = { { 0.88f, 0.75f }, { 0.76f, 0.82f }, { 0.80f, 0.90f }, { 0.70f, 0.95f } };
+        for (int i = 0; i < 3; i++) {
+            DrawLineEx({ b.x + w * c1[i].x, b.y + h * c1[i].y }, { b.x + w * c1[i + 1].x, b.y + h * c1[i + 1].y }, lt, Fade(glowc, pulse));
+            DrawLineEx({ b.x + w * c2[i].x, b.y + h * c2[i].y }, { b.x + w * c2[i + 1].x, b.y + h * c2[i + 1].y }, lt, Fade(glowc, pulse));
+        }
+        for (int i = 0; i < 3; i++) {
+            float k = fmodf(m.clock * 0.6f + i * 0.33f, 1.0f);
+            DrawCircleV({ b.x + w * (0.25f + 0.25f * i), b.y - k * size * 0.25f }, size * 0.03f * (1 - k), Fade({ 255, 150, 60, 255 }, 1 - k));
+        }
+    } else if (m.skin == "ice") {
+        // Frost along the top and snowflakes drifting down past it
+        Color frost = { 255, 255, 255, 230 };
+        for (int i = 0; i < 6; i++) {
+            float x = b.x + w * (0.1f + 0.16f * i), d = size * (0.04f + 0.04f * hash01(i * 5));
+            ui_triangle({ x - size * 0.035f, b.y + size * 0.02f }, { x + size * 0.035f, b.y + size * 0.02f }, { x, b.y + size * 0.02f + d }, frost);
+        }
+        for (int i = 0; i < 3; i++) {
+            float k = fmodf(m.clock * 0.25f + i * 0.33f, 1.0f);
+            Vector2 c = { b.x + w * (0.15f + 0.35f * i) + sinf(m.clock + i) * size * 0.04f, b.y - size * 0.1f + k * h * 1.1f };
+            star4(c, size * 0.035f, Fade(WHITE, sinf(k * PI)));
+        }
+    } else if (m.skin == "rgb") {
+        // A rainbow edge running round it, like a gaming keyboard
+        Color edge = ColorFromHSV(fmodf(m.clock * 60 + 180, 360), 0.8f, 1.0f);
+        DrawRectangleRoundedLinesEx(b, 0.42f, 12, fmaxf(2.0f, size * 0.03f), edge);
     } else if (m.skin == "tux") {
         // A black jacket over the white shirt: the shirt shows in a V, with a bow tie
         Color jacket = { 30, 33, 40, 255 };
-        float y0 = b.y + h * 0.76f, bottom = b.y + h;
+        float y0 = b.y + h * 0.84f, bottom = b.y + h;   // low enough to keep clear of the mouth
         DrawRectangleRounded({ b.x, y0, w, bottom - y0 }, 0.6f, 10, jacket);
         DrawRectangleRec({ b.x, y0, w, (bottom - y0) * 0.4f }, jacket);   // square shoulders
-        DrawTriangle({ feet.x - w * 0.2f, y0 - 1 }, { feet.x, bottom - h * 0.02f }, { feet.x + w * 0.2f, y0 - 1 }, body);
+        DrawTriangle({ feet.x - w * 0.16f, y0 - 1 }, { feet.x, bottom - h * 0.02f }, { feet.x + w * 0.16f, y0 - 1 }, body);
         float lt = fmaxf(1.5f, size * 0.018f);
-        DrawLineEx({ feet.x - w * 0.2f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });   // lapel edges
-        DrawLineEx({ feet.x + w * 0.2f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });
-        float by = y0 + h * 0.035f, bs = size * 0.055f;
+        DrawLineEx({ feet.x - w * 0.16f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });   // lapel edges
+        DrawLineEx({ feet.x + w * 0.16f, y0 }, { feet.x, bottom - h * 0.02f }, lt, { 70, 76, 88, 255 });
+        float by = y0 + h * 0.03f, bs = size * 0.042f;
         DrawTriangle({ feet.x, by }, { feet.x - bs * 1.6f, by - bs }, { feet.x - bs * 1.6f, by + bs }, jacket);
         DrawTriangle({ feet.x, by }, { feet.x + bs * 1.6f, by + bs }, { feet.x + bs * 1.6f, by - bs }, jacket);
         DrawCircleV({ feet.x, by }, bs * 0.5f, jacket);
-        DrawCircleV({ feet.x, by + h * 0.09f }, size * 0.016f, jacket);   // a shirt button
+        DrawCircleV({ feet.x, by + h * 0.065f }, size * 0.014f, jacket);   // a shirt button
     } else if (m.skin == "diamond") {
         // Sparkles twinkling on the gem, and shards of diamond orbiting in front
         for (int i = 0; i < 4; i++) {

@@ -153,6 +153,10 @@ bool run_accepted(const RunResult &r);
 const int TEST_SECONDS = 3;
 RunResult run_answer(const Problem &p, const std::string &code, const std::string &workDir, RunProgress *live = nullptr);
 
+// Bytes for solving a problem in exam mode: the first solve pays 10 / 20 / 30
+// (Easy / Medium / Hard), beating your best time pays half that, else nothing.
+int exam_reward(const std::string &difficulty, bool firstSolve, bool newBest);
+
 // A plain explanation of a crash ("segmentation fault": "your code used a
 // pointer to nothing ...").
 std::string crash_explanation(const std::string &crash);

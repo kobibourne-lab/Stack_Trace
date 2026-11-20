@@ -54,6 +54,7 @@ struct Workspace {
     bool firstSolve = false;           // the first time this problem was solved (XP!)
     bool newBest = false;              // faster than the last time
     int solveSeconds = 0, bestSeconds = 0;
+    int bytesWon = 0;                  // exam mode: bytes for a first solve or a new best
 
     int runPhase = 0;                  // 0 idle, 1 running (on another thread: see job)
     std::shared_ptr<RunJob> job;       // the run going on now

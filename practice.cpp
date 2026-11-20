@@ -859,6 +859,14 @@ std::vector<CompileProblem> parse_compile_problems(const std::string &compilerOu
     return out;
 }
 
+int exam_reward(const std::string &difficulty, bool firstSolve, bool newBest)
+{
+    int base = difficulty == "Easy" ? 10 : difficulty == "Hard" ? 30 : 20;
+    if (firstSolve) return base;
+    if (newBest) return base / 2;
+    return 0;
+}
+
 std::string crash_explanation(const std::string &crash)
 {
     if (crash == "segmentation fault" || crash == "bus error" || crash == "array out of bounds")
