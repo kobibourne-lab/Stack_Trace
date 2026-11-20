@@ -54,7 +54,7 @@ void save_draft(App &app)
     Workspace &w = app.work;
     if (w.draftPath.empty() || !w.code.changed) return;
     std::error_code ec;
-    std::filesystem::create_directories("saves", ec);
+    std::filesystem::create_directories(std::filesystem::path(w.draftPath).parent_path(), ec);
     std::ofstream f(w.draftPath);
     if (f) {
         f << eb_text(w.code);
@@ -66,6 +66,7 @@ void save_draft(App &app)
 static void leave(App &app)
 {
     save_draft(app);
+    if (app.work.fromDaily) { app.screen = Screen::DailyQ; return; }   // back to the daily question
     open_exam_prep(app);
 }
 
@@ -158,6 +159,21 @@ static void finish_run(App &app)
         }
         learned_today(app);
         quest_event(app, "solve");
+        if (w.finishShown) {   // is it today's daily question? (solving it anywhere counts)
+            std::vector<DailyRef> pool = dailyq_pool(app.practice);
+            if (!pool.empty()) {
+                DailyRef today = pool[dailyq_index((int)pool.size(), today_string())];
+                int bytes = 0;
+                std::string why;
+                if (today.set == w.set && today.problem == w.problem &&
+                    dailyq_solve(app.progress, today_string(), seconds, bytes, why)) {
+                    w.dailyDone = true;
+                    w.dailyBytes = bytes;
+                    w.dailyStreak = app.progress.dailyqStats.streak;
+                    quest_event(app, "dailyq");   // saves
+                }
+            }
+        }
         if (w.hadCrash) catch_bug(app, "segfault", "exam prep");      // fixed a crash: caught a Segfault
         if (w.hadTimeout) catch_bug(app, "infloop", "exam prep");     // fixed an endless loop
         w.hadCrash = w.hadTimeout = false;
@@ -229,12 +245,19 @@ static bool draw_finish(App &app)
         ui_text(w.firstSolve ? "solved in exam mode" : "new best in exam mode", tx + ui_text_width(b, 18, FontKind::MonoBold) + 10, ly + 29, 13, COL_TEXT_SOFT);
         ly += 26;
     }
+    if (w.dailyDone) {   // today's daily question
+        std::string b = "+" + std::to_string(w.dailyBytes) + " bytes";
+        ui_text(b, tx, ly + 26, 18, COL_PURPLE, FontKind::MonoBold);
+        std::string how = "daily question" + (w.dailyStreak > 1 ? ", " + std::to_string(w.dailyStreak) + " day streak" : std::string());
+        ui_text(how, tx + ui_text_width(b, 18, FontKind::MonoBold) + 10, ly + 29, 13, COL_TEXT_SOFT);
+        ly += 26;
+    }
     std::string runs = std::to_string(w.runCount) + (w.runCount == 1 ? " run" : " runs") + ", " +
                        std::to_string(w.result.passed) + " / " + std::to_string(w.result.passed + w.result.failed) + " tests";
     ui_text(runs, tx, ly + 30, 13, COL_MUTED, FontKind::Mono);
 
     // Where next
-    int next = next_problem(app, w.set, w.problem);
+    int next = w.fromDaily ? -1 : next_problem(app, w.set, w.problem);
     float by = c.y + c.height - 28 - 46;
     float bw = (c.width - 56 - 24) / 3;
     bool ready = age > 0.35f;   // so a held Enter from submitting doesn't skip it
@@ -243,13 +266,13 @@ static bool draw_finish(App &app)
         open_problem(app, w.set, next, w.examMode);
         return true;
     }
-    if (ui_button("All problems", { c.x + 28 + bw + 12, by, bw, 46 }, ButtonStyle::Outline, COL_TEXT) || (ready && IsKeyPressed(KEY_ESCAPE))) {
+    if (ui_button(w.fromDaily ? "Back" : "All problems", { c.x + 28 + bw + 12, by, bw, 46 }, ButtonStyle::Outline, COL_TEXT) || (ready && IsKeyPressed(KEY_ESCAPE))) {
         leave(app);
         return true;
     }
     if (ui_button("See my code", { c.x + 28 + 2 * (bw + 12), by, bw, 46 }, ButtonStyle::Outline, COL_TEXT_SOFT))
         w.finishShown = false;   // back to the editor, clock still stopped
-    std::string keys = next >= 0 ? "ENTER next problem     ESC all problems" : "ESC all problems";
+    std::string keys = next >= 0 ? "ENTER next problem     ESC all problems" : w.fromDaily ? "ESC back" : "ESC all problems";
     ui_text(keys, c.x + c.width - 28 - ui_text_width(keys, 11, FontKind::Mono), by - 24, 11, COL_MUTED, FontKind::Mono);
     return false;
 }
@@ -784,7 +807,7 @@ void screen_problem(App &app)
     if (GetTime() - w.lastSaved > 2.0) save_draft(app);
 
     // ----- Header -----
-    ui_header("Exam prep  >  " + set.title + "  >  " + p.title);
+    ui_header(w.fromDaily ? "Daily question  >  " + p.title : "Exam prep  >  " + set.title + "  >  " + p.title);
     if (ui_button("Problems", { SCREEN_W - MARGIN - 120, 12, 120, 40 }, ButtonStyle::Outline, COL_TEXT)) { leave(app); return; }
     float clockX = SCREEN_W - MARGIN - 120 - 16;
     if (w.examMode) {

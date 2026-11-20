@@ -12,6 +12,8 @@
 //   FREEZES: 1   (const freezes held)
 //   DAILY: 2026-11-13 | 1 | correct=4 | game=2   (today's quests: the date,
 //          the chests opened as bits, then the counters)
+//   DAILYQ: 2026-11-20 | 1 | 252   (today's daily question: solved, and the seconds it took)
+//   DAILYQ_STATS: 5 | 2 | 3 | 2026-11-20   (days solved, streak, best streak, last day solved)
 //   OUTPUTLE: 2026-11-13 | 5,49 | 7,49   (today's Outputle guesses)
 //   OUTPUTLE_STATS: 4 | 3 | 2 | 2 | 2026-11-13 | 0 | 1 | 2 | 0 | 0 | 0
 //          (played, won, streak, best streak, last win, then wins in 1..6 tries)
@@ -90,6 +92,16 @@ bool progress_load(const std::string &path, Progress &p, std::string &error)
             s.best = std::atoi(fields[3].c_str());
             s.lastWin = fields[4];
             for (int i = 0; i < 6 && 5 + i < (int)fields.size(); i++) s.dist[i] = std::atoi(fields[5 + i].c_str());
+        } else if (key == "DAILYQ" && fields.size() >= 3) {
+            p.dailyq.date = fields[0];
+            p.dailyq.solved = fields[1] == "1";
+            p.dailyq.seconds = std::atoi(fields[2].c_str());
+        } else if (key == "DAILYQ_STATS" && fields.size() >= 3) {
+            DailyQStats &s = p.dailyqStats;
+            s.solved = std::atoi(fields[0].c_str());
+            s.streak = std::atoi(fields[1].c_str());
+            s.best = std::atoi(fields[2].c_str());
+            if (fields.size() >= 4) s.lastSolved = fields[3];
         } else if (key == "BUG" && fields.size() >= 2 && !fields[0].empty()) {
             BugRecord b;
             b.caught = std::atoi(fields[1].c_str());
@@ -170,6 +182,12 @@ bool progress_save(const std::string &path, const Progress &p, std::string &erro
         f << "OUTPUTLE_STATS: " << s.played << " | " << s.won << " | " << s.streak << " | " << s.best << " | " << s.lastWin;
         for (int d : s.dist) f << " | " << d;
         f << "\n";
+    }
+    if (!p.dailyq.date.empty())
+        f << "DAILYQ: " << p.dailyq.date << " | " << (p.dailyq.solved ? 1 : 0) << " | " << p.dailyq.seconds << "\n";
+    if (p.dailyqStats.solved > 0) {
+        const DailyQStats &s = p.dailyqStats;
+        f << "DAILYQ_STATS: " << s.solved << " | " << s.streak << " | " << s.best << " | " << s.lastSolved << "\n";
     }
     for (const auto &b : p.bugs)
         f << "BUG: " << b.first << " | " << b.second.caught << " | " << b.second.date << " | " << b.second.how << "\n";

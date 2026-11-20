@@ -91,7 +91,7 @@ void open_exam_prep(App &app)
     app.screen = Screen::ExamPrep;
 }
 
-void open_problem(App &app, int set, int problem, bool examMode)
+void open_problem(App &app, int set, int problem, bool examMode, bool daily)
 {
     if (set < 0 || set >= (int)app.practice.size()) return;
     if (problem < 0 || problem >= (int)app.practice[set].problems.size()) return;
@@ -102,12 +102,13 @@ void open_problem(App &app, int set, int problem, bool examMode)
     w.set = set;
     w.problem = problem;
     w.examMode = examMode;
+    w.fromDaily = daily;
 
     // Start from the saved draft if there is one (exam mode always starts fresh)
     std::string text;
     for (const std::string &line : p.starter) text += line + "\n";
     if (!examMode) {
-        w.draftPath = draft_path("saves", p);
+        w.draftPath = draft_path(daily ? "saves/daily/" + today_string() : "saves", p);
         std::ifstream f(w.draftPath);
         if (f) {
             std::stringstream ss;
@@ -319,6 +320,7 @@ int main()
             case Screen::Game:     screen_games(app); break;
             case Screen::Daily:    screen_daily(app); break;
             case Screen::Outputle: screen_outputle(app); break;
+            case Screen::DailyQ:   screen_dailyq(app); break;
             case Screen::Codex:    screen_codex(app); break;
             case Screen::Bugdex:   screen_bugdex(app); break;
             case Screen::Farm:     screen_farm(app); break;

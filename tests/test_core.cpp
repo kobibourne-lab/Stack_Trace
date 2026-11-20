@@ -45,6 +45,7 @@
 #include "../bugdex.h"
 #include "../farm.h"
 #include "../apptheme.h"
+#include "../dailyq.h"
 #include <chrono>
 #include <thread>
 
@@ -1744,6 +1745,99 @@ static void test_app_themes()
     CHECK(app_theme_unlocked(q, *app_theme_find("deepsea")));
 }
 
+// The daily question: one Exam prep problem a day from every set, bytes and the streak.
+static void test_dailyq()
+{
+    std::vector<ProblemSet> sets;
+    std::string error;
+    load_problem_sets("content/practice", sets, error);
+    if (sets.empty()) {
+        std::printf("  (run the tests from the project folder: %s)\n", error.c_str());
+        return;
+    }
+    // The pool is every problem Exam prep shows, and none of the campaign's bosses
+    std::vector<DailyRef> pool = dailyq_pool(sets);
+    size_t shown = 0;
+    for (int s = 0; s < shown_set_count(sets); s++) shown += sets[s].problems.size();
+    CHECK(pool.size() == shown && pool.size() >= 30);
+    std::set<std::string> setsSeen;
+    for (const DailyRef &d : pool) {
+        CHECK(d.set >= 0 && d.set < shown_set_count(sets) && !sets[d.set].campaignOnly);
+        CHECK(d.problem >= 0 && d.problem < (int)sets[d.set].problems.size());
+        setsSeen.insert(sets[d.set].id);
+    }
+    CHECK(setsSeen.size() >= 2);   // all the sets, not one lab
+    CHECK(dailyq_pool(std::vector<ProblemSet>()).empty());
+
+    // The pick: the same for the same date, changes every day, and nothing comes round twice until the pool is used up
+    int n = (int)pool.size();
+    CHECK(dailyq_index(n, "2026-11-20") == dailyq_index(n, "2026-11-20"));
+    for (int cycle = 0; cycle < 4; cycle++) {
+        std::set<int> seen;
+        for (int i = 0; i < n; i++) seen.insert(dailyq_index(n, days_to_date(cycle * n + i)));
+        CHECK((int)seen.size() == n);
+    }
+    for (int cycle = 1; cycle < 6; cycle++)
+        CHECK(dailyq_index(n, days_to_date(cycle * n)) != dailyq_index(n, days_to_date(cycle * n - 1)));
+    int differ = 0;
+    for (int d = 0; d < 40; d++)
+        if (dailyq_index(n, date_add_days("2026-11-20", d)) != dailyq_index(n, date_add_days("2026-11-20", d + 1))) differ++;
+    CHECK(differ == 40);
+    CHECK(dailyq_index(0, "2026-11-20") == 0 && dailyq_index(n, "not a date") == 0);
+    CHECK(dailyq_number(DAILYQ_START) == 1 && dailyq_number(date_add_days(DAILYQ_START, 9)) == 10 && dailyq_number("2020-01-01") == 1);
+
+    // Solving it pays once a day and builds a streak
+    Progress p;
+    p.bytes = 0;
+    int bytes = 0;
+    std::string why;
+    CHECK(!dailyq_solved(p, "2026-11-20") && dailyq_streak(p, "2026-11-20") == 0);
+    CHECK(!dailyq_solve(p, "bad date", 60, bytes, why));
+    CHECK(dailyq_solve(p, "2026-11-20", 252, bytes, why));
+    CHECK(bytes == DAILYQ_BYTES && p.bytes == DAILYQ_BYTES);
+    CHECK(dailyq_solved(p, "2026-11-20") && p.dailyq.seconds == 252 && dailyq_streak(p, "2026-11-20") == 1);
+    CHECK(!dailyq_solve(p, "2026-11-20", 30, bytes, why) && why.find("already") != std::string::npos);
+    CHECK(p.bytes == DAILYQ_BYTES && p.dailyqStats.solved == 1 && p.dailyq.seconds == 252);   // the second solve changed nothing
+    CHECK(!dailyq_solved(p, "2026-11-21"));                 // a new day, a new question
+    CHECK(dailyq_streak(p, "2026-11-21") == 1);             // still alive tomorrow morning
+    for (int d = 1; d <= 7; d++) {
+        CHECK(dailyq_solve(p, date_add_days("2026-11-20", d), 100, bytes, why));
+        int bonus = d > DAILYQ_STREAK_MAX ? DAILYQ_STREAK_MAX : d;
+        CHECK(bytes == DAILYQ_BYTES + bonus * DAILYQ_STREAK_BONUS);
+    }
+    CHECK(p.dailyqStats.streak == 8 && p.dailyqStats.best == 8 && p.dailyqStats.solved == 8);
+    CHECK(dailyq_streak(p, "2026-11-28") == 8 && dailyq_streak(p, "2026-11-29") == 0);   // a missed day ends it
+    CHECK(dailyq_reward(1) == DAILYQ_BYTES && dailyq_reward(99) == DAILYQ_BYTES + DAILYQ_STREAK_MAX * DAILYQ_STREAK_BONUS);
+    CHECK(dailyq_solve(p, "2026-11-30", 61, bytes, why));    // after a missed day it starts again at 1
+    CHECK(p.dailyqStats.streak == 1 && p.dailyqStats.best == 8 && bytes == DAILYQ_BYTES);
+
+    // It's saved and comes back
+    std::string path = "test_dailyq_progress.txt";
+    CHECK(progress_save(path, p, error));
+    Progress back;
+    CHECK(progress_load(path, back, error));
+    std::remove(path.c_str());
+    CHECK(back.dailyq.date == "2026-11-30" && back.dailyq.solved && back.dailyq.seconds == 61);
+    CHECK(back.dailyqStats.solved == 9 && back.dailyqStats.streak == 1 && back.dailyqStats.best == 8);
+    CHECK(back.dailyqStats.lastSolved == "2026-11-30" && dailyq_solved(back, "2026-11-30") && !dailyq_solved(back, "2026-12-01"));
+
+    // The share line gives nothing away
+    CHECK(dailyq_share(back, "2026-11-30") == "Daily Q #11: solved in 1:01");
+    CHECK(dailyq_share(back, "2026-12-02") == "Daily Q #13: not solved yet");
+    Progress run3;
+    for (int d = 0; d < 3; d++) dailyq_solve(run3, date_add_days("2026-11-20", d), 252, bytes, why);
+    CHECK(dailyq_share(run3, "2026-11-22") == "Daily Q #3: solved in 4:12 (3 day streak)");
+
+    // It's one of the daily quests, on some days
+    int withQuest = 0;
+    for (int d = 0; d < 120; d++) {
+        std::vector<Quest> qs = daily_quests(date_add_days("2026-11-20", d));
+        CHECK((int)qs.size() == QUEST_COUNT);
+        for (const Quest &q : qs) if (q.key == "dailyq") withQuest++;
+    }
+    CHECK(withQuest > 0);
+}
+
 int main()
 {
     run("topics.txt loading", test_topics);
@@ -1773,6 +1867,7 @@ int main()
     run("the Bugdex: quick fixes, bosses, catching", test_bugdex);
     run("the Memory Farm: growing, wilting, harvest, drone", test_farm);
     run("app themes: unlocking, buying, switching, saving", test_app_themes);
+    run("daily question: pool, pick, solve once, streak", test_dailyq);
 
     std::printf("\n%d of %d tests passed\n", testsRun - testsFailed, testsRun);
     return testsFailed == 0 ? 0 : 1;

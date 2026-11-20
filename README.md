@@ -299,6 +299,30 @@ devices, so 2 players and 2 spectators is comfortable).
 The host sees who's watching and what they've predicted in the lobby. Both
 players need the same version of Stack Trace (the messages are version 2 now).
 
+## The daily question
+
+Press **Q** on the start screen (or click **Daily question**). Every day there is
+one Exam prep problem, picked from **all** the problems (every lab and exam set,
+not just one lab; the campaign's boss problems are left out). It's the same for
+everyone on that date, so you can compare with a friend, and it changes at
+midnight, every 24 hours.
+
+- **Start** opens it on the normal problem screen (hints, Run and Submit). It
+  always starts clean, from the problem's starter code, never from a draft you
+  wrote in Exam prep. Today's code is kept in `saves/daily/<date>/`, so you can
+  leave and come back today, and a new day starts clean. There's no limit on
+  tries until midnight. Solving it anywhere counts.
+- Solving it pays 30 bytes, plus 5 more for each day already in your streak (up
+  to 25 extra), once a day. The "Solved!" card shows what it paid.
+- The streak counts days in a row solved; a missed day ends it. **Copy result**
+  gives a spoiler-free line to send to a friend.
+- It's one of the daily quests ("Solve today's daily question").
+- The day's problem comes from shuffling the whole pool once per cycle, so no
+  problem comes round twice until every one has been used.
+
+The rules are in `dailyq.cpp` (no drawing, so it's tested) and the screen is
+`screen_dailyq.cpp`. It's saved in `progress.txt` as `DAILYQ` and `DAILYQ_STATS`.
+
 ## Tests
 
 `make test` runs `tests/test_core.cpp`, with no window:
@@ -355,6 +379,8 @@ players need the same version of Stack Trace (the messages are version 2 now).
 | `campaign.cpp/.h` | the campaign: regions, what's cleared and open, boss HP and stars (no drawing) |
 | `screen_campaign.cpp` | the campaign's world map |
 | `screen_boss.cpp` | a boss fight: intro, the fight, and winning or losing |
+| `dailyq.cpp/.h` | the daily question: the pool, the daily pick, bytes and streak (no drawing) |
+| `screen_dailyq.cpp` | the daily question screen |
 | `content/` | topics, lessons, quizzes, and Exam prep problems in `content/practice/` |
 | `fonts/` | IBM Plex Sans and JetBrains Mono, both under the SIL Open Font License (licences included) |
 | `tests/test_core.cpp` | the automatic tests |

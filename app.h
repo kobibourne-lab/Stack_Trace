@@ -22,8 +22,9 @@
 #include "codex.h"
 #include "bugdex.h"
 #include "farm.h"
+#include "dailyq.h"
 
-enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm };
+enum class Screen { Title, Map, Lesson, Quiz, ExamPrep, Problem, Versus, Profile, Campaign, Boss, Room, Game, Watch, Daily, Outputle, Codex, Bugdex, Farm, DailyQ };
 
 // A run of the code on another thread, so the window never freezes while it
 // compiles and runs. The screen draws progress.log as it fills up.
@@ -68,6 +69,10 @@ struct Workspace {
     int selectedTest = 0;              // the test whose details are shown
     int runCount = 0;                  // goes up after every run (Versus watches it)
     bool hadCrash = false, hadTimeout = false;   // for the Bugdex: fixing these catches a Segfault / Infinite Loop
+
+    bool fromDaily = false;            // opened from the Daily question screen (Back goes there)
+    bool dailyDone = false;            // this submit solved today's daily question
+    int dailyBytes = 0, dailyStreak = 0;
 
     int hintsShown = 0;
     float descScroll = 0, descHeight = 0;
@@ -218,7 +223,9 @@ void open_lesson(App &app);
 void open_quiz(App &app);
 void open_exam_prep(App &app);
 // Opens a problem on the problem screen. examMode starts the timer and hides hints.
-void open_problem(App &app, int set, int problem, bool examMode);
+// daily: the daily question. It starts from the problem's starter code (never an old draft from
+// Exam prep), and keeps today's code in saves/daily/<date>/, so a new day starts clean.
+void open_problem(App &app, int set, int problem, bool examMode, bool daily = false);
 
 // Records an answer for the topic and saves progress.txt straight away.
 void record_answer(App &app, const std::string &topic, bool correct);
@@ -295,6 +302,9 @@ void screen_codex(App &app);
 void open_bugdex(App &app);
 void screen_bugdex(App &app);
 void open_farm(App &app);
+// The daily question: one Exam prep problem a day, from all the sets.
+void open_dailyq(App &app);
+void screen_dailyq(App &app);
 void screen_farm(App &app);
 // The Bit Garden, small, for the view out of Mal's window.
 void draw_garden_view(const App &app, Rectangle area, float t);
