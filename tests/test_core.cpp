@@ -1053,16 +1053,17 @@ static void test_wardrobe_snake_scores()
     u.owned.insert("drinkhat");
     CHECK(wardrobe_unlocked(*wardrobe_find("drinkhat"), u));
     CHECK(!wardrobe_earned(*wardrobe_find("hardhat"), u));       // level 5
-    CHECK(!wardrobe_unlocked(*wardrobe_find("bowtie"), u));      // 1 boss
-    u.bossesBeaten = 1;
-    CHECK(wardrobe_unlocked(*wardrobe_find("bowtie"), u));       // boss rewards are free
-    CHECK(wardrobe_find("bowtie")->price == 0 && wardrobe_find("slayer")->price == 0 && wardrobe_find("diamond")->price == 0);
+    CHECK(!wardrobe_unlocked(*wardrobe_find("helicopter"), u));  // 2 bosses
+    u.bossesBeaten = 2;
+    CHECK(wardrobe_unlocked(*wardrobe_find("helicopter"), u));   // boss rewards are free
+    CHECK(wardrobe_find("helicopter")->price == 0 && wardrobe_find("slayer")->price == 0 && wardrobe_find("diamond")->price == 0);
     CHECK(!wardrobe_unlocked(*wardrobe_find("crown"), u));       // every topic mastered
     u.topicsMastered = 20;
     CHECK(wardrobe_unlocked(*wardrobe_find("crown"), u));
     CHECK(wardrobe_requirement(*wardrobe_find("wizard")) == "Reach level 12");
 
     // Boss skins follow the bosses; the glitch skin needs a crash; pets are their own kind
+    u.bossesBeaten = 1;
     CHECK(wardrobe_unlocked(*wardrobe_find("offbyone"), u));     // 1 boss beaten
     CHECK(!wardrobe_unlocked(*wardrobe_find("dangling"), u));    // needs 2
     CHECK(!wardrobe_unlocked(*wardrobe_find("glitch"), u));
@@ -1365,7 +1366,7 @@ static void test_wardrobe_shop()
     CHECK(wardrobe_find("amber")->level == 0 && wardrobe_find("amber")->price == 40);
     CHECK(wardrobe_find("nebula")->level == 4 && wardrobe_find("holo")->level == 6 && wardrobe_find("electric")->level == 12);
     CHECK(wardrobe_find("silver")->level == 15 && wardrobe_find("blue")->level == 0 && wardrobe_find("blue")->price == 80);
-    CHECK(wardrobe_find("tinfoil")->kind == WearKind::Hat && wardrobe_find("tux")->level == 0 && wardrobe_find("honey")->level == 10 && !wardrobe_find("raccoon") && wardrobe_find("droid")->price == 90);
+    CHECK(wardrobe_find("tinfoil")->kind == WearKind::Hat && wardrobe_find("tux")->level == 0 && wardrobe_find("fishbowl")->level == 10 && !wardrobe_find("honey") && !wardrobe_find("purple") && wardrobe_find("bowtie")->price == 40 && wardrobe_find("beanie")->level == 3 && !wardrobe_find("raccoon") && wardrobe_find("droid")->price == 90);
 
     // Skin perks: gold +25% bytes, diamond +50% bytes and XP
     Progress k;

@@ -10,14 +10,14 @@ const std::vector<WardrobeItem> &wardrobe_items()
         // boss and mastery rewards are free, because they're achievements.
         { "none",       "No hat",          WearKind::Hat,  0,  0, false },
         { "drinkhat",   "Drink hat",       WearKind::Hat,  2,  0, false, 0, 20 },   // two cans and straws
-        { "shades",     "Sunglasses",      WearKind::Hat,  3,  0, false, 0, 30 },
+        { "beanie",     "Beanie",          WearKind::Hat,  3,  0, false, 0, 30 },   // a knitted hat with a bobble
+        { "tinfoil",    "Tinfoil hat",     WearKind::Hat,  4,  0, false, 0, 40 },   // keeps the bugs out
         { "hardhat",    "Hard hat",        WearKind::Hat,  5,  0, false, 0, 50 },
         { "afro",       "Brace afro",      WearKind::Hat,  6,  0, false, 0, 60 },   // a big round afro of { }
         { "sombrero",   "Sombrero",        WearKind::Hat,  7,  0, false, 0, 70 },
         { "mohawk",     "Semicolon hawk",  WearKind::Hat,  9,  0, false, 0, 90 },   // upside-down ; spikes
         { "explorer",   "Explorer hat",    WearKind::Hat,  11, 0, false, 0, 110 },   // an adventurer's fedora
         { "wizard",     "Wizard hat",      WearKind::Hat,  12, 0, false, 0, 120 },
-        { "bowtie",     "Bow tie",         WearKind::Hat,  0,  1, false },
         { "helicopter", "Helicopter hat",  WearKind::Hat,  0,  2, false },   // a propeller beanie
         { "crown",      "Crown",           WearKind::Hat,  0,  0, true  },
         // Skins, in the order they unlock
@@ -25,7 +25,7 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "glitch",     "Glitch",          WearKind::Skin, 0,  0, false, 1 },   // corrupted memory
         { "nebula",     "Nebula",          WearKind::Skin, 4,  0, false, 0, 40 },    // a galaxy inside, with a planet ring
         { "holo",       "Hologram",        WearKind::Skin, 6,  0, false, 0, 60 },    // see-through, scanlines, a projector
-        { "honey",      "Honeypot",        WearKind::Skin, 10, 0, false, 0, 100 },   // honey dripping, and a bee
+        { "fishbowl",   "Fish bowl",       WearKind::Skin, 10, 0, false, 0, 100 },   // water, fish and bubbles inside
         { "electric",   "Electric",        WearKind::Skin, 12, 0, false, 0, 120 },   // arcs crackling round the edge
         { "lava",       "Stack overflow",  WearKind::Skin, 14, 0, false, 0, 140 },   // molten, with glowing cracks
         { "ice",        "Frozen const",    WearKind::Skin, 16, 0, false, 0, 160 },   // frost and snowflakes
@@ -40,15 +40,15 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "silver",     "Platinum",        WearKind::Skin, 15, 0, false, 0, 150 },   // polished like the gold, without the perk
         { "slayer",     "Boss slayer gold",WearKind::Skin, 0,  6, false },   // every boss beaten
         { "diamond",    "Diamond",         WearKind::Skin, 0,  0, true  },
-        // The shop: bought with bytes (price last), only in the SHOP tab
-        { "beanie",     "Beanie",          WearKind::Hat,  0,  0, false, 0, 40 },   // a knitted hat with a bobble
+        // Extras: bought with bytes (price last), only in the EXTRAS tab
+        { "shades",     "Sunglasses",      WearKind::Hat,  0,  0, false, 0, 30 },
+        { "bowtie",     "Bow tie",         WearKind::Hat,  0,  0, false, 0, 40 },
         { "pirate",     "Pirate hat",      WearKind::Hat,  0,  0, false, 0, 90 },   // arr[i]!
         { "neon",       "Neon",            WearKind::Skin, 0,  0, false, 0, 120 },  // glows in the dark
         { "amber",      "Amber",           WearKind::Skin, 0,  0, false, 0, 40 },   // the plain colours, now in the shop
-        { "purple",     "Heap purple",     WearKind::Skin, 0,  0, false, 0, 60 },
+        { "snowglobe",  "Snow globe",      WearKind::Skin, 0,  0, false, 0, 60 },   // snow swirling inside
         { "lime",       "Volatile lime",   WearKind::Skin, 0,  0, false, 0, 80 },
         { "blue",       "Pointer blue",    WearKind::Skin, 0,  0, false, 0, 80 },
-        { "tinfoil",    "Tinfoil hat",     WearKind::Hat,  0,  0, false, 0, 50 },   // keeps the bugs out
         { "tux",        "Tuxedo",          WearKind::Skin, 0,  0, false, 0, 100 },
         { "droid",      "Droid",           WearKind::Pet,  0,  0, false, 0, 90 },   // hovers, eye scanning
         { "duck",       "Rubber duck",     WearKind::Pet,  0,  0, false, 0, 60 },   // for rubber duck debugging

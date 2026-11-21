@@ -115,7 +115,6 @@ static Color skin_color(const std::string &skin)
     if (skin == "blue")   return COL_BLUE;
     if (skin == "slayer")   return { 246, 190, 60, 255 };   // boss slayer gold (gold_body paints it)
     if (skin == "silver")   return { 200, 208, 220, 255 };
-    if (skin == "honey")    return { 255, 200, 50, 255 };   // honeypot  // platinum: polished like gold, no perk
     if (skin == "electric") return { 160, 120, 245, 255 };
     if (skin == "nebula")   return { 160, 110, 225, 255 };
     if (skin == "holo")     return { 90, 220, 250, 160 };
@@ -684,45 +683,63 @@ static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, 
     }
 }
 
-// Honeypot: glossy honey dripping off the top, and a bee buzzing round
-static void honey_body(const Mal &m, Rectangle b)
+// Glass skins: Mal as a fish bowl or a snow globe
+static void glass_shell(Rectangle b, Color tint)
 {
-    (void)m;
-    body_lines(b, [&](float t, float y, float x0, float x1) {
-        DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, lerp_col({ 255, 214, 70, 255 }, { 240, 160, 20, 255 }, t));
-        float g0 = x0 + (x1 - x0) * 0.08f, g1 = x0 + (x1 - x0) * 0.2f;   // a glossy streak down the side
-        if (t > 0.1f && t < 0.8f) DrawRectangleRec({ g0, y, g1 - g0, 1.2f }, Fade(WHITE, 0.3f));
-    });
+    body_lines(b, [&](float t, float y, float x0, float x1) { DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, lerp_col(tint, { 10, 20, 40, 255 }, t * 0.35f)); });
 }
 
-static void honey_front(const Mal &m, Rectangle b, float size)
+static void glass_shine(Rectangle b, float size)
 {
-    Color honey = { 236, 150, 20, 235 };
-    // a thick layer along the top, with drips that slowly stretch and fall
-    DrawRectangleRounded({ b.x, b.y, b.width, b.height * 0.1f }, 0.9f, 8, honey);
-    const float xs[4] = { 0.12f, 0.36f, 0.68f, 0.88f };
-    for (int i = 0; i < 4; i++) {
-        float k = fmodf(m.clock * 0.35f + i * 0.27f, 1.0f);
-        float len = b.height * (0.06f + 0.12f * k), x = b.x + b.width * xs[i], r = size * 0.035f;
-        if (i == 1 || i == 2) len *= 0.6f;   // shorter over the label
-        DrawRectangleRec({ x - r, b.y + b.height * 0.05f, r * 2, len }, honey);
-        DrawCircleV({ x, b.y + b.height * 0.05f + len }, r * 1.15f, honey);
-        DrawCircleV({ x - r * 0.4f, b.y + b.height * 0.05f + len - r * 0.3f }, r * 0.35f, Fade(WHITE, 0.6f));
-        if (k > 0.85f) {   // a drop falling off
-            float f = (k - 0.85f) / 0.15f;
-            DrawCircleV({ x, b.y + b.height * 0.05f + len + f * size * 0.3f }, r * 0.8f, Fade(honey, 1 - f));
+    DrawRectangleRoundedLinesEx(b, 0.42f, 12, fmaxf(2.0f, size * 0.03f), Fade(WHITE, 0.55f));
+    DrawRectangleRounded({ b.x + b.width * 0.08f, b.y + b.height * 0.12f, b.width * 0.07f, b.height * 0.5f }, 1, 6, Fade(WHITE, 0.35f));
+}
+
+static void fishbowl_body(const Mal &m, Rectangle b, float size)
+{
+    glass_shell(b, { 120, 200, 240, 255 });
+    float water = b.y + b.height * 0.18f + sinf(m.clock * 2) * size * 0.01f;
+    body_lines(b, [&](float t, float y, float x0, float x1) {   // the water, a wavy surface at the top
+        (void)t;
+        float wv = water + sinf((x0 + y) * 0.1f + m.clock * 3) * size * 0.008f;
+        if (y >= wv) DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, Fade({ 40, 140, 220, 255 }, 0.55f));
+    });
+    for (int i = 0; i < 3; i++) {   // weed at the bottom, swaying
+        float x = b.x + b.width * (0.15f + 0.33f * i), base = b.y + b.height;
+        for (int j = 0; j < 4; j++) {
+            float sw = sinf(m.clock * 2 + i + j * 0.5f) * size * 0.03f;
+            DrawLineEx({ x + sw * j * 0.3f, base - j * size * 0.06f }, { x + sw * (j + 1) * 0.3f, base - (j + 1) * size * 0.06f }, fmaxf(2.0f, size * 0.03f), { 60, 170, 90, 255 });
         }
     }
-    // the bee, looping round in a figure of eight
-    float a = m.clock * 2.2f;
-    Vector2 c = { b.x + b.width / 2 + sinf(a) * size * 0.62f, b.y + b.height * 0.25f + sinf(a * 2) * size * 0.14f };
-    float s = size * 0.06f, flap = fabsf(sinf(m.clock * 40));
-    DrawEllipse((int)(c.x - s * 0.3f), (int)(c.y - s * 0.9f), s * 0.55f, s * 0.7f * flap + s * 0.2f, Fade(WHITE, 0.75f));   // wings
-    DrawEllipse((int)(c.x + s * 0.3f), (int)(c.y - s * 0.9f), s * 0.55f, s * 0.7f * flap + s * 0.2f, Fade(WHITE, 0.75f));
-    DrawEllipse((int)c.x, (int)c.y, s * 1.1f, s * 0.75f, { 255, 205, 40, 255 });
-    DrawRectangleRec({ c.x - s * 0.25f, c.y - s * 0.7f, s * 0.25f, s * 1.4f }, { 30, 30, 30, 255 });   // stripes
-    DrawRectangleRec({ c.x + s * 0.3f, c.y - s * 0.6f, s * 0.22f, s * 1.2f }, { 30, 30, 30, 255 });
-    DrawCircleV({ c.x + (cosf(a) > 0 ? s : -s), c.y }, s * 0.45f, { 30, 30, 30, 255 });   // its head, facing the way it flies
+    for (int i = 0; i < 2; i++) {   // two fish, swimming back and forth behind the face
+        float k = sinf(m.clock * (0.7f + 0.3f * i) + i * 2);
+        float dir = cosf(m.clock * (0.7f + 0.3f * i) + i * 2) > 0 ? 1.0f : -1.0f;
+        Vector2 c = { b.x + b.width * (0.5f + 0.32f * k), b.y + b.height * (i ? 0.82f : 0.32f) + sinf(m.clock * 3 + i) * size * 0.02f };
+        float fs = size * 0.07f;
+        Color fc = i ? Color{ 255, 120, 60, 255 } : Color{ 255, 200, 60, 255 };
+        DrawEllipse((int)c.x, (int)c.y, fs, fs * 0.6f, fc);
+        ui_triangle({ c.x - dir * fs * 0.8f, c.y }, { c.x - dir * fs * 1.6f, c.y - fs * 0.6f }, { c.x - dir * fs * 1.6f, c.y + fs * 0.6f }, fc);
+        DrawCircleV({ c.x + dir * fs * 0.45f, c.y - fs * 0.1f }, fs * 0.16f, BLACK);
+    }
+    for (int i = 0; i < 4; i++) {   // bubbles rising
+        float k = fmodf(m.clock * 0.5f + i * 0.25f, 1.0f);
+        DrawCircleLines((int)(b.x + b.width * (0.7f + 0.05f * sinf(m.clock * 3 + i))), (int)(b.y + b.height * (0.95f - 0.75f * k)), size * 0.02f, Fade(WHITE, 0.8f));
+    }
+}
+
+static void snowglobe_body(const Mal &m, Rectangle b, float size)
+{
+    glass_shell(b, { 150, 190, 235, 255 });
+    DrawEllipse((int)(b.x + b.width / 2), (int)(b.y + b.height * 0.97f), b.width * 0.48f, b.height * 0.1f, WHITE);   // snow on the ground
+    // a tiny pine tree in the corner
+    Vector2 t = { b.x + b.width * 0.8f, b.y + b.height * 0.92f };
+    for (int i = 0; i < 3; i++) ui_triangle({ t.x - size * (0.08f - i * 0.02f), t.y - i * size * 0.06f }, { t.x + size * (0.08f - i * 0.02f), t.y - i * size * 0.06f }, { t.x, t.y - (i + 1.6f) * size * 0.06f }, { 40, 120, 70, 255 });
+    for (int i = 0; i < 26; i++) {   // snow swirling and drifting down
+        float k = fmodf(m.clock * (0.12f + 0.08f * hash01(i)) + hash01(i * 3), 1.0f);
+        float x = b.x + b.width * (0.08f + 0.84f * hash01(i * 7)) + sinf(m.clock * 1.5f + i) * size * 0.04f;
+        float y = b.y + b.height * (0.05f + 0.9f * k);
+        DrawCircleV({ x, y }, size * (0.012f + 0.01f * hash01(i * 5)), WHITE);
+    }
 }
 
 // Skin extras drawn on top of Mal, after the face.
@@ -824,8 +841,6 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
             Vector2 c = { b.x + w * (0.15f + 0.35f * i) + sinf(m.clock + i) * size * 0.04f, b.y - size * 0.1f + k * h * 1.1f };
             star4(c, size * 0.035f, Fade(WHITE, sinf(k * PI)));
         }
-    } else if (m.skin == "honey") {
-        honey_front(m, b, size);
     } else if (m.skin == "electric") {
         electric_front(m, b, size);
     } else if (m.skin == "nebula") {
@@ -1402,7 +1417,8 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
     if (m.mood != MalMood::Freed) {   // skins that paint the body itself
         if (m.skin == "slayer") gold_body(m, b);
         else if (m.skin == "silver") gold_body(m, b, true);
-        else if (m.skin == "honey") honey_body(m, b);
+        else if (m.skin == "fishbowl") { fishbowl_body(m, b, size); glass_shine(b, size); }
+        else if (m.skin == "snowglobe") { snowglobe_body(m, b, size); glass_shine(b, size); }
         else if (m.skin == "electric") electric_body(m, b);
         else if (m.skin == "nebula") nebula_body(m, b, size);
         else if (m.skin == "holo") holo_body(m, b);
