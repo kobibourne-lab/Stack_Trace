@@ -114,7 +114,8 @@ static Color skin_color(const std::string &skin)
     if (skin == "purple") return COL_PURPLE;
     if (skin == "blue")   return COL_BLUE;
     if (skin == "slayer")   return { 246, 190, 60, 255 };   // boss slayer gold (gold_body paints it)
-    if (skin == "silver")   return { 200, 208, 220, 255 };  // platinum: polished like gold, no perk
+    if (skin == "silver")   return { 200, 208, 220, 255 };
+    if (skin == "honey")    return { 255, 200, 50, 255 };   // honeypot  // platinum: polished like gold, no perk
     if (skin == "electric") return { 160, 120, 245, 255 };
     if (skin == "nebula")   return { 160, 110, 225, 255 };
     if (skin == "holo")     return { 90, 220, 250, 160 };
@@ -683,6 +684,47 @@ static void draw_skin_back(const Mal &m, Rectangle b, Vector2 feet, float size, 
     }
 }
 
+// Honeypot: glossy honey dripping off the top, and a bee buzzing round
+static void honey_body(const Mal &m, Rectangle b)
+{
+    (void)m;
+    body_lines(b, [&](float t, float y, float x0, float x1) {
+        DrawRectangleRec({ x0, y, x1 - x0, 1.2f }, lerp_col({ 255, 214, 70, 255 }, { 240, 160, 20, 255 }, t));
+        float g0 = x0 + (x1 - x0) * 0.08f, g1 = x0 + (x1 - x0) * 0.2f;   // a glossy streak down the side
+        if (t > 0.1f && t < 0.8f) DrawRectangleRec({ g0, y, g1 - g0, 1.2f }, Fade(WHITE, 0.3f));
+    });
+}
+
+static void honey_front(const Mal &m, Rectangle b, float size)
+{
+    Color honey = { 236, 150, 20, 235 };
+    // a thick layer along the top, with drips that slowly stretch and fall
+    DrawRectangleRounded({ b.x, b.y, b.width, b.height * 0.1f }, 0.9f, 8, honey);
+    const float xs[4] = { 0.12f, 0.36f, 0.68f, 0.88f };
+    for (int i = 0; i < 4; i++) {
+        float k = fmodf(m.clock * 0.35f + i * 0.27f, 1.0f);
+        float len = b.height * (0.06f + 0.12f * k), x = b.x + b.width * xs[i], r = size * 0.035f;
+        if (i == 1 || i == 2) len *= 0.6f;   // shorter over the label
+        DrawRectangleRec({ x - r, b.y + b.height * 0.05f, r * 2, len }, honey);
+        DrawCircleV({ x, b.y + b.height * 0.05f + len }, r * 1.15f, honey);
+        DrawCircleV({ x - r * 0.4f, b.y + b.height * 0.05f + len - r * 0.3f }, r * 0.35f, Fade(WHITE, 0.6f));
+        if (k > 0.85f) {   // a drop falling off
+            float f = (k - 0.85f) / 0.15f;
+            DrawCircleV({ x, b.y + b.height * 0.05f + len + f * size * 0.3f }, r * 0.8f, Fade(honey, 1 - f));
+        }
+    }
+    // the bee, looping round in a figure of eight
+    float a = m.clock * 2.2f;
+    Vector2 c = { b.x + b.width / 2 + sinf(a) * size * 0.62f, b.y + b.height * 0.25f + sinf(a * 2) * size * 0.14f };
+    float s = size * 0.06f, flap = fabsf(sinf(m.clock * 40));
+    DrawEllipse((int)(c.x - s * 0.3f), (int)(c.y - s * 0.9f), s * 0.55f, s * 0.7f * flap + s * 0.2f, Fade(WHITE, 0.75f));   // wings
+    DrawEllipse((int)(c.x + s * 0.3f), (int)(c.y - s * 0.9f), s * 0.55f, s * 0.7f * flap + s * 0.2f, Fade(WHITE, 0.75f));
+    DrawEllipse((int)c.x, (int)c.y, s * 1.1f, s * 0.75f, { 255, 205, 40, 255 });
+    DrawRectangleRec({ c.x - s * 0.25f, c.y - s * 0.7f, s * 0.25f, s * 1.4f }, { 30, 30, 30, 255 });   // stripes
+    DrawRectangleRec({ c.x + s * 0.3f, c.y - s * 0.6f, s * 0.22f, s * 1.2f }, { 30, 30, 30, 255 });
+    DrawCircleV({ c.x + (cosf(a) > 0 ? s : -s), c.y }, s * 0.45f, { 30, 30, 30, 255 });   // its head, facing the way it flies
+}
+
 // Skin extras drawn on top of Mal, after the face.
 static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size, Color body)
 {
@@ -782,6 +824,8 @@ static void draw_skin_front(const Mal &m, Rectangle b, Vector2 feet, float size,
             Vector2 c = { b.x + w * (0.15f + 0.35f * i) + sinf(m.clock + i) * size * 0.04f, b.y - size * 0.1f + k * h * 1.1f };
             star4(c, size * 0.035f, Fade(WHITE, sinf(k * PI)));
         }
+    } else if (m.skin == "honey") {
+        honey_front(m, b, size);
     } else if (m.skin == "electric") {
         electric_front(m, b, size);
     } else if (m.skin == "nebula") {
@@ -958,37 +1002,6 @@ static void draw_snake(float clock, bool tag)
     if (tag) pet_tag("node*", head);
 }
 
-static void draw_raccoon(float clock, bool tag)
-{
-    // The garbage collector: a raccoon snacking on leaked bits
-    Color fur = { 140, 140, 150, 255 }, darkf = { 70, 72, 82, 255 }, light = { 215, 215, 222, 255 }, pink = { 240, 150, 170, 255 };
-    float chew = sinf(clock * 8) * 1.2f;
-    for (int i = 0; i < 5; i++)   // its striped tail
-        DrawCircleV({ -24 - i * 4.0f, -10 - i * 3.0f + sinf(clock * 3 + i) * 1.5f }, 5.5f - i * 0.5f, i % 2 ? darkf : fur);
-    DrawEllipse(-4, -14, 17, 13, fur);                  // body
-    DrawEllipse(-4, -10, 10, 8, light);                 // belly
-    // big round ears, with pink inside, twitching now and then
-    float twitch = fmodf(clock, 3.0f) < 0.15f ? 2.0f : 0;
-    DrawCircleV({ -8, -41 - twitch }, 6.5f, fur);
-    DrawCircleV({ 12, -41 }, 6.5f, fur);
-    DrawCircleV({ -8, -40.5f - twitch }, 3.5f, pink);
-    DrawCircleV({ 12, -40.5f }, 3.5f, pink);
-    DrawCircleV({ 2, -30 }, 12.5f, fur);                // head
-    DrawEllipse(2, -31, 11.5f, 4.5f, darkf);            // the mask
-    DrawCircleV({ -2, -31 }, 2.4f, WHITE);
-    DrawCircleV({ 6, -31 }, 2.4f, WHITE);
-    DrawCircleV({ -2, -31 }, 1.2f, BLACK);
-    DrawCircleV({ 6, -31 }, 1.2f, BLACK);
-    DrawEllipse(2, -24, 5, 3.5f, light);                // muzzle
-    DrawCircleV({ 2, -25 + chew * 0.3f }, 2, BLACK);    // nose
-    DrawCircleV({ -6, -12 }, 3, darkf);                 // paws holding the bit
-    DrawCircleV({ 4, -12 }, 3, darkf);
-    ui_text("1", -3, -21 + chew, 10, COL_GREEN, FontKind::MonoBold);
-    float k = fmodf(clock * 0.8f, 1.0f);               // crumbs falling
-    ui_text("0", 4 + k * 4, -12 + k * 12, 8, Fade(COL_GREEN, 1 - k), FontKind::MonoBold);
-    if (tag) pet_tag("gc", fur);
-}
-
 static void draw_droid(float clock, bool tag)
 {
     // A little droid hovering on a jet, its eye scanning side to side
@@ -1016,7 +1029,7 @@ static void draw_droid(float clock, bool tag)
 
 void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, bool tag)
 {
-    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck" && pet != "ghost" && pet != "snake" && pet != "raccoon" && pet != "droid") return;
+    if (pet != "cat" && pet != "dog" && pet != "bird" && pet != "duck" && pet != "ghost" && pet != "snake" && pet != "droid") return;
     float k = size / 60.0f;
     rlPushMatrix();
     rlTranslatef(at.x, at.y, 0);
@@ -1026,7 +1039,6 @@ void mal_draw_pet(const std::string &pet, Vector2 at, float size, float clock, b
     else if (pet == "duck") draw_duck(clock, tag);
     else if (pet == "ghost") draw_ghost(clock, tag);
     else if (pet == "snake") draw_snake(clock, tag);
-    else if (pet == "raccoon") draw_raccoon(clock, tag);
     else if (pet == "droid") draw_droid(clock, tag);
     else draw_bird(clock, tag);
     rlPopMatrix();
@@ -1390,6 +1402,7 @@ void mal_draw(const Mal &m, Vector2 feet, float size)
     if (m.mood != MalMood::Freed) {   // skins that paint the body itself
         if (m.skin == "slayer") gold_body(m, b);
         else if (m.skin == "silver") gold_body(m, b, true);
+        else if (m.skin == "honey") honey_body(m, b);
         else if (m.skin == "electric") electric_body(m, b);
         else if (m.skin == "nebula") nebula_body(m, b, size);
         else if (m.skin == "holo") holo_body(m, b);

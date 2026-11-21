@@ -602,7 +602,7 @@ static void draw_wardrobe(App &app, float t)
     wardrobeLastDraw = now;
     if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) wardrobeArmed = true;
     int &tab = wardrobeTab;
-    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS", "SHOP", "THEMES" };
+    const char *tabs[] = { "HATS & HAIR", "SKINS", "PETS", "EXTRAS", "THEMES" };
     const WearKind kinds[] = { WearKind::Hat, WearKind::Skin, WearKind::Pet, WearKind::Hat, WearKind::Hat };
     const bool shop = tab == 3, themes = tab == 4;
     float gx = p.x + 300, gy = p.y + 86;
@@ -631,7 +631,7 @@ static void draw_wardrobe(App &app, float t)
     for (const WardrobeItem &item : wardrobe_items()) {
         if (themes) break;
         bool shopOnly = item.price > 0 && item.level == 0;
-        if (shop ? !shopOnly : (item.kind != kinds[tab] || shopOnly)) continue;   // shop-only items are in the SHOP tab
+        if (shop ? !shopOnly : (item.kind != kinds[tab] || shopOnly)) continue;   // shop-only items are in the EXTRAS tab
         if (col == 6) { col = 0; gy += ch + gap; }
         Rectangle c = { gx + col * (cw + gap), gy, cw, ch };
         col++;

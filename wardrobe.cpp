@@ -25,7 +25,7 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "glitch",     "Glitch",          WearKind::Skin, 0,  0, false, 1 },   // corrupted memory
         { "nebula",     "Nebula",          WearKind::Skin, 4,  0, false, 0, 40 },    // a galaxy inside, with a planet ring
         { "holo",       "Hologram",        WearKind::Skin, 6,  0, false, 0, 60 },    // see-through, scanlines, a projector
-        { "tux",        "Tuxedo",          WearKind::Skin, 10, 0, false, 0, 100 },
+        { "honey",      "Honeypot",        WearKind::Skin, 10, 0, false, 0, 100 },   // honey dripping, and a bee
         { "electric",   "Electric",        WearKind::Skin, 12, 0, false, 0, 120 },   // arcs crackling round the edge
         { "lava",       "Stack overflow",  WearKind::Skin, 14, 0, false, 0, 140 },   // molten, with glowing cracks
         { "ice",        "Frozen const",    WearKind::Skin, 16, 0, false, 0, 160 },   // frost and snowflakes
@@ -49,7 +49,7 @@ const std::vector<WardrobeItem> &wardrobe_items()
         { "lime",       "Volatile lime",   WearKind::Skin, 0,  0, false, 0, 80 },
         { "blue",       "Pointer blue",    WearKind::Skin, 0,  0, false, 0, 80 },
         { "tinfoil",    "Tinfoil hat",     WearKind::Hat,  0,  0, false, 0, 50 },   // keeps the bugs out
-        { "raccoon",    "GC raccoon",      WearKind::Pet,  0,  0, false, 0, 70 },   // the garbage collector
+        { "tux",        "Tuxedo",          WearKind::Skin, 0,  0, false, 0, 100 },
         { "droid",      "Droid",           WearKind::Pet,  0,  0, false, 0, 90 },   // hovers, eye scanning
         { "duck",       "Rubber duck",     WearKind::Pet,  0,  0, false, 0, 60 },   // for rubber duck debugging
         // Pets: follow Mal around

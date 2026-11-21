@@ -1365,7 +1365,7 @@ static void test_wardrobe_shop()
     CHECK(wardrobe_find("amber")->level == 0 && wardrobe_find("amber")->price == 40);
     CHECK(wardrobe_find("nebula")->level == 4 && wardrobe_find("holo")->level == 6 && wardrobe_find("electric")->level == 12);
     CHECK(wardrobe_find("silver")->level == 15 && wardrobe_find("blue")->level == 0 && wardrobe_find("blue")->price == 80);
-    CHECK(wardrobe_find("tinfoil")->kind == WearKind::Hat && wardrobe_find("raccoon")->kind == WearKind::Pet && wardrobe_find("droid")->price == 90);
+    CHECK(wardrobe_find("tinfoil")->kind == WearKind::Hat && wardrobe_find("tux")->level == 0 && wardrobe_find("honey")->level == 10 && !wardrobe_find("raccoon") && wardrobe_find("droid")->price == 90);
 
     // Skin perks: gold +25% bytes, diamond +50% bytes and XP
     Progress k;

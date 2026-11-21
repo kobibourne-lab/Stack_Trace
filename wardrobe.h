@@ -5,7 +5,7 @@
 //
 // Items with a price cost bytes to wear. Level items unlock with your level
 // and then have to be bought; shop-only items (a price but no level) are in
-// the wardrobe's SHOP tab. Boss and mastery rewards are free: they're
+// the wardrobe's EXTRAS tab. Boss and mastery rewards are free: they're
 // achievements. What's been bought is saved as the OWNED line.
 //
 // No drawing here (mascot.cpp draws the items), so it can be tested.
